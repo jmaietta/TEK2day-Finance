@@ -16,7 +16,7 @@ Open-source stock data terminal — prices, fundamentals, estimates, and financi
 ## Installation
 
 ```bash
-pip install -r requirements.txt
+pip install git+https://github.com/jmaietta/TEK2day-Finance.git
 ```
 
 ### Requirements
@@ -27,7 +27,7 @@ pip install -r requirements.txt
 ## Usage
 
 ```bash
-python terminal.py
+tek2day
 ```
 
 ### Slash Commands

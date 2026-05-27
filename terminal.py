@@ -3,7 +3,7 @@
 TEK2day Finance — Interactive Terminal
 
 Usage:
-    python terminal.py
+    tek2day
 """
 import os
 import sys
@@ -13,6 +13,8 @@ try:
     import readline
 except ImportError:
     pass
+
+__version__ = "0.1.0"
 
 import yfinance as yf
 import requests
@@ -154,6 +156,33 @@ def _color(val):
     except (ValueError, TypeError):
         pass
     return "white"
+
+
+# ── Version check ──────────────────────────────────────────────────────────
+
+GITHUB_REPO = "jmaietta/TEK2day-Finance"
+
+
+def _check_for_update():
+    try:
+        resp = requests.get(
+            f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest",
+            timeout=3,
+        )
+        if resp.status_code == 200:
+            latest = resp.json().get("tag_name", "").lstrip("v")
+            if latest and latest != __version__:
+                console.print(
+                    f"[yellow]  Update available: v{latest} "
+                    f"(you have v{__version__})[/yellow]"
+                )
+                console.print(
+                    '[yellow]  Run: pip install --upgrade '
+                    'git+https://github.com/jmaietta/TEK2day-Finance.git[/yellow]'
+                )
+                console.print()
+    except Exception:
+        pass
 
 
 # ── Banner ─────────────────────────────────────────────────────────────────
@@ -857,6 +886,7 @@ SUBCMDS = {
 
 def main():
     console.print(BANNER)
+    _check_for_update()
 
     if _firestore:
         console.print("[dim]  Firestore: connected[/dim]")
