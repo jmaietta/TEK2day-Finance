@@ -32,25 +32,25 @@ python terminal.py
 
 ### Slash Commands
 
-Replace `AAPL` with any ticker symbol.
+Type `/` followed by any ticker symbol.
 
-| Command | Description |
-|---------|-------------|
-| `/AAPL` | Overview & valuation (live) |
-| `/AAPL est` | Consensus estimates |
-| `/AAPL inc` | Income statement |
-| `/AAPL bal` | Balance sheet |
-| `/AAPL cf` | Cash flow |
-| `/AAPL div` | Dividends (live) |
-| `/AAPL short` | Short interest (live) |
-| `/AAPL target` | Analyst targets (live) |
-| `/AAPL chart` | Price chart (1 year) |
-| `/AAPL mgmt` | Management / CEO |
-| `/AAPL filings` | SEC filings |
-| `/AAPL news` | Recent news |
-| `/compare AAPL MSFT GOOGL` | Comp table (up to 20 tickers) |
-| `/help` | Show command menu |
-| `/exit` | Quit |
+| Command | Example | Description |
+|---------|---------|-------------|
+| `/TICKER` | `/AAPL` | Overview & valuation (live) |
+| `/TICKER est` | `/AAPL est` | Consensus estimates |
+| `/TICKER inc` | `/MSFT inc` | Income statement |
+| `/TICKER bal` | `/GOOGL bal` | Balance sheet |
+| `/TICKER cf` | `/AMZN cf` | Cash flow |
+| `/TICKER div` | `/KO div` | Dividends (live) |
+| `/TICKER short` | `/TSLA short` | Short interest (live) |
+| `/TICKER target` | `/NVDA target` | Analyst targets (live) |
+| `/TICKER chart` | `/META chart` | Price chart (1 year) |
+| `/TICKER mgmt` | `/CSGP mgmt` | Management / CEO |
+| `/TICKER filings` | `/JPM filings` | SEC filings |
+| `/TICKER news` | `/AAPL news` | Recent news |
+| `/compare` | `/compare AAPL MSFT GOOGL` | Comp table (up to 20 tickers) |
+| `/help` | | Show command menu |
+| `/exit` | | Quit |
 
 ### Examples
 
