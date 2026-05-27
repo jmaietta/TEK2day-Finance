@@ -32,23 +32,23 @@ python terminal.py
 
 ### Slash Commands
 
-```
-tek2day> /AAPL               Overview & valuation (live)
-tek2day> /AAPL est           Consensus estimates
-tek2day> /AAPL inc           Income statement
-tek2day> /AAPL bal           Balance sheet
-tek2day> /AAPL cf            Cash flow
-tek2day> /AAPL div           Dividends (live)
-tek2day> /AAPL short         Short interest (live)
-tek2day> /AAPL target        Analyst targets (live)
-tek2day> /AAPL chart         Price chart (1 year)
-tek2day> /AAPL mgmt          Management / CEO
-tek2day> /AAPL filings       SEC filings
-tek2day> /AAPL news          Recent news
-tek2day> /compare AAPL MSFT GOOGL   Comp table (up to 20 tickers)
-tek2day> /help               Show command menu
-tek2day> /exit               Quit
-```
+| Command | Description |
+|---------|-------------|
+| `/AAPL` | Overview & valuation (live) |
+| `/AAPL est` | Consensus estimates |
+| `/AAPL inc` | Income statement |
+| `/AAPL bal` | Balance sheet |
+| `/AAPL cf` | Cash flow |
+| `/AAPL div` | Dividends (live) |
+| `/AAPL short` | Short interest (live) |
+| `/AAPL target` | Analyst targets (live) |
+| `/AAPL chart` | Price chart (1 year) |
+| `/AAPL mgmt` | Management / CEO |
+| `/AAPL filings` | SEC filings |
+| `/AAPL news` | Recent news |
+| `/compare AAPL MSFT GOOGL` | Comp table (up to 20 tickers) |
+| `/help` | Show command menu |
+| `/exit` | Quit |
 
 ### Examples
 
