@@ -34,18 +34,18 @@ python terminal.py
 
 | Command | Description |
 |---------|-------------|
-| `/AAPL` | Overview & valuation (live) |
-| `/AAPL est` | Consensus estimates |
-| `/AAPL inc` | Income statement |
-| `/AAPL bal` | Balance sheet |
-| `/AAPL cf` | Cash flow |
-| `/AAPL div` | Dividends (live) |
-| `/AAPL short` | Short interest (live) |
-| `/AAPL target` | Analyst targets (live) |
-| `/AAPL chart` | Price chart (1 year) |
-| `/AAPL mgmt` | Management / CEO |
-| `/AAPL filings` | SEC filings |
-| `/AAPL news` | Recent news |
+| `/{ticker}` | Overview & valuation (live) |
+| `/{ticker} est` | Consensus estimates |
+| `/{ticker} inc` | Income statement |
+| `/{ticker} bal` | Balance sheet |
+| `/{ticker} cf` | Cash flow |
+| `/{ticker} div` | Dividends (live) |
+| `/{ticker} short` | Short interest (live) |
+| `/{ticker} target` | Analyst targets (live) |
+| `/{ticker} chart` | Price chart (1 year) |
+| `/{ticker} mgmt` | Management / CEO |
+| `/{ticker} filings` | SEC filings |
+| `/{ticker} news` | Recent news |
 | `/compare AAPL MSFT GOOGL` | Comp table (up to 20 tickers) |
 | `/help` | Show command menu |
 | `/exit` | Quit |
