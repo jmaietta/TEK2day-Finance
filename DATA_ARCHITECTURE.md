@@ -138,7 +138,7 @@ Interactive REPL with slash commands:
 
 ### Web GUI (`app.py`)
 
-FastAPI application serving a browser-based interface at `localhost:8050`:
+FastAPI application serving a browser-based interface:
 - Ticker search
 - TradingView-style candlestick charting (via lightweight-charts)
 - Estimate and financial data tables
