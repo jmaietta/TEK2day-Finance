@@ -6,6 +6,7 @@ Does NOT touch quarterly data, prices, or estimates.
 """
 import csv
 import logging
+import os
 import random
 import time
 
@@ -19,7 +20,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("ydp.annual")
 
-CSV_PATH = r"C:\Users\jmaie\OneDrive\Desktop\SP_500_tickers_05252025.csv"
+CSV_PATH = os.getenv("SP500_CSV", "sp500_tickers.csv")
 DELAY = 10
 MAX_RETRIES = 3
 

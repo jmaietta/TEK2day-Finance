@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Onboard tickers from Kilby's sec_company_tickers.json into the
-yfinance-cli Firestore database.
+Onboard tickers from sec_company_tickers.json into Firestore.
 
 Loads tickers in daily batches to avoid Yahoo rate limits.
 Tracks progress in Firestore so it can resume after interruption.
@@ -18,6 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import click
+import os
 
 import fetchers
 import storage
@@ -31,8 +31,7 @@ logging.basicConfig(
 logger = logging.getLogger("ydp.onboard")
 
 SEC_TICKERS_PATH = Path(
-    r"C:\Users\jmaie\OneDrive\Desktop\Kilby\chatllm-main (alpaca)"
-    r"\kilby_backend\sec_company_tickers.json"
+    os.getenv("SEC_TICKERS_JSON", "sec_company_tickers.json")
 )
 
 

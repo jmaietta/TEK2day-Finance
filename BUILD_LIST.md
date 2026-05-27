@@ -11,8 +11,8 @@
 - `/AAPL target` — analyst targets (live): mean, median, high, low, # analysts, recommendation
 - `/AAPL chart` — candlestick chart with volume
 - `/AAPL mgmt` — management (TBD: Yahoo officer data + CEORater integration when ready)
-- `/AAPL filings` — recent SEC filings via SEC EDGAR API (same approach as Kilby)
-- `/AAPL news` — recent news via yfinance ticker.news (same approach as Kilby)
+- `/AAPL filings` — recent SEC filings via SEC EDGAR API
+- `/AAPL news` — recent news via yfinance ticker.news
 - `/compare AAPL MSFT GOOGL` — full comp table: Rev, EBITDA, EPS (CY + FY), P/E (CY + FY), EV/Rev, EV/EBITDA, EV/OpCF, EV/FCF (CY + FY where available)
 
 ## Command Bar
@@ -40,13 +40,6 @@
 - Dockerize and deploy to Cloud Run
 - Cloud Scheduler crons for each scheduled pull
 - Split detection job on separate schedule
-
-## Data Onboard
-- [x] Load 9,908 tickers into Firestore metadata
-- [ ] Pull S&P 500 — 5 years of estimates, prices, financials (in progress)
-- [ ] Pull remaining tickers by market cap descending (skip < $100M)
-- [ ] IPO detection: daily check for newly listed tickers, auto-onboard any >= $100M market cap
-- [ ] Follow-on offerings: captured automatically via shares outstanding in daily estimate pull
 
 ## Field Alias Map
 - Map user-friendly names to Yahoo's stored field names

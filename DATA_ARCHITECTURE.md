@@ -142,7 +142,7 @@ FastAPI application serving a browser-based interface at `localhost:8050`:
 - Ticker search
 - TradingView-style candlestick charting (via lightweight-charts)
 - Estimate and financial data tables
-- Styled with Kilby design language: DM Sans, black background, glass morphism, blue accent
+- Styled with TEK2day design language: DM Sans, black background, glass morphism, blue accent
 
 ### Metric Consistency
 
