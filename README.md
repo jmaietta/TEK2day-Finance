@@ -32,23 +32,25 @@ python terminal.py
 
 ### Slash Commands
 
-| Command | Description |
-|---------|-------------|
-| `/{ticker}` | Overview & valuation (live) |
-| `/{ticker} est` | Consensus estimates |
-| `/{ticker} inc` | Income statement |
-| `/{ticker} bal` | Balance sheet |
-| `/{ticker} cf` | Cash flow |
-| `/{ticker} div` | Dividends (live) |
-| `/{ticker} short` | Short interest (live) |
-| `/{ticker} target` | Analyst targets (live) |
-| `/{ticker} chart` | Price chart (1 year) |
-| `/{ticker} mgmt` | Management / CEO |
-| `/{ticker} filings` | SEC filings |
-| `/{ticker} news` | Recent news |
-| `/compare AAPL MSFT GOOGL` | Comp table (up to 20 tickers) |
-| `/help` | Show command menu |
-| `/exit` | Quit |
+Type `/` followed by any ticker symbol. For example, `/AAPL`:
+
+| Command | Example | Description |
+|---------|---------|-------------|
+| `/TICKER` | `/AAPL` | Overview & valuation (live) |
+| `/TICKER est` | `/AAPL est` | Consensus estimates |
+| `/TICKER inc` | `/MSFT inc` | Income statement |
+| `/TICKER bal` | `/GOOGL bal` | Balance sheet |
+| `/TICKER cf` | `/AMZN cf` | Cash flow |
+| `/TICKER div` | `/KO div` | Dividends (live) |
+| `/TICKER short` | `/TSLA short` | Short interest (live) |
+| `/TICKER target` | `/NVDA target` | Analyst targets (live) |
+| `/TICKER chart` | `/META chart` | Price chart (1 year) |
+| `/TICKER mgmt` | `/CSGP mgmt` | Management / CEO |
+| `/TICKER filings` | `/JPM filings` | SEC filings |
+| `/TICKER news` | `/AAPL news` | Recent news |
+| `/compare` | `/compare AAPL MSFT GOOGL` | Comp table (up to 20 tickers) |
+| `/help` | | Show command menu |
+| `/exit` | | Quit |
 
 ### Examples
 
