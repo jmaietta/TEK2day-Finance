@@ -163,13 +163,3 @@ If the same metric (e.g., P/E, market cap, EV/EBITDA) appears in multiple comman
 | Market cap filter | Tickers with market cap < $100M are excluded from the active universe to reduce API load and storage |
 | Dot-ticker handling | Tickers like BF.B are mapped to BF-B for Yahoo API compatibility |
 
----
-
-## 5. Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `FIRESTORE_PROJECT` | Yes | Google Cloud project ID for Firestore |
-| `CEORATER_API_KEY` | No | API key for CEORater CEO data. If not set, `/mgmt` shows Yahoo officer data only |
-
-These should be set as environment variables or managed via Google Cloud Secret Manager for production deployments. They must never be committed to the repository.
