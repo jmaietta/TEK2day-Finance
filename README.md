@@ -32,45 +32,36 @@ python terminal.py
 
 ### Slash Commands
 
-Type `/` followed by any ticker symbol. For example, `/AAPL`:
+Replace `AAPL` with any ticker symbol.
 
-| Command | Example | Description |
-|---------|---------|-------------|
-| `/TICKER` | `/AAPL` | Overview & valuation (live) |
-| `/TICKER est` | `/AAPL est` | Consensus estimates |
-| `/TICKER inc` | `/MSFT inc` | Income statement |
-| `/TICKER bal` | `/GOOGL bal` | Balance sheet |
-| `/TICKER cf` | `/AMZN cf` | Cash flow |
-| `/TICKER div` | `/KO div` | Dividends (live) |
-| `/TICKER short` | `/TSLA short` | Short interest (live) |
-| `/TICKER target` | `/NVDA target` | Analyst targets (live) |
-| `/TICKER chart` | `/META chart` | Price chart (1 year) |
-| `/TICKER mgmt` | `/CSGP mgmt` | Management / CEO |
-| `/TICKER filings` | `/JPM filings` | SEC filings |
-| `/TICKER news` | `/AAPL news` | Recent news |
-| `/compare` | `/compare AAPL MSFT GOOGL` | Comp table (up to 20 tickers) |
-| `/help` | | Show command menu |
-| `/exit` | | Quit |
+| Command | Description |
+|---------|-------------|
+| `/AAPL` | Overview & valuation (live) |
+| `/AAPL est` | Consensus estimates |
+| `/AAPL inc` | Income statement |
+| `/AAPL bal` | Balance sheet |
+| `/AAPL cf` | Cash flow |
+| `/AAPL div` | Dividends (live) |
+| `/AAPL short` | Short interest (live) |
+| `/AAPL target` | Analyst targets (live) |
+| `/AAPL chart` | Price chart (1 year) |
+| `/AAPL mgmt` | Management / CEO |
+| `/AAPL filings` | SEC filings |
+| `/AAPL news` | Recent news |
+| `/compare AAPL MSFT GOOGL` | Comp table (up to 20 tickers) |
+| `/help` | Show command menu |
+| `/exit` | Quit |
 
 ### Examples
 
 **Overview & valuation:**
-```
-tek2day> /AAPL
-```
-Returns live price, change, volume, market cap, shares outstanding, 52-week range, sector, beta, P/E, forward P/E, PEG, P/B, P/S, EV/EBITDA, and EV/Revenue.
+`/AAPL` — returns live price, change, volume, market cap, shares outstanding, 52-week range, sector, beta, P/E, forward P/E, PEG, P/B, P/S, EV/EBITDA, and EV/Revenue.
 
 **Compare tickers:**
-```
-tek2day> /compare CSGP SPGI VRSK FDS
-```
-Returns a side-by-side table with price, market cap, EV, revenue, EBITDA, net income, EPS, P/E, PEG, EV/EBITDA, EV/Revenue, EV/OpCF, EV/FCF, dividend yield, and beta for each ticker.
+`/compare CSGP SPGI VRSK FDS` — returns a side-by-side table with price, market cap, EV, revenue, EBITDA, net income, EPS, P/E, PEG, EV/EBITDA, EV/Revenue, EV/OpCF, EV/FCF, dividend yield, and beta.
 
 **Income statement:**
-```
-tek2day> /AAPL inc
-```
-Returns the last 4 quarters and last 4 fiscal years: revenue, gross profit, operating income, EBITDA, net income, EPS, and more.
+`/AAPL inc` — returns the last 4 quarters and last 4 fiscal years: revenue, gross profit, operating income, EBITDA, net income, EPS, and more.
 
 ## Data Pipeline
 
