@@ -23,12 +23,6 @@ pip install -r requirements.txt
 
 - Python 3.10+
 - Google Cloud Firestore (for stored data commands)
-- A `.env` file or environment variables:
-
-```
-FIRESTORE_PROJECT=your-gcp-project-id
-CEORATER_API_KEY=your-key-here  # optional
-```
 
 ## Usage
 
