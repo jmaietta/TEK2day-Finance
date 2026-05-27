@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TEK2day Finance — Stock Prices and Fundamentals</title>
+    <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root { color-scheme: dark; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: #000;
+            color: #e0e0e0;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px 24px;
+            background: #000;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #fff;
+            letter-spacing: -0.01em;
+        }
+
+        .search-container {
+            position: relative;
+            width: 320px;
+        }
+
+        #search-input {
+            width: 100%;
+            padding: 8px 14px;
+            background: #111;
+            border: 1px solid #2a2a2a;
+            border-radius: 10px;
+            color: #e0e0e0;
+            font-size: 14px;
+            font-family: 'DM Sans', sans-serif;
+            outline: none;
+        }
+
+        #search-input:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 1px rgba(37,99,235,0.25);
+        }
+
+        #search-input::placeholder {
+            color: #555;
+        }
+
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #111;
+            border: 1px solid #2a2a2a;
+            border-radius: 0 0 10px 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+        }
+
+        .search-results.visible { display: block; }
+
+        .search-result {
+            padding: 10px 14px;
+            cursor: pointer;
+            border-bottom: 1px solid #1a1a1a;
+        }
+
+        .search-result:hover { background: rgba(255,255,255,0.04); }
+
+        .search-result .symbol {
+            font-weight: 700;
+            color: #93c5fd;
+            margin-right: 8px;
+            font-size: 13px;
+        }
+
+        .search-result .name {
+            color: #888;
+            font-size: 13px;
+        }
+
+        .ticker-header {
+            padding: 16px 24px;
+            display: none;
+        }
+
+        .ticker-header.visible { display: block; }
+
+        .ticker-header .symbol {
+            font-size: 28px;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: -0.02em;
+        }
+
+        .ticker-header .name {
+            font-size: 14px;
+            color: #888;
+            margin-top: 2px;
+        }
+
+        .ticker-header .price {
+            font-size: 24px;
+            font-weight: 700;
+            margin-top: 8px;
+            letter-spacing: -0.02em;
+        }
+
+        .ticker-header .price.up { color: #4ade80; }
+        .ticker-header .price.down { color: #f87171; }
+
+        .ticker-header .change {
+            font-size: 14px;
+            margin-left: 10px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 0;
+            padding: 0 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            color: #888;
+            font-size: 13px;
+            font-weight: 500;
+            font-family: 'DM Sans', sans-serif;
+            border-bottom: 2px solid transparent;
+            transition: all 0.15s;
+        }
+
+        .tab:hover { color: #ccc; }
+        .tab.active { color: #2563eb; border-bottom-color: #2563eb; }
+
+        #chart-container {
+            width: 100%;
+            height: 500px;
+            padding: 0 24px;
+        }
+
+        #volume-note {
+            padding: 4px 24px;
+            font-size: 11px;
+            color: #555;
+        }
+
+        .panel {
+            padding: 24px;
+            display: none;
+        }
+
+        .panel.visible { display: block; }
+
+        .financials-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .financials-table th {
+            text-align: left;
+            padding: 8px 12px;
+            color: #888;
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            white-space: nowrap;
+        }
+
+        .financials-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #111;
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .financials-table tr:hover { background: rgba(255,255,255,0.02); }
+
+        .estimate-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .estimate-card {
+            background: rgba(22,22,22,0.55);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .estimate-card h3 {
+            font-size: 10px;
+            color: #888;
+            margin-bottom: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .estimate-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 13px;
+        }
+
+        .estimate-row .label { color: #999; }
+        .estimate-row .value { color: #e0e0e0; font-weight: 500; font-variant-numeric: tabular-nums; }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #555;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <img src="/static/tek2day-icon.png" alt="TEK2day" style="height:36px;"><h1>TEK2day Finance</h1><span style="color:#666; font-size:13px; margin-left:8px;">Stock Prices and Fundamentals</span>
+    <div class="search-container">
+        <input type="text" id="search-input" placeholder="Search ticker or company name..." autocomplete="off">
+        <div class="search-results" id="search-results"></div>
+    </div>
+</div>
+
+<div class="ticker-header" id="ticker-header">
+    <div class="symbol" id="ticker-symbol"></div>
+    <div class="name" id="ticker-name"></div>
+    <div>
+        <span class="price" id="ticker-price"></span>
+        <span class="change" id="ticker-change"></span>
+    </div>
+</div>
+
+<div class="tabs" id="tabs" style="display:none;">
+    <div class="tab active" data-tab="chart">Chart</div>
+    <div class="tab" data-tab="estimates">Estimates</div>
+    <div class="tab" data-tab="financials">Financials</div>
+</div>
+
+<div id="chart-panel" class="panel visible">
+    <div id="chart-container"></div>
+    <div id="volume-note"></div>
+</div>
+
+<div id="estimates-panel" class="panel">
+    <div id="estimates-content"></div>
+</div>
+
+<div id="financials-panel" class="panel">
+    <div id="financials-content"></div>
+</div>
+
+<div id="empty-state"></div>
+
+<script>
+    let chart = null;
+    let candleSeries = null;
+    let volumeSeries = null;
+    let currentSymbol = null;
+    let searchTimeout = null;
+
+    // ── Search ──────────────────────────────────────────────────────
+    const searchInput = document.getElementById('search-input');
+    const searchResults = document.getElementById('search-results');
+
+    searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        const q = searchInput.value.trim();
+        if (q.length < 1) {
+            searchResults.classList.remove('visible');
+            return;
+        }
+        searchTimeout = setTimeout(() => fetchSearch(q), 200);
+    });
+
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            const q = searchInput.value.trim().toUpperCase();
+            if (q) {
+                searchResults.classList.remove('visible');
+                loadTicker(q);
+            }
+        }
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.search-container')) {
+            searchResults.classList.remove('visible');
+        }
+    });
+
+    async function fetchSearch(q) {
+        try {
+            const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+            const data = await res.json();
+            renderSearchResults(data);
+        } catch (err) {
+            console.error('Search error:', err);
+        }
+    }
+
+    function renderSearchResults(results) {
+        if (!results.length) {
+            searchResults.classList.remove('visible');
+            return;
+        }
+        searchResults.innerHTML = results.map(r => `
+            <div class="search-result" onclick="selectTicker('${r.symbol}')">
+                <span class="symbol">${r.symbol}</span>
+                <span class="name">${r.name}</span>
+            </div>
+        `).join('');
+        searchResults.classList.add('visible');
+    }
+
+    function selectTicker(symbol) {
+        searchInput.value = symbol;
+        searchResults.classList.remove('visible');
+        loadTicker(symbol);
+    }
+
+    // ── Tabs ────────────────────────────────────────────────────────
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            const target = tab.dataset.tab;
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('visible'));
+            document.getElementById(target + '-panel').classList.add('visible');
+            if (target === 'chart' && chart) {
+                chart.timeScale().fitContent();
+            }
+        });
+    });
+
+    // ── Load ticker ─────────────────────────────────────────────────
+    async function loadTicker(symbol) {
+        currentSymbol = symbol;
+        document.getElementById('empty-state').style.display = 'none';
+        document.getElementById('tabs').style.display = 'flex';
+        document.getElementById('ticker-header').classList.add('visible');
+        document.getElementById('ticker-symbol').textContent = symbol;
+        document.getElementById('ticker-name').textContent = 'Loading...';
+        document.getElementById('ticker-price').textContent = '';
+        document.getElementById('ticker-change').textContent = '';
+
+        // Activate chart tab
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelector('[data-tab="chart"]').classList.add('active');
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('visible'));
+        document.getElementById('chart-panel').classList.add('visible');
+
+        loadTickerInfo(symbol);
+        loadChart(symbol);
+        loadEstimates(symbol);
+        loadFinancials(symbol);
+    }
+
+    async function loadTickerInfo(symbol) {
+        try {
+            const res = await fetch(`/api/ticker/${symbol}`);
+            const data = await res.json();
+            if (data.name) {
+                document.getElementById('ticker-name').textContent =
+                    `${data.name} · ${data.sector || ''} · ${data.industry || ''}`;
+            }
+        } catch (err) {
+            console.error('Ticker info error:', err);
+        }
+    }
+
+    // ── Chart ───────────────────────────────────────────────────────
+    async function loadChart(symbol) {
+        const container = document.getElementById('chart-container');
+        container.innerHTML = '<div class="loading">Loading chart...</div>';
+
+        try {
+            const res = await fetch(`/api/prices/${symbol}`);
+            const prices = await res.json();
+
+            if (!prices.length) {
+                container.innerHTML = '<div class="loading">No price data available.</div>';
+                return;
+            }
+
+            container.innerHTML = '';
+
+            if (chart) {
+                chart.remove();
+            }
+
+            chart = LightweightCharts.createChart(container, {
+                width: container.clientWidth,
+                height: 500,
+                layout: {
+                    background: { color: '#000' },
+                    textColor: '#888',
+                },
+                grid: {
+                    vertLines: { color: 'rgba(255,255,255,0.06)' },
+                    horzLines: { color: 'rgba(255,255,255,0.06)' },
+                },
+                crosshair: {
+                    mode: LightweightCharts.CrosshairMode.Normal,
+                },
+                rightPriceScale: {
+                    borderColor: 'rgba(255,255,255,0.06)',
+                },
+                timeScale: {
+                    borderColor: 'rgba(255,255,255,0.06)',
+                    timeVisible: false,
+                },
+            });
+
+            candleSeries = chart.addCandlestickSeries({
+                upColor: '#4ade80',
+                downColor: '#f87171',
+                borderDownColor: '#f87171',
+                borderUpColor: '#4ade80',
+                wickDownColor: '#f87171',
+                wickUpColor: '#4ade80',
+            });
+
+            candleSeries.setData(prices.map(p => ({
+                time: p.time,
+                open: p.open,
+                high: p.high,
+                low: p.low,
+                close: p.close,
+            })));
+
+            volumeSeries = chart.addHistogramSeries({
+                color: '#4ade80',
+                priceFormat: { type: 'volume' },
+                priceScaleId: '',
+            });
+
+            volumeSeries.priceScale().applyOptions({
+                scaleMargins: { top: 0.8, bottom: 0 },
+            });
+
+            volumeSeries.setData(prices.map(p => ({
+                time: p.time,
+                value: p.volume,
+                color: p.close >= p.open ? 'rgba(74, 222, 128, 0.3)' : 'rgba(248, 113, 113, 0.3)',
+            })));
+
+            chart.timeScale().fitContent();
+
+            // Update price display
+            const last = prices[prices.length - 1];
+            const prev = prices.length > 1 ? prices[prices.length - 2] : last;
+            const priceEl = document.getElementById('ticker-price');
+            const changeEl = document.getElementById('ticker-change');
+
+            priceEl.textContent = `$${last.close.toFixed(2)}`;
+            const diff = last.close - prev.close;
+            const pct = ((diff / prev.close) * 100).toFixed(2);
+            const sign = diff >= 0 ? '+' : '';
+            changeEl.textContent = `${sign}${diff.toFixed(2)} (${sign}${pct}%)`;
+            priceEl.className = `price ${diff >= 0 ? 'up' : 'down'}`;
+            changeEl.style.color = diff >= 0 ? '#4ade80' : '#f87171';
+
+            // Resize handler
+            window.addEventListener('resize', () => {
+                if (chart) chart.applyOptions({ width: container.clientWidth });
+            });
+
+        } catch (err) {
+            container.innerHTML = '<div class="loading">Error loading chart.</div>';
+            console.error('Chart error:', err);
+        }
+    }
+
+    // ── Estimates ───────────────────────────────────────────────────
+    async function loadEstimates(symbol) {
+        const container = document.getElementById('estimates-content');
+        container.innerHTML = '<div class="loading">Loading estimates...</div>';
+
+        try {
+            const res = await fetch(`/api/estimates/${symbol}?limit=1`);
+            const data = await res.json();
+
+            if (!data.length) {
+                container.innerHTML = '<div class="loading">No estimate data available.</div>';
+                return;
+            }
+
+            const est = data[0];
+            const periods = [
+                { key: '0q', label: 'Current Quarter' },
+                { key: '+1q', label: 'Next Quarter' },
+                { key: '0y', label: 'Current Year' },
+                { key: '+1y', label: 'Next Year' },
+            ];
+
+            let html = '<div class="estimate-grid">';
+
+            for (const { key, label } of periods) {
+                const epsAvg = est.eps_avg?.[key];
+                const epsHigh = est.eps_high?.[key];
+                const epsLow = est.eps_low?.[key];
+                const epsAnalysts = est.eps_numberofanalysts?.[key];
+                const epsGrowth = est.eps_growth?.[key];
+                const revAvg = est.rev_avg?.[key];
+                const revHigh = est.rev_high?.[key];
+                const revLow = est.rev_low?.[key];
+                const revAnalysts = est.rev_numberofanalysts?.[key];
+                const revGrowth = est.rev_growth?.[key];
+
+                html += `
+                    <div class="estimate-card">
+                        <h3>${label}</h3>
+                        <div class="estimate-row">
+                            <span class="label">EPS Consensus</span>
+                            <span class="value">${epsAvg != null ? '$' + epsAvg.toFixed(2) : '—'}</span>
+                        </div>
+                        <div class="estimate-row">
+                            <span class="label">EPS Range</span>
+                            <span class="value">${epsLow != null ? '$' + epsLow.toFixed(2) + ' — $' + epsHigh.toFixed(2) : '—'}</span>
+                        </div>
+                        <div class="estimate-row">
+                            <span class="label">EPS Growth</span>
+                            <span class="value">${epsGrowth != null ? (epsGrowth * 100).toFixed(1) + '%' : '—'}</span>
+                        </div>
+                        <div class="estimate-row">
+                            <span class="label"># Analysts (EPS)</span>
+                            <span class="value">${epsAnalysts != null ? Math.round(epsAnalysts) : '—'}</span>
+                        </div>
+                        <hr style="border-color:rgba(255,255,255,0.06); margin: 8px 0;">
+                        <div class="estimate-row">
+                            <span class="label">Revenue Consensus</span>
+                            <span class="value">${revAvg != null ? formatLargeNum(revAvg) : '—'}</span>
+                        </div>
+                        <div class="estimate-row">
+                            <span class="label">Revenue Range</span>
+                            <span class="value">${revLow != null ? formatLargeNum(revLow) + ' — ' + formatLargeNum(revHigh) : '—'}</span>
+                        </div>
+                        <div class="estimate-row">
+                            <span class="label">Revenue Growth</span>
+                            <span class="value">${revGrowth != null ? (revGrowth * 100).toFixed(1) + '%' : '—'}</span>
+                        </div>
+                        <div class="estimate-row">
+                            <span class="label"># Analysts (Rev)</span>
+                            <span class="value">${revAnalysts != null ? Math.round(revAnalysts) : '—'}</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            html += '</div>';
+            container.innerHTML = html;
+
+        } catch (err) {
+            container.innerHTML = '<div class="loading">Error loading estimates.</div>';
+            console.error('Estimates error:', err);
+        }
+    }
+
+    // ── Financials ──────────────────────────────────────────────────
+    async function loadFinancials(symbol) {
+        const container = document.getElementById('financials-content');
+        container.innerHTML = '<div class="loading">Loading financials...</div>';
+
+        try {
+            const res = await fetch(`/api/financials/${symbol}`);
+            const data = await res.json();
+
+            if (!data.length) {
+                container.innerHTML = '<div class="loading">No financial data available.</div>';
+                return;
+            }
+
+            const periods = data.reverse();
+
+            const keyMetrics = [
+                { section: 'Income Statement', items: [
+                    ['Total Revenue', 'income', 'Total Revenue'],
+                    ['Gross Profit', 'income', 'Gross Profit'],
+                    ['Operating Income', 'income', 'Operating Income'],
+                    ['Net Income', 'income', 'Net Income'],
+                    ['EBITDA', 'income', 'EBITDA'],
+                ]},
+                { section: 'Balance Sheet', items: [
+                    ['Total Assets', 'balance_sheet', 'Total Assets'],
+                    ['Total Liabilities', 'balance_sheet', 'Total Liabilities Net Minority Interest'],
+                    ['Total Equity', 'balance_sheet', 'Stockholders Equity'],
+                    ['Cash & Equivalents', 'balance_sheet', 'Cash And Cash Equivalents'],
+                    ['Total Debt', 'balance_sheet', 'Total Debt'],
+                ]},
+                { section: 'Cash Flow', items: [
+                    ['Operating Cash Flow', 'cash_flow', 'Operating Cash Flow'],
+                    ['Capital Expenditure', 'cash_flow', 'Capital Expenditure'],
+                    ['Free Cash Flow', 'cash_flow', 'Free Cash Flow'],
+                ]},
+            ];
+
+            let html = '';
+
+            for (const { section, items } of keyMetrics) {
+                html += `<h3 style="color:#888; font-size:13px; font-weight:500; margin:20px 0 10px; padding-left:12px;">${section}</h3>`;
+                html += '<table class="financials-table"><thead><tr><th></th>';
+
+                for (const p of periods) {
+                    html += `<th>${p.period || p.period_end || '—'}</th>`;
+                }
+                html += '</tr></thead><tbody>';
+
+                for (const [label, group, field] of items) {
+                    html += `<tr><td style="color:#ccc; font-weight:500;">${label}</td>`;
+                    for (const p of periods) {
+                        const val = p[group]?.[field];
+                        html += `<td>${val != null ? formatLargeNum(val) : '—'}</td>`;
+                    }
+                    html += '</tr>';
+                }
+                html += '</tbody></table>';
+            }
+
+            container.innerHTML = html;
+
+        } catch (err) {
+            container.innerHTML = '<div class="loading">Error loading financials.</div>';
+            console.error('Financials error:', err);
+        }
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────
+    function formatLargeNum(n) {
+        if (n == null) return '—';
+        const abs = Math.abs(n);
+        const sign = n < 0 ? '-' : '';
+        if (abs >= 1e12) return sign + '$' + (abs / 1e12).toFixed(2) + 'T';
+        if (abs >= 1e9) return sign + '$' + (abs / 1e9).toFixed(2) + 'B';
+        if (abs >= 1e6) return sign + '$' + (abs / 1e6).toFixed(1) + 'M';
+        if (abs >= 1e3) return sign + '$' + (abs / 1e3).toFixed(1) + 'K';
+        return sign + '$' + n.toFixed(2);
+    }
+</script>
+
+</body>
+</html>
