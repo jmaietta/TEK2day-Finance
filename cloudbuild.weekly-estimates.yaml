@@ -3,3 +3,5 @@ steps:
     args: ['build', '-f', 'Dockerfile.weekly-estimates', '-t', 'us-central1-docker.pkg.dev/yfinance-cli/tek2day/weekly-estimates:latest', '.']
 images:
   - 'us-central1-docker.pkg.dev/yfinance-cli/tek2day/weekly-estimates:latest'
+options:
+  logging: CLOUD_LOGGING_ONLY

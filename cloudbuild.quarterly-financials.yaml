@@ -3,3 +3,5 @@ steps:
     args: ['build', '-f', 'Dockerfile.quarterly-financials', '-t', 'us-central1-docker.pkg.dev/yfinance-cli/tek2day/quarterly-financials:latest', '.']
 images:
   - 'us-central1-docker.pkg.dev/yfinance-cli/tek2day/quarterly-financials:latest'
+options:
+  logging: CLOUD_LOGGING_ONLY

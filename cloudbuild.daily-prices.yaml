@@ -3,3 +3,5 @@ steps:
     args: ['build', '-f', 'Dockerfile.daily-prices', '-t', 'us-central1-docker.pkg.dev/yfinance-cli/tek2day/daily-prices:latest', '.']
 images:
   - 'us-central1-docker.pkg.dev/yfinance-cli/tek2day/daily-prices:latest'
+options:
+  logging: CLOUD_LOGGING_ONLY

@@ -3,3 +3,5 @@ steps:
     args: ['build', '-f', 'Dockerfile.api', '-t', 'us-central1-docker.pkg.dev/yfinance-cli/tek2day/api:latest', '.']
 images:
   - 'us-central1-docker.pkg.dev/yfinance-cli/tek2day/api:latest'
+options:
+  logging: CLOUD_LOGGING_ONLY
