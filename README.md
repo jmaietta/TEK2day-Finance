@@ -9,7 +9,7 @@ Open-source stock data terminal — market data and fundamentals.
 - **Estimate tracking** — consensus EPS and revenue estimates with historical accumulation
 - **SEC filings** — recent 10-K, 10-Q, 8-K, and other filings from SEC EDGAR
 - **CEO data** — scores, compensation, and tenure via CEORater API (optional)
-- **Comp tables** — side-by-side comparison of up to 20 tickers
+- **Comp tables** — side-by-side comparison of up to 6 tickers
 - **Price charts** — terminal-rendered charts with volume
 - **Cross-platform** — Linux, Mac, Windows
 
@@ -42,7 +42,7 @@ These work immediately after install. Data comes live from Yahoo Finance and SEC
 | `/TICKER mgmt` | `/CSGP mgmt` | Management / CEO |
 | `/TICKER filings` | `/JPM filings` | SEC filings |
 | `/TICKER news` | `/AAPL news` | Recent news |
-| `/compare` | `/compare AAPL MSFT GOOGL` | Comp table (up to 20) |
+| `/comp` | `/comp AAPL MSFT GOOGL` | Comp table (up to 6) |
 | `/help` | | Show command menu |
 | `/exit` | | Quit |
 
@@ -69,7 +69,7 @@ tek2day
 `/AAPL` — live price, change, volume, market cap, shares outstanding, 52-week range, sector, beta, P/E, forward P/E, PEG, P/B, P/S, EV/EBITDA, and EV/Revenue.
 
 **Compare tickers:**
-`/compare CSGP SPGI VRSK FDS` — side-by-side table with price, market cap, EV, revenue, EBITDA, net income, EPS, P/E, PEG, EV/EBITDA, EV/Revenue, EV/OpCF, EV/FCF, dividend yield, and beta.
+`/comp CSGP SPGI VRSK FDS` — side-by-side table with price, market cap, EV, revenue, EBITDA, net income, EPS, P/E, P/S, EV/EBITDA, EV/Revenue, EV/OpCF, EV/FCF, dividend yield, and beta.
 
 **Income statement:**
 `/AAPL inc` — last 4 quarters and last 4 fiscal years: revenue, gross profit, operating income, EBITDA, net income, EPS, and more.

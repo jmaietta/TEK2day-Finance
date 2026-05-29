@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tek2day-finance"
-version = "0.1.1"
+version = "1.0.0"
 description = "Open-source stock data terminal — market data and fundamentals"
 readme = "README.md"
 license = {text = "MIT"}

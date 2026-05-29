@@ -18,15 +18,23 @@ try:
 except ImportError:
     pass
 
-__version__ = "0.1.1"
+__version__ = "1.0.0"
 
-import yfinance as yf
 import requests
 from rich.console import Console, Group
 from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
 from rich import box
+
+yf = None
+
+def _yf():
+    global yf
+    if yf is None:
+        import yfinance
+        yf = yfinance
+    return yf
 
 from config import CEORATER_API_KEY, TEK2DAY_API_URL
 
@@ -152,6 +160,8 @@ def _fin(val):
         return ""
     try:
         v = float(val)
+        if v != v:
+            return ""
         if abs(v) >= 1e9:
             return f"{v / 1e9:,.1f}B"
         if abs(v) >= 1e6:
@@ -212,21 +222,24 @@ HELP_TEXT = """\
   /AAPL mgmt                Management / CEO
   /AAPL filings             SEC filings
   /AAPL news                Recent news
-  /compare AAPL MSFT GOOGL  Comp table (up to 20)
+  /comp AAPL MSFT GOOGL     Comp table (up to 6)
   /help                     Show this menu
   /exit                     Quit[/white]"""
 
 
 def _print_banner():
-    console.print()
-    console.print(Panel(
-        Text("TEK2day Finance", justify="center", style="bold white"),
-        subtitle=f"[grey70]v{__version__}[/grey70]",
-        border_style="bold red",
-        box=box.HEAVY,
-        padding=(1, 4),
-        width=42,
+    from rich.panel import Panel
+    from rich.align import Align
+    title_text = Text()
+    title_text.append("TEK2", style="bold red")
+    title_text.append("day", style="bold white")
+    title_text.append(" Finance", style="bold white")
+    ver = Text(f"v{__version__}", style="grey70")
+    banner = Align.center(Text.assemble(
+        "\n", title_text, "\n", ver, "\n",
     ))
+    console.print()
+    console.print(Panel(banner, border_style="red", padding=(0, 4)))
     console.print(HELP_TEXT)
     console.print()
 
@@ -236,7 +249,7 @@ def _print_banner():
 
 def _yahoo(symbol):
     try:
-        return yf.Ticker(symbol).info or {}
+        return _yf().Ticker(symbol).info or {}
     except Exception as e:
         console.print(f"[red]Error fetching {symbol}: {e}[/red]")
         return {}
@@ -422,7 +435,8 @@ INCOME_FIELDS = [
     "Operating Expense", "Operating Income", "EBITDA",
     "Interest Expense", "Pretax Income", "Tax Provision",
     "Net Income", "Net Income Common Stockholders",
-    "Basic EPS", "Diluted EPS",
+    ("Basic EPS", "Reported EPS (Basic)"),
+    ("Diluted EPS", "Reported EPS (Diluted)"),
 ]
 
 BALANCE_FIELDS = [
@@ -443,7 +457,7 @@ CASHFLOW_FIELDS = [
 ]
 
 
-def _show_financials(symbol, section, fields, title):
+def _show_financials(symbol, section, fields, title, snapshot=False):
     if not _has_firestore():
         console.print("[yellow]Financials require Firestore. Set FIRESTORE_PROJECT.[/yellow]")
         return
@@ -453,28 +467,39 @@ def _show_financials(symbol, section, fields, title):
         console.print(f"[yellow]No financials stored for {symbol}[/yellow]")
         return
 
-    quarterly = [f for f in all_fins if f.get("freq") == "Q"][:4]
-    annual = [f for f in all_fins if f.get("freq") == "FY"][:4]
+    quarterly = sorted([f for f in all_fins if f.get("freq") != "FY"], key=lambda f: f.get("period_end", ""))[-4:]
+    annual = sorted([f for f in all_fins if f.get("freq") == "FY"], key=lambda f: f.get("period_end", ""))[-4:]
 
-    for label, periods in [("Quarterly", quarterly), ("Annual", annual)]:
+    for freq_label, periods in [("Quarterly", quarterly), ("Annual", annual)]:
         if not periods:
             continue
 
+        if snapshot:
+            latest_date = periods[0].get("period_end", "")
+            heading = f"{symbol} — {title} as of {latest_date}"
+        else:
+            heading = f"{symbol} — {freq_label} {title}"
         t = Table(
-            title=f"{symbol} — {label} {title}",
+            title=heading,
             box=box.SIMPLE_HEAVY, border_style="green", title_style="bold",
+            expand=False, pad_edge=False,
         )
-        t.add_column("", style="bold", width=32)
+        t.add_column("", style="bold", no_wrap=True)
         for p in periods:
-            t.add_column(p["period"], justify="right", width=14)
+            col_header = p.get("period_end", p["period"])
+            t.add_column(str(col_header), justify="right", no_wrap=True)
 
         has_data = False
         for field in fields:
-            vals = [p.get(section, {}).get(field) for p in periods]
+            if isinstance(field, tuple):
+                key, label = field
+            else:
+                key, label = field, field
+            vals = [p.get(section, {}).get(key) for p in periods]
             if not any(v is not None for v in vals):
                 continue
             has_data = True
-            row = [field] + [_fin(v) for v in vals]
+            row = [label] + [_fin(v) for v in vals]
             t.add_row(*row)
 
         if not has_data:
@@ -494,7 +519,39 @@ def cmd_income(symbol):
 
 
 def cmd_balance(symbol):
-    _show_financials(symbol, "balance_sheet", BALANCE_FIELDS, "Balance Sheet")
+    if not _has_firestore():
+        console.print("[yellow]Financials require Firestore. Set FIRESTORE_PROJECT.[/yellow]")
+        return
+    all_fins = storage.get_all_financials(symbol)
+    if not all_fins:
+        console.print(f"[yellow]No financials stored for {symbol}[/yellow]")
+        return
+    seen = set()
+    unique = []
+    for f in sorted(all_fins, key=lambda f: f.get("period_end", "")):
+        dt = f.get("period_end", "")
+        if dt not in seen:
+            seen.add(dt)
+            unique.append(f)
+    periods = unique[-8:]
+    t = Table(
+        title=f"{symbol} — Balance Sheet",
+        box=box.SIMPLE_HEAVY, border_style="green", title_style="bold",
+        expand=False, pad_edge=False,
+    )
+    t.add_column("", style="bold", no_wrap=True)
+    for p in periods:
+        t.add_column(str(p.get("period_end", p["period"])), justify="right", no_wrap=True)
+    for field in BALANCE_FIELDS:
+        if isinstance(field, tuple):
+            key, label = field
+        else:
+            key, label = field, field
+        vals = [p.get("balance_sheet", {}).get(key) for p in periods]
+        if not any(v is not None for v in vals):
+            continue
+        t.add_row(label, *[_fin(v) for v in vals])
+    console.print(t)
 
 
 def cmd_cashflow(symbol):
@@ -749,45 +806,64 @@ def cmd_mgmt(symbol):
         t.add_column("", width=20)
 
         for ceo in ceo_data:
-            t.add_row("CEO", str(ceo.get("ceo", "N/A")))
-            t.add_row("Founder CEO", "Yes" if ceo.get("founderCEO") else "No")
-            t.add_row("CEORater Score", _num(ceo.get("ceoraterScore"), 1))
-            t.add_row("Alpha Score", _num(ceo.get("alphaScore"), 1))
-            t.add_row("Comp Score", _num(ceo.get("compScore"), 1))
-            comp = ceo.get("compensationMM")
-            if comp:
-                t.add_row("Compensation", f"${float(comp):,.1f}M")
-            tsr = ceo.get("tsrMultiple")
+            t.add_row("CEO", str(ceo.get("CEO Name") or ceo.get("ceo") or "N/A"))
+            founder = ceo.get("Founder (Y/N)") or ceo.get("founderCEO")
+            t.add_row("Founder CEO", "Yes" if founder in (True, "Y") else "No")
+            tenure = ceo.get("Tenure (years)") or ceo.get("tenure")
+            if tenure:
+                t.add_row("Tenure", str(tenure))
+            score = ceo.get("CEORaterScore") or ceo.get("ceoraterScore")
+            t.add_row("CEORater Score", _num(score, 0) if score else "N/A")
+            alpha = ceo.get("AlphaScore") or ceo.get("alphaScore")
+            t.add_row("Alpha Score", _num(alpha, 0) if alpha else "N/A")
+            t.add_row("Comp Score", str(ceo.get("CompScore") or ceo.get("compScore") or "N/A"))
+            rev_cagr = ceo.get("Revenue CAGR (Adj.)")
+            if rev_cagr:
+                t.add_row("Revenue CAGR", str(rev_cagr))
+            tsr = ceo.get("TSR During Tenure")
             if tsr:
-                t.add_row("TSR (Tenure)", f"{float(tsr):,.1f}x")
+                t.add_row("TSR (Tenure)", str(tsr))
+            avg_tsr = ceo.get("Avg. Annual TSR")
+            if avg_tsr:
+                t.add_row("Avg Annual TSR", str(avg_tsr))
+            tsr_spy = ceo.get("TSR vs. SPY")
+            if tsr_spy:
+                t.add_row("TSR vs SPY", str(tsr_spy))
+            avg_tsr_spy = ceo.get("Avg Annual TSR vs. SPY")
+            if avg_tsr_spy:
+                t.add_row("Avg Annual TSR vs SPY", str(avg_tsr_spy))
+            comp = ceo.get("Compensation ($ millions)") or ceo.get("compensationMM")
+            if comp:
+                t.add_row("Compensation", str(comp))
+            cost_per_tsr = ceo.get("CEO Compensation Cost / 1% Avg TSR")
+            if cost_per_tsr:
+                t.add_row("Comp Cost / 1% TSR", str(cost_per_tsr))
 
         console.print(t)
     else:
-        console.print(f"[grey70]No CEORater data for {symbol}[/grey70]")
-
-    info = _yahoo(symbol)
-    officers = info.get("companyOfficers", [])
-    if officers:
-        t = Table(
-            title=f"{symbol} — Officers",
-            box=box.SIMPLE_HEAVY, border_style="green", title_style="bold",
-        )
-        t.add_column("Name", style="bold", width=24)
-        t.add_column("Title", width=32)
-        t.add_column("Age", justify="right", width=6)
-        t.add_column("Total Pay", justify="right", width=14)
-
-        for o in officers[:10]:
-            pay = o.get("totalPay")
-            t.add_row(
-                o.get("name", ""),
-                o.get("title", ""),
-                str(o.get("age", "")),
-                _dollar(pay) if pay else "N/A",
+        info = _yahoo(symbol) or {}
+        officers = info.get("companyOfficers", [])
+        if officers:
+            t = Table(
+                title=f"{symbol} — Officers",
+                box=box.SIMPLE_HEAVY, border_style="green", title_style="bold",
             )
-        console.print(t)
-    elif not ceo_data:
-        console.print(f"[yellow]No management data found for {symbol}[/yellow]")
+            t.add_column("Name", style="bold", width=24)
+            t.add_column("Title", width=32)
+            t.add_column("Age", justify="right", width=6)
+            t.add_column("Total Pay", justify="right", width=14)
+
+            for o in officers[:10]:
+                pay = o.get("totalPay")
+                t.add_row(
+                    o.get("name", ""),
+                    o.get("title", ""),
+                    str(o.get("age", "")),
+                    _dollar(pay) if pay else "N/A",
+                )
+            console.print(t)
+        else:
+            console.print(f"[yellow]No management data found for {symbol}[/yellow]")
 
 
 # ── /AAPL filings — SEC Filings ───────────────────────────────────────────
@@ -871,7 +947,7 @@ def cmd_filings(symbol):
 def cmd_news(symbol):
     console.print(f"[grey70]Fetching news for {symbol}...[/grey70]")
     try:
-        t = yf.Ticker(symbol)
+        t = _yf().Ticker(symbol)
         news = t.news
         if not news:
             console.print(f"[yellow]No recent news for {symbol}[/yellow]")
@@ -879,14 +955,22 @@ def cmd_news(symbol):
 
         items = news[:10]
         for item in items:
-            title = item.get("title", "")
-            publisher = item.get("publisher", "")
-            link = item.get("link", "")
-            ts = item.get("providerPublishTime")
+            content = item.get("content", item)
+            title = content.get("title", "")
+            provider = content.get("provider", {})
+            publisher = provider.get("displayName", "") if isinstance(provider, dict) else str(provider)
+            click_url = content.get("clickThroughUrl", {})
+            link = click_url.get("url", "") if isinstance(click_url, dict) else content.get("link", "")
+            pub_date = content.get("pubDate", "")
             date_str = ""
-            if ts:
+            if pub_date and isinstance(pub_date, str):
                 try:
-                    date_str = datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M")
+                    date_str = pub_date[:16].replace("T", " ")
+                except Exception:
+                    pass
+            elif isinstance(pub_date, (int, float)):
+                try:
+                    date_str = datetime.fromtimestamp(pub_date).strftime("%Y-%m-%d %H:%M")
                 except (ValueError, OSError):
                     pass
 
@@ -908,6 +992,9 @@ def cmd_news(symbol):
 
 
 def cmd_compare(symbols):
+    if len(symbols) > 6:
+        console.print("[yellow]Max 6 tickers for comparison. Using first 6.[/yellow]")
+        symbols = symbols[:6]
     console.print(f"[grey70]Fetching live data for {', '.join(symbols)}...[/grey70]")
 
     infos = {}
@@ -924,14 +1011,13 @@ def cmd_compare(symbols):
     t = Table(
         title="Comparison",
         box=box.SIMPLE_HEAVY, border_style="green", title_style="bold",
-        expand=True,
+        expand=False, pad_edge=False,
     )
-    t.add_column("Metric", style="bold", width=16)
+    t.add_column("", style="bold", no_wrap=True)
+    col_width = max(12, max(len(s) for s in infos) + 2)
     for sym in infos:
         name = infos[sym].get("shortName", sym)
-        if len(name) > 16:
-            name = name[:13] + "..."
-        t.add_column(f"{sym}\n[grey70]{name}[/grey70]", justify="right", width=14)
+        t.add_column(f"{sym}\n[grey70]{name}[/grey70]", justify="right", width=col_width)
 
     metrics = [
         ("Price", lambda i: _price(
@@ -943,12 +1029,11 @@ def cmd_compare(symbols):
         ("Net Income", lambda i: _dollar(i.get("netIncomeToCommon"))),
         ("EPS (TTM)", lambda i: _num(i.get("trailingEps"))),
         ("EPS (Fwd)", lambda i: _num(i.get("forwardEps"))),
-        ("P/E (TTM)", lambda i: _ratio(i.get("trailingPE"))),
-        ("P/E (Fwd)", lambda i: _ratio(i.get("forwardPE"))),
-        ("PEG", lambda i: _ratio(i.get("pegRatio"))),
-        ("P/B", lambda i: _ratio(i.get("priceToBook"))),
-        ("EV/Revenue", lambda i: _ratio(i.get("enterpriseToRevenue"))),
-        ("EV/EBITDA", lambda i: _ratio(i.get("enterpriseToEbitda"))),
+        ("P/E TTM (GAAP)", lambda i: _ratio(i.get("trailingPE"))),
+        ("Fwd P/E (Est)", lambda i: _ratio(i.get("forwardPE"))),
+        ("P/S (TTM)", lambda i: _ratio(i.get("priceToSalesTrailing12Months"))),
+        ("EV/Rev (TTM)", lambda i: _ratio(i.get("enterpriseToRevenue"))),
+        ("EV/EBITDA (TTM)", lambda i: _ratio(i.get("enterpriseToEbitda"))),
         ("EV/OpCF", lambda i: _safe_ratio(
             i.get("enterpriseValue"), i.get("operatingCashflow"))),
         ("EV/FCF", lambda i: _safe_ratio(
@@ -957,9 +1042,10 @@ def cmd_compare(symbols):
         ("Beta", lambda i: _num(i.get("beta"))),
     ]
 
-    for label, fn in metrics:
+    for idx, (label, fn) in enumerate(metrics):
+        style = "on grey11" if idx % 2 == 1 else None
         row = [label] + [fn(infos[sym]) for sym in infos]
-        t.add_row(*row)
+        t.add_row(*row, style=style)
 
     console.print(t)
 
@@ -1031,12 +1117,12 @@ def main():
             _print_banner()
             continue
 
-        if first == "compare":
+        if first == "comp":
             if len(parts) < 3:
-                console.print("[yellow]Usage: /compare AAPL MSFT (up to 20 tickers)[/yellow]")
+                console.print("[yellow]Usage: /comp AAPL MSFT (up to 6 tickers)[/yellow]")
                 continue
-            if len(parts) > 21:
-                console.print("[yellow]Maximum 20 tickers at a time.[/yellow]")
+            if len(parts) > 7:
+                console.print("[yellow]Maximum 6 tickers at a time.[/yellow]")
                 continue
             cmd_compare([p.upper() for p in parts[1:]])
             continue
