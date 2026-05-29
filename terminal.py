@@ -215,14 +215,14 @@ def _check_for_update():
 # ── Banner ─────────────────────────────────────────────────────────────────
 
 HELP_TEXT = """\
-[white]  /AAPL                     Summary
-  /AAPL inc                 Income statement
-  /AAPL bal                 Balance sheet
-  /AAPL cf                  Cash flow
-  /AAPL mgmt                Management / CEO
-  /AAPL filings             SEC filings
-  /AAPL news                Recent news
-  /comp AAPL MSFT GOOGL     Comp table (up to 6)
+[white]  /TICKER                   Summary
+  /TICKER inc               Income statement
+  /TICKER bal               Balance sheet
+  /TICKER cf                Cash flow
+  /TICKER mgmt              Management / CEO
+  /TICKER filings           SEC filings
+  /TICKER news              Recent news
+  /comp TICKER1 TICKER2 ... Comp table (up to 6)
   /help                     Show this menu
   /exit                     Quit[/white]"""
 
@@ -230,11 +230,31 @@ HELP_TEXT = """\
 def _print_banner():
     from rich.panel import Panel
     from rich.align import Align
-    title_text = Text()
-    title_text.append("TEK2", style="bold red")
-    title_text.append("day", style="bold white")
-    title_text.append(" Finance", style="bold white")
-    ver = Text(f"v{__version__}", style="grey70")
+    tek2day_art = """████████╗███████╗██╗  ██╗██████╗ ██████╗  █████╗ ██╗   ██╗
+╚══██╔══╝██╔════╝██║ ██╔╝╚════██╗██╔══██╗██╔══██╗╚██╗ ██╔╝
+   ██║   █████╗  █████╔╝  █████╔╝██║  ██║███████║ ╚████╔╝
+   ██║   ██╔══╝  ██╔═██╗ ██╔═══╝ ██║  ██║██╔══██║  ╚██╔╝
+   ██║   ███████╗██║  ██╗███████╗██████╔╝██║  ██║   ██║
+   ╚═╝   ╚══════╝╚═╝  ╚═╝╚══════╝╚═════╝ ╚═╝  ╚═╝   ╚═╝"""
+    finance_art = """███████╗██╗███╗   ██╗ █████╗ ███╗   ██╗ ██████╗███████╗
+██╔════╝██║████╗  ██║██╔══██╗████╗  ██║██╔════╝██╔════╝
+█████╗  ██║██╔██╗ ██║███████║██╔██╗ ██║██║     █████╗
+██╔══╝  ██║██║╚██╗██║██╔══██║██║╚██╗██║██║     ██╔══╝
+██║     ██║██║ ╚████║██║  ██║██║ ╚████║╚██████╗███████╗
+╚═╝     ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝╚══════╝"""
+    title_width = max(
+        len(line)
+        for art in (tek2day_art, finance_art)
+        for line in art.splitlines()
+    )
+    finance_lines = finance_art.splitlines()
+    finance_width = max(len(line) for line in finance_lines)
+    finance_indent = " " * max((title_width - finance_width) // 2, 0)
+    finance_art = "\n".join(f"{finance_indent}{line}" for line in finance_lines)
+    title_text = Text(tek2day_art, style="bold white")
+    title_text.append("\n\n")
+    title_text.append(finance_art, style="bold green")
+    ver = Text(f"v{__version__}".center(title_width), style="grey70")
     banner = Align.center(Text.assemble(
         "\n", title_text, "\n", ver, "\n",
     ))
