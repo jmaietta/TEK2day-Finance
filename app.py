@@ -12,7 +12,9 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
+import requests
 import storage
+from config import CEORATER_API_KEY
 
 app = FastAPI(title="YFinance Data Pipeline")
 
@@ -34,7 +36,7 @@ def search_tickers(q: str = Query(..., min_length=1)):
         db.collection(storage.COLLECTION_ROOT)
         .where("active", "==", True)
         .where("symbol", ">=", q)
-        .where("symbol", "<=", q + "")
+        .where("symbol", "<=", q + "￿")
         .limit(15)
         .stream()
     )
@@ -107,6 +109,29 @@ def get_ticker_info(symbol: str):
     if not meta:
         return {"error": "Ticker not found"}
     return meta
+
+
+CEORATER_ALIASES = {"GOOG": "GOOGL", "BRK.A": "BRK.B"}
+
+
+@app.get("/api/ceo/{symbol}")
+def get_ceo(symbol: str):
+    symbol = symbol.upper()
+    if not CEORATER_API_KEY:
+        return {"error": "CEORater not configured"}
+    lookup = CEORATER_ALIASES.get(symbol, symbol)
+    try:
+        resp = requests.get(
+            f"https://api.ceorater.com/v1/ceo/{lookup}",
+            headers={"Authorization": f"Bearer {CEORATER_API_KEY}"},
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            return data if isinstance(data, list) else [data]
+        return {"error": f"CEORater returned {resp.status_code}"}
+    except Exception as e:
+        return {"error": str(e)}
 
 
 if __name__ == "__main__":

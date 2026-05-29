@@ -14,6 +14,10 @@ if _env_path.exists():
 
 FIRESTORE_PROJECT = os.getenv("FIRESTORE_PROJECT", "").strip()
 CEORATER_API_KEY = os.getenv("CEORATER_API_KEY", "").strip()
+TEK2DAY_API_URL = os.getenv(
+    "TEK2DAY_API_URL",
+    "https://api-568356743692.us-central1.run.app",
+).strip().rstrip("/")
 COLLECTION_ROOT = "tickers"
 
 # Rate limiting: delay between individual ticker fetches (seconds)

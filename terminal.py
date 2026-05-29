@@ -28,7 +28,7 @@ from rich.panel import Panel
 from rich.text import Text
 from rich import box
 
-from config import CEORATER_API_KEY
+from config import CEORATER_API_KEY, TEK2DAY_API_URL
 
 console = Console()
 TABLE_WIDTH = 80
@@ -706,20 +706,33 @@ def cmd_chart(symbol):
 
 
 def _get_ceorater(symbol):
-    if not CEORATER_API_KEY:
-        return None
     lookup = CEORATER_ALIASES.get(symbol, symbol)
-    try:
-        resp = requests.get(
-            f"https://api.ceorater.com/v1/ceo/{lookup}",
-            headers={"Authorization": f"Bearer {CEORATER_API_KEY}"},
-            timeout=10,
-        )
-        if resp.status_code == 200:
-            data = resp.json()
-            return data if isinstance(data, list) else [data]
-    except Exception:
-        pass
+    if TEK2DAY_API_URL:
+        try:
+            resp = requests.get(
+                f"{TEK2DAY_API_URL}/api/ceo/{lookup}",
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                if isinstance(data, list):
+                    return data
+                if isinstance(data, dict) and "error" not in data:
+                    return [data]
+        except Exception:
+            pass
+    if CEORATER_API_KEY:
+        try:
+            resp = requests.get(
+                f"https://api.ceorater.com/v1/ceo/{lookup}",
+                headers={"Authorization": f"Bearer {CEORATER_API_KEY}"},
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                return data if isinstance(data, list) else [data]
+        except Exception:
+            pass
     return None
 
 
@@ -749,10 +762,8 @@ def cmd_mgmt(symbol):
                 t.add_row("TSR (Tenure)", f"{float(tsr):,.1f}x")
 
         console.print(t)
-    elif CEORATER_API_KEY:
-        console.print(f"[grey70]No CEORater data for {symbol}[/grey70]")
     else:
-        console.print("[grey70]CEORater data requires CEORATER_API_KEY[/grey70]")
+        console.print(f"[grey70]No CEORater data for {symbol}[/grey70]")
 
     info = _yahoo(symbol)
     officers = info.get("companyOfficers", [])
