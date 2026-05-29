@@ -1,6 +1,6 @@
 # TEK2day Finance
 
-Open-source stock data terminal — prices, fundamentals, estimates, and financials.
+Open-source stock data terminal — market data and fundamentals.
 
 ## Features
 
@@ -16,66 +16,63 @@ Open-source stock data terminal — prices, fundamentals, estimates, and financi
 ## Installation
 
 ```bash
-pip install git+https://github.com/jmaietta/TEK2day-Finance.git
+pip install tek2day-finance
 ```
 
-### Requirements
+Requires Python 3.10+.
 
-- Python 3.10+
-- Google Cloud Firestore (for stored data commands)
-
-## Usage
+## Quick Start
 
 ```bash
 tek2day
 ```
 
-### Slash Commands
+This launches the interactive terminal. All commands start with `/`.
 
-Type `/` followed by any ticker symbol.
+### Commands — No Setup Required
+
+These work immediately after install. Data comes live from Yahoo Finance and SEC EDGAR.
 
 | Command | Example | Description |
 |---------|---------|-------------|
-| `/TICKER` | `/AAPL` | Overview & valuation (live) |
-| `/TICKER est` | `/AAPL est` | Consensus estimates |
-| `/TICKER inc` | `/MSFT inc` | Income statement |
-| `/TICKER bal` | `/GOOGL bal` | Balance sheet |
-| `/TICKER cf` | `/AMZN cf` | Cash flow |
-| `/TICKER div` | `/KO div` | Dividends (live) |
-| `/TICKER short` | `/TSLA short` | Short interest (live) |
-| `/TICKER target` | `/NVDA target` | Analyst targets (live) |
-| `/TICKER chart` | `/META chart` | Price chart (1 year) |
+| `/TICKER` | `/AAPL` | Overview & valuation |
+| `/TICKER div` | `/KO div` | Dividends |
+| `/TICKER short` | `/TSLA short` | Short interest |
+| `/TICKER target` | `/NVDA target` | Analyst price targets |
 | `/TICKER mgmt` | `/CSGP mgmt` | Management / CEO |
 | `/TICKER filings` | `/JPM filings` | SEC filings |
 | `/TICKER news` | `/AAPL news` | Recent news |
-| `/compare` | `/compare AAPL MSFT GOOGL` | Comp table (up to 20 tickers) |
+| `/compare` | `/compare AAPL MSFT GOOGL` | Comp table (up to 20) |
 | `/help` | | Show command menu |
 | `/exit` | | Quit |
+
+### Commands — Require Firestore
+
+These pull from a Firestore database of stored financial data. Set the `FIRESTORE_PROJECT` environment variable to your GCP project ID and authenticate with `gcloud auth application-default login`.
+
+| Command | Example | Description |
+|---------|---------|-------------|
+| `/TICKER est` | `/AAPL est` | Consensus EPS & revenue estimates |
+| `/TICKER inc` | `/MSFT inc` | Income statement (quarterly + annual) |
+| `/TICKER bal` | `/GOOGL bal` | Balance sheet |
+| `/TICKER cf` | `/AMZN cf` | Cash flow statement |
+| `/TICKER chart` | `/META chart` | Price chart (1 year) |
+
+```bash
+export FIRESTORE_PROJECT=your-gcp-project
+tek2day
+```
 
 ### Examples
 
 **Overview & valuation:**
-`/AAPL` — returns live price, change, volume, market cap, shares outstanding, 52-week range, sector, beta, P/E, forward P/E, PEG, P/B, P/S, EV/EBITDA, and EV/Revenue.
+`/AAPL` — live price, change, volume, market cap, shares outstanding, 52-week range, sector, beta, P/E, forward P/E, PEG, P/B, P/S, EV/EBITDA, and EV/Revenue.
 
 **Compare tickers:**
-`/compare CSGP SPGI VRSK FDS` — returns a side-by-side table with price, market cap, EV, revenue, EBITDA, net income, EPS, P/E, PEG, EV/EBITDA, EV/Revenue, EV/OpCF, EV/FCF, dividend yield, and beta.
+`/compare CSGP SPGI VRSK FDS` — side-by-side table with price, market cap, EV, revenue, EBITDA, net income, EPS, P/E, PEG, EV/EBITDA, EV/Revenue, EV/OpCF, EV/FCF, dividend yield, and beta.
 
 **Income statement:**
-`/AAPL inc` — returns the last 4 quarters and last 4 fiscal years: revenue, gross profit, operating income, EBITDA, net income, EPS, and more.
-
-## Data Pipeline
-
-TEK2day Finance maintains a Firestore database of historical prices, estimates, and financial statements. See [DATA_ARCHITECTURE.md](DATA_ARCHITECTURE.md) for the full schema, capture schedules, and storage design.
-
-### Admin Commands
-
-```bash
-python cli.py pull estimates            # Pull consensus estimates for all active tickers
-python cli.py pull prices               # Pull daily OHLCV prices
-python cli.py pull financials           # Pull quarterly financials
-python cli.py ticker list               # List all active tickers
-python cli.py ticker add NVDA           # Add a ticker to the universe
-```
+`/AAPL inc` — last 4 quarters and last 4 fiscal years: revenue, gross profit, operating income, EBITDA, net income, EPS, and more.
 
 ## Data Sources
 

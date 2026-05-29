@@ -5,16 +5,20 @@ TEK2day Finance — Interactive Terminal
 Usage:
     tek2day
 """
+import io
 import os
 import sys
 from datetime import datetime
+
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 try:
     import readline
 except ImportError:
     pass
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 import yfinance as yf
 import requests
@@ -27,16 +31,26 @@ from rich import box
 from config import CEORATER_API_KEY
 
 console = Console()
+TABLE_WIDTH = 80
 
 # ── Firestore (optional — live commands work without it) ───────────────────
 
-_firestore = False
+_firestore = None
+
 try:
     import storage
-    storage.get_db()
-    _firestore = True
-except Exception:
-    pass
+except ImportError:
+    storage = None
+
+def _has_firestore():
+    global _firestore
+    if _firestore is None:
+        try:
+            storage.get_db()
+            _firestore = True
+        except Exception:
+            _firestore = False
+    return _firestore
 
 # ── CEORater ───────────────────────────────────────────────────────────────
 
@@ -95,7 +109,10 @@ def _ratio(val):
     if val is None:
         return "N/A"
     try:
-        return f"{float(val):.2f}x"
+        v = float(val)
+        if abs(v) >= 100:
+            return f"{v:,.0f}x"
+        return f"{v:.1f}x"
     except (ValueError, TypeError):
         return "N/A"
 
@@ -187,27 +204,31 @@ def _check_for_update():
 
 # ── Banner ─────────────────────────────────────────────────────────────────
 
-BANNER = """[bold blue]
-  ╔═══════════════════════════════════════════╗
-  ║        TEK2day Finance Terminal           ║
-  ╚═══════════════════════════════════════════╝[/bold blue]
-[dim]
-  /AAPL               Overview & valuation (live)
-  /AAPL est           Consensus estimates
-  /AAPL inc           Income statement
-  /AAPL bal           Balance sheet
-  /AAPL cf            Cash flow
-  /AAPL div           Dividends (live)
-  /AAPL short         Short interest (live)
-  /AAPL target        Analyst targets (live)
-  /AAPL chart         Price chart
-  /AAPL mgmt          Management / CEO
-  /AAPL filings       SEC filings
-  /AAPL news          Recent news
-  /compare AAPL MSFT GOOGL   Comp table (up to 20)
-  /help               Show this menu
-  /exit               Quit
-[/dim]"""
+HELP_TEXT = """\
+[white]  /AAPL                     Summary
+  /AAPL inc                 Income statement
+  /AAPL bal                 Balance sheet
+  /AAPL cf                  Cash flow
+  /AAPL mgmt                Management / CEO
+  /AAPL filings             SEC filings
+  /AAPL news                Recent news
+  /compare AAPL MSFT GOOGL  Comp table (up to 20)
+  /help                     Show this menu
+  /exit                     Quit[/white]"""
+
+
+def _print_banner():
+    console.print()
+    console.print(Panel(
+        Text("TEK2day Finance", justify="center", style="bold white"),
+        subtitle=f"[grey70]v{__version__}[/grey70]",
+        border_style="bold red",
+        box=box.HEAVY,
+        padding=(1, 4),
+        width=42,
+    ))
+    console.print(HELP_TEXT)
+    console.print()
 
 
 # ── Live Yahoo ─────────────────────────────────────────────────────────────
@@ -221,12 +242,28 @@ def _yahoo(symbol):
         return {}
 
 
+def _get_diluted_shares(symbol, info):
+    if _has_firestore():
+        try:
+            fins = storage.get_all_financials(symbol)
+            for f in fins:
+                if f.get("freq") == "Q":
+                    val = f.get("income", {}).get("Diluted Average Shares")
+                    if val is not None:
+                        return _count(val)
+                    break
+        except Exception:
+            pass
+    return _count(info.get("sharesOutstanding"))
+
+
 # ── /AAPL — Overview + Valuation ───────────────────────────────────────────
 
 
-def cmd_overview(symbol):
-    console.print(f"[dim]Fetching live data for {symbol}...[/dim]")
-    info = _yahoo(symbol)
+def cmd_overview(symbol, info=None):
+    if not info:
+        console.print(f"[grey70]Fetching live data for {symbol}...[/grey70]")
+        info = _yahoo(symbol)
     if not info or not info.get("shortName"):
         console.print(f"[red]{symbol}: no data found[/red]")
         return
@@ -246,29 +283,29 @@ def cmd_overview(symbol):
             f"{sign}{change:,.2f} ({sign}{change_pct:,.2f}%)", style=f"bold {c}"
         )
     if volume:
-        price_text.append(f"   Vol: {_count(volume)}", style="dim")
+        price_text.append(f"   Vol: {_count(volume)}", style="grey70")
 
-    t = Table(show_header=True, box=None, padding=(0, 2), expand=True)
-    t.add_column("OVERVIEW", style="bold dim", width=18)
+    t = Table(show_header=False, box=None, padding=(0, 2))
+    t.add_column("", style="white", width=18)
     t.add_column("", style="white", width=16)
-    t.add_column("VALUATION", style="bold dim", width=14)
+    t.add_column("", style="white", width=18)
     t.add_column("", style="white", width=14)
 
     rows = [
         ("Market Cap", _dollar(info.get("marketCap")),
-         "P/E", _ratio(info.get("trailingPE"))),
-        ("Shares Out", _count(info.get("sharesOutstanding")),
-         "Fwd P/E", _ratio(info.get("forwardPE"))),
+         "P/E TTM (GAAP)", _ratio(info.get("trailingPE"))),
+        ("Diluted Shares", _get_diluted_shares(symbol, info),
+         "Fwd P/E (Est)", _ratio(info.get("forwardPE"))),
         ("52wk High", _price(info.get("fiftyTwoWeekHigh")),
-         "PEG", _ratio(info.get("pegRatio"))),
+         "P/S (TTM)", _ratio(info.get("priceToSalesTrailing12Months"))),
         ("52wk Low", _price(info.get("fiftyTwoWeekLow")),
-         "P/B", _ratio(info.get("priceToBook"))),
+         "EV/EBITDA (TTM)", _ratio(info.get("enterpriseToEbitda"))),
         ("Sector", str(info.get("sector", "N/A")),
-         "P/S", _ratio(info.get("priceToSalesTrailing12Months"))),
+         "EV/Rev (TTM)", _ratio(info.get("enterpriseToRevenue"))),
         ("Industry", str(info.get("industry", "N/A"))[:26],
-         "EV/EBITDA", _ratio(info.get("enterpriseToEbitda"))),
+         "", ""),
         ("Beta", _num(info.get("beta")),
-         "EV/Revenue", _ratio(info.get("enterpriseToRevenue"))),
+         "", ""),
     ]
     for r in rows:
         t.add_row(*r)
@@ -279,33 +316,43 @@ def cmd_overview(symbol):
 
     elements = [price_text, "", t]
     if desc:
-        elements += ["", Text(desc, style="dim")]
+        elements += ["", Text(desc, style="grey70")]
 
     console.print(Panel(
         Group(*elements),
-        title=f"[bold white]{symbol}[/bold white] · [dim]{name}[/dim]",
-        border_style="blue",
+        title=f"[bold white]{name}[/bold white] · [grey70]{symbol}[/grey70]",
+        border_style="green",
         padding=(1, 2),
+        width=TABLE_WIDTH,
     ))
 
 
 # ── /AAPL est — Estimates ─────────────────────────────────────────────────
 
 PERIOD_LABELS = {
-    "0q": "Current Q", "plus1q": "Next Q",
-    "0y": "Current Y", "plus1y": "Next Y",
+    "0q": "Curr Q", "0y": "Curr Yr",
+    "+1q": "Next Q", "+1y": "Next Yr",
+    "plus1q": "Next Q", "plus1y": "Next Yr",
 }
 
+METRIC_ORDER_EPS = ["avg", "high", "low", "numberofanalysts", "yearagoeps", "growth"]
+METRIC_ORDER_REV = ["avg", "high", "low", "numberofanalysts", "yearagorevenue", "growth"]
+
 METRIC_LABELS = {
-    "numberofanalysts": "# Analysts", "avg": "Average",
-    "high": "High", "low": "Low",
-    "yearagoeps": "Year Ago EPS", "yearagorevenue": "Year Ago Rev",
-    "growth": "Growth",
+    "avg": "Consensus",
+    "high": "High",
+    "low": "Low",
+    "numberofanalysts": "# Analysts",
+    "yearagoeps": "Year Ago",
+    "yearagorevenue": "Year Ago",
+    "growth": "YoY Growth",
 }
+
+PERIOD_ORDER = ["0q", "+1q", "0y", "+1y"]
 
 
 def cmd_estimates(symbol):
-    if not _firestore:
+    if not _has_firestore():
         console.print("[yellow]Estimates require Firestore. Set FIRESTORE_PROJECT.[/yellow]")
         return
 
@@ -318,42 +365,54 @@ def cmd_estimates(symbol):
     pull_date = data.get("date", "unknown")
 
     for prefix, title in [("eps", "EPS Estimates"), ("rev", "Revenue Estimates")]:
-        keys = sorted([k for k in data if k.startswith(f"{prefix}_")])
-        if not keys:
+        metric_map = {}
+        for k in data:
+            if k.startswith(f"{prefix}_"):
+                metric_code = k[len(prefix) + 1:]
+                metric_map[metric_code] = data[k]
+
+        if not metric_map:
             continue
 
-        periods = []
-        for k in keys:
-            period_code = k[len(prefix) + 1:]
-            periods.append((k, PERIOD_LABELS.get(period_code, period_code)))
+        sample = next(iter(metric_map.values()))
+        period_codes = list(sample.keys())
 
-        sample = data[keys[0]]
-        metric_keys = list(sample.keys())
+        ordered_periods = [p for p in PERIOD_ORDER if p in period_codes]
+        for p in period_codes:
+            if p not in ordered_periods:
+                ordered_periods.append(p)
 
         t = Table(
-            title=title, box=box.SIMPLE_HEAVY, border_style="blue",
-            title_style="bold",
+            title=title, box=box.SIMPLE_HEAVY, border_style="green",
+            title_style="bold", width=TABLE_WIDTH,
         )
         t.add_column("", style="bold", width=16)
-        for _, label in periods:
-            t.add_column(label, justify="right", width=14)
+        for p in ordered_periods:
+            t.add_column(PERIOD_LABELS.get(p, p), justify="right", width=14)
 
-        for mk in metric_keys:
-            label = METRIC_LABELS.get(mk, mk.replace("_", " ").title())
+        metric_order = METRIC_ORDER_REV if prefix == "rev" else METRIC_ORDER_EPS
+        for mk in metric_order:
+            if mk not in metric_map:
+                continue
+            label = METRIC_LABELS.get(mk, mk)
             row = [label]
-            for key, _ in periods:
-                val = data[key].get(mk)
+            for p in ordered_periods:
+                val = metric_map[mk].get(p)
                 if mk == "growth":
                     row.append(_pct(val))
+                elif mk == "numberofanalysts":
+                    row.append(str(int(val)) if val is not None else "N/A")
                 elif prefix == "rev" and mk in ("avg", "high", "low", "yearagorevenue"):
                     row.append(_dollar(val))
+                elif prefix == "eps" and mk in ("avg", "high", "low", "yearagoeps"):
+                    row.append(_price(val))
                 else:
                     row.append(_num(val))
             t.add_row(*row)
 
         console.print(t)
 
-    console.print(f"[dim]As of {pull_date}[/dim]")
+    console.print(f"[grey70]  As of {pull_date} · Source: Yahoo Finance[/grey70]")
 
 
 # ── Financial statement helpers ────────────────────────────────────────────
@@ -385,7 +444,7 @@ CASHFLOW_FIELDS = [
 
 
 def _show_financials(symbol, section, fields, title):
-    if not _firestore:
+    if not _has_firestore():
         console.print("[yellow]Financials require Firestore. Set FIRESTORE_PROJECT.[/yellow]")
         return
 
@@ -403,7 +462,7 @@ def _show_financials(symbol, section, fields, title):
 
         t = Table(
             title=f"{symbol} — {label} {title}",
-            box=box.SIMPLE_HEAVY, border_style="blue", title_style="bold",
+            box=box.SIMPLE_HEAVY, border_style="green", title_style="bold",
         )
         t.add_column("", style="bold", width=32)
         for p in periods:
@@ -446,7 +505,7 @@ def cmd_cashflow(symbol):
 
 
 def cmd_dividends(symbol):
-    console.print(f"[dim]Fetching live data for {symbol}...[/dim]")
+    console.print(f"[grey70]Fetching live data for {symbol}...[/grey70]")
     info = _yahoo(symbol)
     if not info or not info.get("shortName"):
         console.print(f"[red]{symbol}: no data found[/red]")
@@ -454,7 +513,8 @@ def cmd_dividends(symbol):
 
     t = Table(
         title=f"{symbol} — Dividends",
-        box=box.SIMPLE_HEAVY, border_style="blue", title_style="bold",
+        box=box.SIMPLE_HEAVY, border_style="green", title_style="bold",
+        width=TABLE_WIDTH,
     )
     t.add_column("Metric", style="bold", width=24)
     t.add_column("Value", justify="right", width=16)
@@ -478,16 +538,18 @@ def cmd_dividends(symbol):
 # ── /AAPL short — Short Interest ──────────────────────────────────────────
 
 
-def cmd_short(symbol):
-    console.print(f"[dim]Fetching live data for {symbol}...[/dim]")
-    info = _yahoo(symbol)
+def cmd_short(symbol, info=None):
+    if not info:
+        console.print(f"[grey70]Fetching live data for {symbol}...[/grey70]")
+        info = _yahoo(symbol)
     if not info or not info.get("shortName"):
         console.print(f"[red]{symbol}: no data found[/red]")
         return
 
     t = Table(
         title=f"{symbol} — Short Interest",
-        box=box.SIMPLE_HEAVY, border_style="blue", title_style="bold",
+        box=box.SIMPLE_HEAVY, border_style="green", title_style="bold",
+        width=TABLE_WIDTH,
     )
     t.add_column("Metric", style="bold", width=24)
     t.add_column("Value", justify="right", width=16)
@@ -512,16 +574,18 @@ def cmd_short(symbol):
 # ── /AAPL target — Analyst Targets ────────────────────────────────────────
 
 
-def cmd_target(symbol):
-    console.print(f"[dim]Fetching live data for {symbol}...[/dim]")
-    info = _yahoo(symbol)
+def cmd_target(symbol, info=None):
+    if not info:
+        console.print(f"[grey70]Fetching live data for {symbol}...[/grey70]")
+        info = _yahoo(symbol)
     if not info or not info.get("shortName"):
         console.print(f"[red]{symbol}: no data found[/red]")
         return
 
     t = Table(
         title=f"{symbol} — Analyst Targets",
-        box=box.SIMPLE_HEAVY, border_style="blue", title_style="bold",
+        box=box.SIMPLE_HEAVY, border_style="green", title_style="bold",
+        width=TABLE_WIDTH,
     )
     t.add_column("Metric", style="bold", width=24)
     t.add_column("Value", justify="right", width=16)
@@ -561,7 +625,7 @@ def cmd_target(symbol):
 
 
 def cmd_chart(symbol):
-    if not _firestore:
+    if not _has_firestore():
         console.print("[yellow]Chart requires Firestore. Set FIRESTORE_PROJECT.[/yellow]")
         return
 
@@ -579,26 +643,48 @@ def cmd_chart(symbol):
         lows = [p["low"] for p in prices]
         volumes = [p.get("volume", 0) for p in prices]
 
-        plt.clear_figure()
-        plt.theme("dark")
-        plt.plot_size(console.width - 4, 20)
-        plt.plot(closes, label="Close")
-        plt.title(f"{symbol} — 1 Year ({dates[0]} to {dates[-1]})")
-        plt.xlabel("Trading Days")
-        plt.ylabel("Price ($)")
-        plt.show()
+        n = len(dates)
+        tick_count = 6
+        step = max(1, n // tick_count)
+        tick_idx = list(range(0, n, step))
+        if tick_idx[-1] != n - 1:
+            tick_idx.append(n - 1)
+        tick_labels = [dates[i] for i in tick_idx]
+
+        chart_width = min(console.width - 4, TABLE_WIDTH)
+
+        price_min = min(closes)
+        price_max = max(closes)
+        price_step = (price_max - price_min) / 5
+        price_ticks = [price_min + i * price_step for i in range(6)]
+        price_labels = [f"${v:,.0f}" for v in price_ticks]
 
         plt.clear_figure()
         plt.theme("dark")
-        plt.plot_size(console.width - 4, 8)
-        plt.bar(list(range(len(volumes))), volumes, width=1)
+        plt.plot_size(chart_width, 18)
+        plt.plot(list(range(n)), closes, label="Close")
+        plt.title(f"{symbol} — 1 Year")
+        plt.xticks(tick_idx, tick_labels)
+        plt.yticks(price_ticks, price_labels)
+        plt.show()
+
+        vol_max = max(volumes) if volumes else 0
+        vol_ticks = [0, vol_max / 2, vol_max]
+        vol_labels = [_count(v) for v in vol_ticks]
+
+        plt.clear_figure()
+        plt.theme("dark")
+        plt.plot_size(chart_width, 6)
+        plt.bar(list(range(n)), volumes, width=1)
         plt.title("Volume")
+        plt.xticks(tick_idx, tick_labels)
+        plt.yticks(vol_ticks, vol_labels)
         plt.show()
 
     except ImportError:
         t = Table(
             title=f"{symbol} — Recent Prices",
-            box=box.SIMPLE_HEAVY, border_style="blue",
+            box=box.SIMPLE_HEAVY, border_style="green",
         )
         t.add_column("Date", width=12)
         t.add_column("Open", justify="right", width=10)
@@ -613,7 +699,7 @@ def cmd_chart(symbol):
                 _price(p["low"]), _price(p["close"]), _count(p.get("volume")),
             )
         console.print(t)
-        console.print("[dim]Install plotext for interactive charts: pip install plotext[/dim]")
+        console.print("[grey70]Install plotext for interactive charts: pip install plotext[/grey70]")
 
 
 # ── /AAPL mgmt — Management / CEO ─────────────────────────────────────────
@@ -638,13 +724,13 @@ def _get_ceorater(symbol):
 
 
 def cmd_mgmt(symbol):
-    console.print(f"[dim]Fetching management data for {symbol}...[/dim]")
+    console.print(f"[grey70]Fetching management data for {symbol}...[/grey70]")
 
     ceo_data = _get_ceorater(symbol)
     if ceo_data:
         t = Table(
             title=f"{symbol} — CEO (via CEORater)",
-            box=box.SIMPLE_HEAVY, border_style="blue", title_style="bold",
+            box=box.SIMPLE_HEAVY, border_style="green", title_style="bold",
         )
         t.add_column("", style="bold", width=20)
         t.add_column("", width=20)
@@ -664,16 +750,16 @@ def cmd_mgmt(symbol):
 
         console.print(t)
     elif CEORATER_API_KEY:
-        console.print(f"[dim]No CEORater data for {symbol}[/dim]")
+        console.print(f"[grey70]No CEORater data for {symbol}[/grey70]")
     else:
-        console.print("[dim]CEORater data requires CEORATER_API_KEY[/dim]")
+        console.print("[grey70]CEORater data requires CEORATER_API_KEY[/grey70]")
 
     info = _yahoo(symbol)
     officers = info.get("companyOfficers", [])
     if officers:
         t = Table(
             title=f"{symbol} — Officers",
-            box=box.SIMPLE_HEAVY, border_style="blue", title_style="bold",
+            box=box.SIMPLE_HEAVY, border_style="green", title_style="bold",
         )
         t.add_column("Name", style="bold", width=24)
         t.add_column("Title", width=32)
@@ -713,7 +799,7 @@ def _load_cik_cache():
 
 
 def cmd_filings(symbol):
-    console.print(f"[dim]Fetching SEC filings for {symbol}...[/dim]")
+    console.print(f"[grey70]Fetching SEC filings for {symbol}...[/grey70]")
     _load_cik_cache()
 
     cik = _cik_cache.get(symbol)
@@ -749,12 +835,12 @@ def cmd_filings(symbol):
 
     t = Table(
         title=f"{symbol} — Recent SEC Filings",
-        box=box.SIMPLE_HEAVY, border_style="blue", title_style="bold",
+        box=box.SIMPLE_HEAVY, border_style="green", title_style="bold",
     )
     t.add_column("Date", width=12)
     t.add_column("Form", style="bold", width=10)
     t.add_column("Description", width=40)
-    t.add_column("Accession", style="dim", width=24)
+    t.add_column("Accession", style="grey70", width=24)
 
     count = min(15, len(forms))
     for i in range(count):
@@ -772,7 +858,7 @@ def cmd_filings(symbol):
 
 
 def cmd_news(symbol):
-    console.print(f"[dim]Fetching news for {symbol}...[/dim]")
+    console.print(f"[grey70]Fetching news for {symbol}...[/grey70]")
     try:
         t = yf.Ticker(symbol)
         news = t.news
@@ -794,10 +880,10 @@ def cmd_news(symbol):
                     pass
 
             console.print(f"  [bold white]{title}[/bold white]")
-            meta = f"  [dim]{publisher}"
+            meta = f"  [grey70]{publisher}"
             if date_str:
                 meta += f" · {date_str}"
-            meta += "[/dim]"
+            meta += "[/grey70]"
             console.print(meta)
             if link:
                 console.print(f"  [blue underline]{link}[/blue underline]")
@@ -811,7 +897,7 @@ def cmd_news(symbol):
 
 
 def cmd_compare(symbols):
-    console.print(f"[dim]Fetching live data for {', '.join(symbols)}...[/dim]")
+    console.print(f"[grey70]Fetching live data for {', '.join(symbols)}...[/grey70]")
 
     infos = {}
     for sym in symbols:
@@ -826,7 +912,7 @@ def cmd_compare(symbols):
 
     t = Table(
         title="Comparison",
-        box=box.SIMPLE_HEAVY, border_style="blue", title_style="bold",
+        box=box.SIMPLE_HEAVY, border_style="green", title_style="bold",
         expand=True,
     )
     t.add_column("Metric", style="bold", width=16)
@@ -834,7 +920,7 @@ def cmd_compare(symbols):
         name = infos[sym].get("shortName", sym)
         if len(name) > 16:
             name = name[:13] + "..."
-        t.add_column(f"{sym}\n[dim]{name}[/dim]", justify="right", width=14)
+        t.add_column(f"{sym}\n[grey70]{name}[/grey70]", justify="right", width=14)
 
     metrics = [
         ("Price", lambda i: _price(
@@ -867,6 +953,25 @@ def cmd_compare(symbols):
     console.print(t)
 
 
+# ── /AAPL — Full Report ───────────────────────────────────────────────────
+
+
+def cmd_full(symbol):
+    console.print(f"[grey70]Fetching data for {symbol}...[/grey70]")
+    info = _yahoo(symbol)
+    if not info or not info.get("shortName"):
+        console.print(f"[red]{symbol}: no data found[/red]")
+        return
+
+    cmd_overview(symbol, info=info)
+    console.print("[grey70]  Source: Yahoo Finance[/grey70]")
+    console.print()
+    cmd_estimates(symbol)
+    console.print()
+    cmd_short(symbol, info=info)
+    console.print("[grey70]  Source: Yahoo Finance[/grey70]")
+
+
 # ── Command router ─────────────────────────────────────────────────────────
 
 SUBCMDS = {
@@ -877,7 +982,6 @@ SUBCMDS = {
     "div": cmd_dividends,
     "short": cmd_short,
     "target": cmd_target,
-    "chart": cmd_chart,
     "mgmt": cmd_mgmt,
     "filings": cmd_filings,
     "news": cmd_news,
@@ -885,20 +989,13 @@ SUBCMDS = {
 
 
 def main():
-    console.print(BANNER)
-    _check_for_update()
-
-    if _firestore:
-        console.print("[dim]  Firestore: connected[/dim]")
-    else:
-        console.print("[yellow]  Firestore: not connected (live commands only)[/yellow]")
-    console.print()
+    _print_banner()
 
     while True:
         try:
-            line = console.input("[bold blue]tek2day>[/bold blue] ")
+            line = console.input("[bold green]tek2day>[/bold green] ")
         except (EOFError, KeyboardInterrupt):
-            console.print("\n[dim]Goodbye.[/dim]")
+            console.print("\n[grey70]Goodbye.[/grey70]")
             break
 
         line = line.strip()
@@ -916,11 +1013,11 @@ def main():
         first = parts[0].lower()
 
         if first in ("exit", "quit", "q"):
-            console.print("[dim]Goodbye.[/dim]")
+            console.print("[grey70]Goodbye.[/grey70]")
             break
 
         if first == "help":
-            console.print(BANNER)
+            _print_banner()
             continue
 
         if first == "compare":
@@ -937,7 +1034,7 @@ def main():
         subcmd = parts[1].lower() if len(parts) > 1 else None
 
         if subcmd is None:
-            cmd_overview(symbol)
+            cmd_full(symbol)
         elif subcmd in SUBCMDS:
             SUBCMDS[subcmd](symbol)
         else:

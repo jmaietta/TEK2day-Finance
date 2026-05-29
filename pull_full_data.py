@@ -33,11 +33,11 @@ MAX_FIRESTORE_RETRIES = 5
 
 def get_already_onboarded():
     db = storage.get_db()
-    docs = db.collection_group("estimates").select([]).stream()
+    docs = db.collection("tickers").where("onboard_status", "==", "done").select([]).stream()
     onboarded = set()
     for doc in docs:
-        onboarded.add(doc.reference.parent.parent.id)
-    logger.info("%d tickers already have estimate data", len(onboarded))
+        onboarded.add(doc.id)
+    logger.info("%d tickers already onboarded", len(onboarded))
     return onboarded
 
 
@@ -116,6 +116,14 @@ def pull_ticker(symbol):
             f"{symbol} estimates write",
         )
         pulled = True
+    else:
+        db = storage.get_db()
+        firestore_write_with_retry(
+            lambda: db.collection("tickers").document(symbol)
+                     .collection("estimates").document("_no_coverage")
+                     .set({"checked_at": datetime.now(timezone.utc).isoformat(), "symbol": symbol}),
+            f"{symbol} no_coverage marker",
+        )
     time.sleep(DELAY)
 
     # Prices — 5 years
