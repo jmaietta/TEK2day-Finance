@@ -27,6 +27,14 @@ tek2day
 
 This launches the interactive terminal. All commands start with `/`.
 
+## Screenshots
+
+![TEK2day Finance terminal menu](https://raw.githubusercontent.com/jmaietta/TEK2day-Finance/main/docs/screenshots/terminal-menu.png)
+
+![Ticker summary](https://raw.githubusercontent.com/jmaietta/TEK2day-Finance/main/docs/screenshots/ticker-summary.png)
+
+![Comp table](https://raw.githubusercontent.com/jmaietta/TEK2day-Finance/main/docs/screenshots/comp-table.png)
+
 ### Commands
 
 The terminal displays the following public slash-command menu:
