@@ -10,7 +10,7 @@ This document describes how TEK2day Finance captures, stores, and presents finan
 
 | Source | Data Type | Method |
 |--------|-----------|--------|
-| Yahoo Finance (yfinance) | Prices, estimates, financials, metadata, dividends, short interest, analyst targets, news | Python `yfinance` library |
+| Yahoo Finance (yfinance) | Prices, financials, metadata, news, and related market data | Python `yfinance` library |
 | Yahoo Finance (live) | Real-time price, market cap, P/E, all price-derived metrics | Live `yfinance` call at query time |
 | SEC EDGAR API | SEC filings (10-K, 10-Q, 8-K, Form 4, etc.) | REST API: `data.sec.gov/submissions/` |
 | CEORater API | CEO name, founder status, CEORater score, alpha score, comp score, compensation, TSR | REST API: `api.ceorater.com/v1/ceo/{ticker}` |
@@ -101,18 +101,15 @@ Firestore has no hard storage cap on the Blaze plan. At $0.18/GB/month, storage 
 TEK2day Finance uses two distinct data paths, and this distinction is critical:
 
 **Stored data** — Historical records read from Firestore. Used for:
-- Price charts and historical price tables
-- Estimate history and consensus tracking over time
 - Income statements, balance sheets, cash flow statements
+- Internal historical price and estimate records
 - Any view labeled "as of" or "as reported"
 
 **Live data** — Real-time queries to Yahoo Finance at the moment the user asks. Used for:
 - Current stock price, change, and volume
 - Market cap (live price × shares outstanding)
 - All valuation ratios: P/E, forward P/E, PEG, P/B, P/S, EV/EBITDA, EV/Revenue
-- Dividend yield, rate, payout ratio
-- Short interest
-- Analyst price targets and recommendations
+- Company metadata and related market data
 
 **Why this matters:** A stock can move 30% intraday. Showing yesterday's close for market cap or P/E would be misleading. Every customer-facing metric that depends on price must use the live price, not the stored end-of-day close.
 
@@ -122,31 +119,20 @@ Interactive REPL with slash commands:
 
 | Command | Data Source | Description |
 |---------|-------------|-------------|
-| `/AAPL` | Live Yahoo | Overview: price, change, volume, market cap, shares out, 52wk range, sector, beta. Valuation: P/E, fwd P/E, PEG, P/B, P/S, EV/EBITDA, EV/Revenue |
-| `/AAPL est` | Firestore | Consensus EPS and revenue estimates: current quarter, next quarter, current year, next year. Shows # analysts, average, high, low, growth |
-| `/AAPL inc` | Firestore | Income statement — quarterly (last 4 quarters) and annual (last 4 years). Key line items: revenue, COGS, gross profit, operating income, EBITDA, net income, EPS |
-| `/AAPL bal` | Firestore | Balance sheet — quarterly and annual. Key line items: cash, current assets, total assets, debt, liabilities, equity |
-| `/AAPL cf` | Firestore | Cash flow — quarterly and annual. Key line items: operating cash flow, capex, free cash flow, investing/financing activities |
-| `/AAPL div` | Live Yahoo | Dividends: yield, rate, payout ratio, ex-dividend date, 5-year average yield |
-| `/AAPL short` | Live Yahoo | Short interest: shares short, short ratio, short % of float |
-| `/AAPL target` | Live Yahoo | Analyst targets: recommendation, mean/median/high/low target, # analysts, upside/downside |
-| `/AAPL chart` | Firestore | 1-year price chart rendered in terminal (via plotext). Falls back to price table if plotext not installed |
-| `/AAPL mgmt` | CEORater + Yahoo | CEO data (name, founder, scores, compensation, TSR) from CEORater API. Company officers from Yahoo |
-| `/AAPL filings` | SEC EDGAR | 15 most recent SEC filings: date, form type, description, accession number |
-| `/AAPL news` | yfinance | Recent news headlines with publisher, date, and link |
-| `/compare AAPL MSFT GOOGL` | Live Yahoo | Side-by-side comp table (up to 20 tickers): price, market cap, EV, revenue, EBITDA, net income, EPS, P/E, PEG, EV/EBITDA, EV/Revenue, EV/OpCF, EV/FCF, dividend yield, beta |
-
-### Web GUI (`app.py`)
-
-FastAPI application serving a browser-based interface:
-- Ticker search
-- TradingView-style candlestick charting (via lightweight-charts)
-- Estimate and financial data tables
-- Styled with TEK2day design language: DM Sans, black background, glass morphism, blue accent
+| `/TICKER` | Live Yahoo | Summary and valuation: price, change, volume, market cap, shares out, 52wk range, sector, beta, P/E, fwd P/E, PEG, P/B, P/S, EV/EBITDA, EV/Revenue |
+| `/TICKER inc` | Firestore | Income statement — quarterly (last 4 quarters) and annual (last 4 years). Key line items: revenue, COGS, gross profit, operating income, EBITDA, net income, EPS |
+| `/TICKER bal` | Firestore | Balance sheet — quarterly and annual. Key line items: cash, current assets, total assets, debt, liabilities, equity |
+| `/TICKER cf` | Firestore | Cash flow — quarterly and annual. Key line items: operating cash flow, capex, free cash flow, investing/financing activities |
+| `/TICKER mgmt` | CEORater + Yahoo | CEO data from CEORater API when configured. Company officer data may be available from Yahoo |
+| `/TICKER filings` | SEC EDGAR | Recent SEC filings: date, form type, description, accession number |
+| `/TICKER news` | yfinance | Recent news headlines with publisher, date, and link |
+| `/comp TICKER1 TICKER2 ...` | Live Yahoo | Side-by-side comp table for up to 6 tickers: price, market cap, EV, revenue, EBITDA, net income, EPS, P/E, P/S, EV/EBITDA, EV/Revenue, EV/OpCF, EV/FCF, dividend yield, beta |
+| `/help` | Terminal | Reprint the public command menu |
+| `/exit` | Terminal | Quit the terminal |
 
 ### Metric Consistency
 
-If the same metric (e.g., P/E, market cap, EV/EBITDA) appears in multiple commands — for example in both `/AAPL` and `/compare` — it uses the same formula and the same data source. All price-derived metrics are calculated from the live Yahoo price in every context where they appear.
+If the same metric (e.g., P/E, market cap, EV/EBITDA) appears in multiple commands — for example in both `/TICKER` and `/comp TICKER1 TICKER2 ...` — it uses the same formula and the same data source. All price-derived metrics are calculated from the live Yahoo price in every context where they appear.
 
 ---
 
@@ -156,10 +142,9 @@ If the same metric (e.g., P/E, market cap, EV/EBITDA) appears in multiple comman
 |-----------|---------------|
 | No duplicate documents | Document ID = natural key (date, period, symbol). Writing the same key overwrites, never duplicates |
 | No overwriting financials | `write_financials()` checks existence before writing. Returns immediately if document exists |
-| No stale prices in queries | Live commands always call Yahoo real-time. Stored prices are for history/charts only |
+| No stale prices in queries | Live commands always call Yahoo real-time. Stored prices are for historical records only |
 | Retry on failure | Yahoo calls: 3 attempts with exponential backoff. Firestore writes: 5 attempts with 60s × attempt backoff |
 | Rate limit protection | Configurable delay between Yahoo calls (5–10 seconds). Prevents permanent API blocks |
 | Split adjustment | Weekly split detection re-pulls adjusted historical prices when a split is detected |
 | Market cap filter | Tickers with market cap < $100M are excluded from the active universe to reduce API load and storage |
 | Dot-ticker handling | Tickers like BF.B are mapped to BF-B for Yahoo API compatibility |
-
