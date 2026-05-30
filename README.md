@@ -7,7 +7,7 @@ Open-source stock data terminal — market data and fundamentals.
 - **Live market data** — real-time prices, valuation ratios, company metadata, and news from Yahoo Finance
 - **Stored financials** — quarterly and annual income statements, balance sheets, and cash flow statements
 - **SEC filings** — recent 10-K, 10-Q, 8-K, and other filings from SEC EDGAR
-- **CEO data** — scores, compensation, and tenure via CEORater API (optional)
+- **CEO Analytics** — via CEORater
 - **Comp tables** — side-by-side comparison of up to 6 tickers
 - **Cross-platform** — Linux, Mac, Windows
 
