@@ -74,7 +74,7 @@ tek2day
 
 - **Yahoo Finance** — prices, financials, news, company metadata, and related market data
 - **SEC EDGAR** — regulatory filings (10-K, 10-Q, 8-K, Form 4, etc.)
-- **CEORater** — CEO performance scores, compensation, and total shareholder return (optional, requires API key)
+- **CEORater** — CEO Analytics via CEORater
 
 ## License
 
