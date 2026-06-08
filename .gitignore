@@ -28,3 +28,4 @@ Thumbs.db
 *.xlsx
 BUILD_LIST.md
 upload.bat
+pypi-token.txt
