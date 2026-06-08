@@ -73,6 +73,8 @@ Yahoo Finance live calls are used for:
 - price change percent
 - volume
 - 52-week price range
+- company description
+- short interest when Firestore metadata does not contain short-interest fields
 - recent news
 
 SEC EDGAR is used for filings. CEORater is used for management/CEO analytics.
@@ -95,7 +97,7 @@ plus the live Yahoo quote:
 
 | Command | Source Rule |
 |---------|-------------|
-| `/TICKER` | Firestore fundamentals plus live Yahoo quote |
+| `/TICKER` | Firestore fundamentals and estimates, live Yahoo quote, Yahoo company description, and short interest from Firestore when present with Yahoo fallback |
 | `/TICKER inc` | Firestore financials |
 | `/TICKER bal` | Firestore financials |
 | `/TICKER cf` | Firestore financials |

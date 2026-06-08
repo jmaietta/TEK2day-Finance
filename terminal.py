@@ -583,6 +583,11 @@ def _market_snapshot(symbol):
     }
 
 
+def _company_summary(symbol, snap):
+    info = _yahoo(symbol)
+    return info.get("longBusinessSummary", "") or (snap or {}).get("summary", "")
+
+
 def _get_diluted_shares(symbol, info):
     if _has_firestore():
         try:
@@ -650,7 +655,7 @@ def cmd_overview(symbol, info=None):
     for r in rows:
         t.add_row(*r)
 
-    desc = snap.get("summary", "")
+    desc = _company_summary(symbol, snap)
     if desc and len(desc) > 220:
         desc = desc[:217] + "..."
 
@@ -919,16 +924,33 @@ def cmd_dividends(symbol):
     console.print(t)
 
 
-# ── /AAPL short — Short Interest ──────────────────────────────────────────
+# ── Short Interest section used inside /AAPL summary ──────────────────────
 
 
 def cmd_short(symbol, info=None):
     meta = _firestore_meta(symbol)
     if meta is None:
-        console.print("[yellow]Short interest requires Firestore. Set FIRESTORE_PROJECT.[/yellow]")
-        return
-    if not meta:
-        console.print(f"[yellow]No stored short interest for {symbol}[/yellow]")
+        meta = {}
+    source = "Firestore metadata"
+    values = {
+        "date": _first_value(meta, ["date_short_interest", "dateShortInterest"]),
+        "shares": _first_value(meta, ["shares_short", "sharesShort"]),
+        "ratio": _first_value(meta, ["short_ratio", "shortRatio"]),
+        "float_pct": _first_value(meta, ["short_percent_of_float", "shortPercentOfFloat"]),
+        "shares_out_pct": _first_value(meta, ["shares_percent_shares_out", "sharesPercentSharesOut"]),
+    }
+    if not any(v is not None for v in values.values()):
+        info = info or _yahoo(symbol)
+        source = "Yahoo Finance"
+        values = {
+            "date": info.get("dateShortInterest"),
+            "shares": info.get("sharesShort"),
+            "ratio": info.get("shortRatio"),
+            "float_pct": info.get("shortPercentOfFloat"),
+            "shares_out_pct": info.get("sharesPercentSharesOut"),
+        }
+    if not any(v is not None for v in values.values()):
+        console.print(f"[yellow]No short interest found for {symbol}[/yellow]")
         return
 
     t = Table(
@@ -939,25 +961,18 @@ def cmd_short(symbol, info=None):
     t.add_column("Metric", style="bold", width=24)
     t.add_column("Value", justify="right", width=16)
 
-    short_date = _first_value(meta, ["date_short_interest", "dateShortInterest"])
+    short_date = values["date"]
     if isinstance(short_date, (int, float)):
         short_date = datetime.fromtimestamp(short_date).strftime("%Y-%m-%d")
 
-    t.add_row("Shares Short", _count(
-        _first_value(meta, ["shares_short", "sharesShort"])
-    ))
-    t.add_row("Short Ratio", _num(
-        _first_value(meta, ["short_ratio", "shortRatio"])
-    ))
-    t.add_row("Short % of Float", _pct(
-        _first_value(meta, ["short_percent_of_float", "shortPercentOfFloat"])
-    ))
-    t.add_row("Short % of Shares Out", _pct(
-        _first_value(meta, ["shares_percent_shares_out", "sharesPercentSharesOut"])
-    ))
+    t.add_row("Shares Short", _count(values["shares"]))
+    t.add_row("Short Ratio", _num(values["ratio"]))
+    t.add_row("Short % of Float", _pct(values["float_pct"]))
+    t.add_row("Short % of Shares Out", _pct(values["shares_out_pct"]))
     t.add_row("As of", str(short_date or "N/A"))
 
     console.print(t)
+    console.print(f"[grey70]  Source: {source}[/grey70]")
 
 
 # ── /AAPL target — Analyst Targets ────────────────────────────────────────
@@ -1386,12 +1401,11 @@ def cmd_compare(symbols):
 
 def cmd_full(symbol):
     cmd_overview(symbol)
-    console.print("[grey70]  Source: Firestore fundamentals + live Yahoo quote[/grey70]")
+    console.print("[grey70]  Source: Firestore fundamentals + live Yahoo quote + Yahoo company profile[/grey70]")
     console.print()
     cmd_estimates(symbol)
     console.print()
     cmd_short(symbol)
-    console.print("[grey70]  Source: Firestore metadata[/grey70]")
 
 
 # ── Command router ─────────────────────────────────────────────────────────

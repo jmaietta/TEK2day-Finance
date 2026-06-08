@@ -95,9 +95,12 @@ tek2day
 
 **Overview and valuation:**
 `/TICKER` - live price, change, volume, market cap, shares outstanding, 52-week
-range, sector, industry, P/E, forward P/E, P/S, EV/EBITDA, and EV/Revenue.
-Stored fundamentals come from Firestore; live price-sensitive values are
-calculated from the current Yahoo quote.
+range, sector, industry, company description, P/E, forward P/E, P/S,
+EV/EBITDA, EV/Revenue, EPS/revenue estimates, and short interest. Stored
+fundamentals and estimates come from Firestore; live price-sensitive values are
+calculated from the current Yahoo quote. Company description comes from Yahoo
+Finance. Short interest uses Firestore metadata when present and falls back to
+Yahoo Finance when Firestore does not have short-interest fields.
 
 **Compare tickers:**
 `/comp TICKER1 TICKER2 ...` - side-by-side table with price, market cap, EV,
@@ -112,7 +115,7 @@ operating income, EBITDA, net income, EPS, and more.
 ## Data Sources
 
 - **Firestore** - stored ticker metadata, estimates, prices, and financial statements
-- **Yahoo Finance** - live quote fields and recent news
+- **Yahoo Finance** - live quote fields, company description, short-interest fallback, and recent news
 - **SEC EDGAR** - regulatory filings (10-K, 10-Q, 8-K, Form 4, etc.)
 - **CEORater** - CEO Analytics via CEORater
 
