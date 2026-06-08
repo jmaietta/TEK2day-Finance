@@ -19,85 +19,247 @@
       color-scheme: dark;
       --bg: #000;
       --panel: #050505;
-      --panel-2: #0a0a0a;
       --line: #171717;
-      --line-2: #242424;
+      --line-2: #252525;
       --text: #e5e7eb;
-      --muted: #7a7a7a;
-      --dim: #4b5563;
+      --muted: #858585;
       --blue: #2563eb;
       --blue-2: #3b82f6;
       --green: #4ade80;
       --red: #f87171;
+      --sidebar-width: 300px;
       --radius: 8px;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; background: var(--bg); }
 
     body {
-      min-height: 100vh;
-      background: var(--bg);
       color: var(--text);
       font-family: "DM Sans", system-ui, sans-serif;
       overflow: hidden;
     }
 
     button, input { font: inherit; }
-    button { cursor: pointer; }
+    button { color: inherit; cursor: pointer; }
 
     .shell {
       display: grid;
-      grid-template-rows: 58px 1fr;
-      height: 100vh;
+      grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+      width: 100%;
+      height: 100dvh;
+      background: #000;
     }
 
-    .topbar {
+    .sidebar {
       display: flex;
+      min-width: 0;
+      min-height: 0;
+      flex-direction: column;
+      border-right: 1px solid var(--line);
+      background: #050505;
+    }
+
+    .sidebar-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
       align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      padding: 0 18px;
+      gap: 8px;
+      min-height: 58px;
+      padding: 10px;
       border-bottom: 1px solid var(--line);
-      background: #000;
     }
 
     .brand {
       display: flex;
       align-items: center;
+      min-width: 0;
       gap: 10px;
-      min-width: 220px;
     }
 
     .brand img {
-      width: 30px;
-      height: 30px;
+      width: 28px;
+      height: 28px;
+      flex: 0 0 auto;
       border-radius: 6px;
     }
 
-    .brand-title {
-      display: flex;
-      flex-direction: column;
-      line-height: 1.1;
-    }
-
-    .brand-title strong {
+    .brand strong {
+      overflow: hidden;
       color: #fff;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 700;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
-    .brand-title span {
+    .icon-btn {
+      display: inline-grid;
+      width: 34px;
+      height: 34px;
+      place-items: center;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--muted);
+      font-family: "Fira Code", Consolas, monospace;
+      font-size: 15px;
+    }
+
+    .icon-btn:hover {
+      border-color: var(--line-2);
+      background: #0b0b0b;
+      color: #fff;
+    }
+
+    .hamburger {
+      position: relative;
+      width: 16px;
+      height: 2px;
+      border-radius: 999px;
+      background: currentColor;
+    }
+
+    .hamburger::before,
+    .hamburger::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      width: 16px;
+      height: 2px;
+      border-radius: 999px;
+      background: currentColor;
+    }
+
+    .hamburger::before { top: -5px; }
+    .hamburger::after { top: 5px; }
+
+    .sidebar-body {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 10px;
+    }
+
+    .sidebar-section { margin-bottom: 16px; }
+
+    .section-title {
+      margin: 8px 8px 6px;
+      color: #6b7280;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .nav-list {
+      display: grid;
+      gap: 2px;
+    }
+
+    .nav-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      background: transparent;
+      padding: 5px 8px;
+      text-align: left;
+    }
+
+    .nav-item:hover,
+    .nav-item:focus-visible {
+      border-color: #151515;
+      background: #0b0b0b;
+      outline: none;
+    }
+
+    .nav-icon {
+      display: none;
+      width: 28px;
+      height: 28px;
+      place-items: center;
+      border-radius: 7px;
+      color: #d4d4d4;
+      font-family: "Fira Code", Consolas, monospace;
+      font-size: 12px;
+    }
+
+    .nav-copy { min-width: 0; }
+
+    .nav-copy code {
+      display: block;
+      overflow: hidden;
+      color: #f5f5f5;
+      font-family: "Fira Code", Consolas, monospace;
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .nav-copy span {
+      display: block;
+      overflow: hidden;
       color: var(--muted);
       font-size: 11px;
-      margin-top: 3px;
+      line-height: 1.35;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
-    .command-form {
-      display: grid;
-      grid-template-columns: 1fr auto;
+    .sidebar-foot {
+      border-top: 1px solid var(--line);
+      padding: 10px;
+    }
+
+    .status {
+      display: flex;
       align-items: center;
+      gap: 8px;
+      min-height: 32px;
+      color: var(--muted);
+      font-family: "Fira Code", Consolas, monospace;
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--green);
+      box-shadow: 0 0 14px rgba(74, 222, 128, 0.45);
+    }
+
+    .main {
+      display: flex;
+      min-width: 0;
+      min-height: 0;
+      flex-direction: column;
+      background: #000;
+    }
+
+    .command-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
       gap: 10px;
-      width: min(780px, 58vw);
+      min-height: 58px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #000;
+    }
+
+    .mobile-menu-btn { display: none; }
+
+    .command-form {
+      position: relative;
+      min-width: 0;
+      width: min(820px, 100%);
     }
 
     .command-input {
@@ -110,12 +272,12 @@
       font-family: "Fira Code", Consolas, monospace;
       font-size: 13px;
       outline: none;
-      padding: 0 14px;
+      padding: 0 52px 0 14px;
     }
 
     .command-input:focus {
       border-color: var(--blue);
-      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2);
+      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.22);
     }
 
     .command-input::placeholder {
@@ -124,14 +286,30 @@
     }
 
     .run-btn {
-      min-width: 76px;
-      height: 38px;
+      position: absolute;
+      top: 50%;
+      right: 4px;
+      transform: translateY(-50%);
+      display: inline-grid;
+      place-items: center;
+      min-width: 0;
+      width: 32px;
+      height: 30px;
       border: 1px solid transparent;
-      border-radius: var(--radius);
-      background: var(--blue);
+      border-radius: 6px;
+      background: #111;
       color: #fff;
-      font-size: 13px;
-      font-weight: 700;
+    }
+
+    .run-btn:hover {
+      border-color: var(--blue-2);
+      background: #0b0b0b;
+    }
+
+    .run-btn svg {
+      width: 17px;
+      height: 17px;
+      stroke: currentColor;
     }
 
     .run-btn:disabled {
@@ -139,128 +317,39 @@
       opacity: 0.65;
     }
 
-    .status {
+    .content {
       display: flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--muted);
-      font-family: "Fira Code", Consolas, monospace;
-      font-size: 11px;
-      min-width: 96px;
-      text-transform: uppercase;
-    }
-
-    .status-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 999px;
-      background: var(--green);
-      box-shadow: 0 0 14px rgba(74, 222, 128, 0.45);
-    }
-
-    .workspace {
-      display: grid;
-      grid-template-columns: 320px minmax(0, 1fr);
+      flex: 1;
+      min-width: 0;
       min-height: 0;
-    }
-
-    .rail,
-    .terminal-pane {
-      min-height: 0;
-      border-right: 1px solid var(--line);
-      background: #000;
-    }
-
-    .rail {
-      display: flex;
       flex-direction: column;
-      background: #020202;
     }
 
-    .rail-section {
-      padding: 16px;
-      border-bottom: 1px solid var(--line);
-    }
-
-    .section-title {
-      margin-bottom: 10px;
-      color: var(--muted);
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .command-list {
-      display: grid;
-      gap: 8px;
-    }
-
-    .command-card {
-      display: grid;
-      grid-template-columns: 140px 1fr;
-      align-items: center;
-      gap: 10px;
-      width: 100%;
-      min-height: 42px;
-      border: 1px solid #151515;
-      border-radius: var(--radius);
-      background: var(--panel);
-      color: var(--text);
-      text-align: left;
-      padding: 9px 10px;
-    }
-
-    .command-card:hover {
-      border-color: var(--blue-2);
-      background: #080808;
-    }
-
-    .command-card code {
-      color: #fff;
-      font-family: "Fira Code", Consolas, monospace;
-      font-size: 11px;
-    }
-
-    .command-card span {
-      color: var(--muted);
-      font-size: 12px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .terminal-pane {
-      display: flex;
-      flex-direction: column;
-      border-right: 0;
-    }
-
-    .pane-head {
+    .content-head {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      height: 48px;
+      min-height: 48px;
       padding: 0 16px;
       border-bottom: 1px solid var(--line);
       background: #000;
     }
 
-    .pane-title {
+    .content-title {
       display: flex;
-      align-items: center;
+      align-items: baseline;
       gap: 9px;
       min-width: 0;
     }
 
-    .pane-title strong {
+    .content-title strong {
       color: #fff;
       font-size: 13px;
       font-weight: 700;
     }
 
-    .pane-title span {
+    .content-title span {
       overflow: hidden;
       color: var(--muted);
       font-family: "Fira Code", Consolas, monospace;
@@ -269,35 +358,255 @@
       white-space: nowrap;
     }
 
-    .copy-btn {
-      height: 30px;
-      border: 1px solid var(--line-2);
-      border-radius: 7px;
-      background: #080808;
-      color: var(--muted);
-      padding: 0 10px;
-      font-size: 12px;
-    }
-
-    .copy-btn:hover {
-      color: #fff;
-      border-color: var(--blue-2);
-    }
-
     .terminal-output {
       flex: 1;
+      min-width: 0;
       min-height: 0;
       overflow: auto;
       padding: 16px;
       background: #000;
       color: #d6d6d6;
+    }
+
+    .native-panel {
       display: grid;
-      align-content: start;
+      gap: 14px;
+      max-width: 1040px;
+      padding: 4px 0 40px;
+    }
+
+    .native-section {
+      display: grid;
+      gap: 8px;
+    }
+
+    .native-section h2 {
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .summary-card {
+      border: 1px solid #151515;
+      border-radius: var(--radius);
+      background: #050505;
+      padding: 16px;
+    }
+
+    .summary-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .summary-title {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .summary-title h1 {
+      color: #fff;
+      font-size: 19px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .summary-title span {
+      color: var(--muted);
+      font-family: "Fira Code", Consolas, monospace;
+      font-size: 12px;
+    }
+
+    .price-stack {
+      display: grid;
+      justify-items: end;
+      gap: 3px;
+      white-space: nowrap;
+    }
+
+    .price-stack strong {
+      color: #fff;
+      font-family: "Fira Code", Consolas, monospace;
+      font-size: 18px;
+    }
+
+    .price-stack span {
+      color: var(--muted);
+      font-family: "Fira Code", Consolas, monospace;
+      font-size: 12px;
+    }
+
+    .price-stack .down { color: var(--red); }
+    .price-stack .up { color: var(--green); }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 8px;
+    }
+
+    .metric {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+      border: 1px solid #111;
+      border-radius: var(--radius);
+      background: #030303;
+      padding: 10px;
+    }
+
+    .metric span {
+      overflow-wrap: anywhere;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .metric strong {
+      overflow-wrap: anywhere;
+      color: #f5f5f5;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .description {
+      margin-top: 14px;
+      color: #cbd5e1;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .source-line {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .estimate-table,
+    .data-table {
+      overflow: hidden;
+      border: 1px solid #151515;
+      border-radius: var(--radius);
+      background: #050505;
+    }
+
+    .estimate-row,
+    .matrix-row {
+      display: grid;
+      grid-template-columns: minmax(126px, 1.1fr) repeat(var(--cols, 4), minmax(76px, 1fr));
+      border-top: 1px solid #101010;
+    }
+
+    .data-row {
+      display: grid;
+      grid-template-columns: repeat(var(--cols, 4), minmax(96px, 1fr));
+      border-top: 1px solid #101010;
+    }
+
+    .estimate-row:first-child,
+    .matrix-row:first-child,
+    .data-row:first-child { border-top: 0; }
+
+    .estimate-cell,
+    .data-cell {
+      min-width: 0;
+      padding: 9px 10px;
+      color: #e5e7eb;
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .estimate-cell:not(:first-child),
+    .matrix-row .data-cell:not(:first-child) {
+      text-align: right;
+      font-family: "Fira Code", Consolas, monospace;
+    }
+
+    .estimate-head .estimate-cell,
+    .data-head .data-cell {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .data-cell code {
+      color: #f5f5f5;
+      font-family: "Fira Code", Consolas, monospace;
+      font-size: 11px;
+    }
+
+    .data-cell a,
+    .news-item {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .data-cell a:hover,
+    .news-item:hover .news-title {
+      color: #fff;
+    }
+
+    .news-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .news-item {
+      display: grid;
+      gap: 5px;
+      border: 1px solid #151515;
+      border-radius: var(--radius);
+      background: #050505;
+      padding: 12px;
+    }
+
+    .news-title {
+      color: #f5f5f5;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .news-meta {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .native-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 8px;
+    }
+
+    .native-command {
+      display: grid;
+      grid-template-columns: minmax(100px, auto) minmax(0, 1fr);
+      align-items: center;
       gap: 12px;
+      min-height: 42px;
+      border: 1px solid #151515;
+      border-radius: var(--radius);
+      background: #050505;
+      padding: 10px 12px;
+    }
+
+    .native-command code {
+      color: #fff;
+      font-family: "Fira Code", Consolas, monospace;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .native-command span {
+      color: var(--muted);
+      font-size: 12px;
     }
 
     .output-block {
       overflow: auto;
+      max-width: 100%;
       border: 1px solid #151515;
       border-radius: var(--radius);
       background: var(--panel);
@@ -313,222 +622,236 @@
     }
 
     .terminal-output.empty {
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: grid;
+      place-items: center;
       color: var(--muted);
       text-align: center;
     }
 
     .terminal-output.error { color: var(--red); }
 
-    .history {
-      display: grid;
-      gap: 8px;
-    }
-
-    .history button {
-      width: 100%;
-      border: 1px solid #151515;
-      border-radius: var(--radius);
-      background: var(--panel);
-      color: #cbd5e1;
-      padding: 8px 10px;
-      text-align: left;
-      font-family: "Fira Code", Consolas, monospace;
-      font-size: 11px;
-    }
+    .scrim { display: none; }
 
     @media (max-width: 1100px) {
-      body { overflow: auto; }
-      .shell { height: auto; min-height: 100vh; }
-      .command-form { width: min(620px, 52vw); }
+      .command-bar { justify-content: stretch; }
     }
 
     @media (max-width: 760px) {
       body {
-        overflow: auto;
+        overflow: hidden;
         -webkit-text-size-adjust: 100%;
       }
+
       .shell {
-        grid-template-rows: auto 1fr;
-        min-height: 100svh;
+        display: block;
+        width: 100%;
+        height: 100dvh;
       }
-      .topbar {
+
+      .sidebar {
+        position: fixed;
+        inset: 0 auto 0 0;
+        z-index: 40;
+        width: min(84vw, 320px);
+        transform: translateX(-102%);
+        transition: transform 160ms ease;
+        box-shadow: 14px 0 40px rgba(0, 0, 0, 0.45);
+      }
+
+      .shell.sidebar-open .sidebar { transform: translateX(0); }
+
+      .scrim {
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+        display: none;
+        background: rgba(0, 0, 0, 0.55);
+      }
+
+      .shell.sidebar-open .scrim { display: block; }
+
+      .main {
+        width: 100%;
+        height: 100dvh;
+      }
+
+      .command-bar {
         position: sticky;
         top: 0;
         z-index: 20;
-        height: auto;
-        min-height: 58px;
         display: grid;
-        grid-template-columns: 1fr;
-        align-items: stretch;
-        gap: 10px;
-        padding: 10px 12px 12px;
+        grid-template-columns: 36px minmax(0, 1fr);
+        justify-content: stretch;
+        min-height: 62px;
+        padding: 9px 10px;
         border-bottom-color: #262626;
       }
-      .brand {
-        min-width: 0;
-      }
-      .brand img {
-        width: 26px;
-        height: 26px;
-      }
-      .brand-title strong {
-        font-size: 14px;
-      }
-      .brand-title span {
-        display: none;
-      }
+
+      .mobile-menu-btn { display: inline-grid; }
+
       .command-form {
-        grid-template-columns: minmax(0, 1fr) 64px;
-        width: 100%;
-        gap: 8px;
+        justify-self: stretch;
+        width: auto;
+        max-width: 100%;
       }
+
       .command-input {
         height: 44px;
         min-width: 0;
         font-size: 16px;
-        padding: 0 12px;
+        padding: 0 54px 0 12px;
       }
+
       .run-btn {
-        min-width: 64px;
-        height: 44px;
-        font-size: 13px;
+        right: 5px;
+        width: 34px;
+        height: 34px;
       }
-      .status { display: none; }
-      .workspace {
-        display: flex;
-        flex-direction: column;
-        min-height: 0;
-      }
-      .terminal-pane {
-        order: 2;
-        min-height: 58vh;
-        border-right: 0;
-      }
-      .rail {
-        order: 1;
-        border-right: 0;
-        background: #000;
-      }
-      .rail-section {
-        padding: 12px;
-      }
-      .rail-section + .rail-section {
-        display: none;
-      }
-      .command-list {
-        grid-template-columns: 1fr;
-        gap: 7px;
-      }
-      .terminal-output {
-        padding: 10px;
-        gap: 10px;
-        overflow-x: auto;
-      }
-      .output-block {
-        width: 100%;
-        max-width: 100%;
-        padding: 10px;
-      }
-      .output-block pre {
-        font-size: 11px;
-        line-height: 1.5;
-        min-width: max-content;
-      }
-      .pane-head {
-        height: 42px;
+
+      .content-head {
+        min-height: 44px;
         padding: 0 10px;
       }
-      .command-card {
-        grid-template-columns: minmax(116px, 42%) minmax(0, 1fr);
-        min-height: 44px;
-        padding: 10px;
-      }
-      .command-card code { font-size: 11px; }
-      .command-card span { font-size: 12px; }
-    }
 
-    @media (max-width: 420px) {
-      .topbar {
-        padding-inline: 10px;
-      }
-      .command-form {
-        grid-template-columns: minmax(0, 1fr) 58px;
-      }
-      .run-btn {
-        min-width: 58px;
-      }
-      .rail-section {
+      .terminal-output {
         padding: 10px;
+        overflow-x: hidden;
       }
-      .command-card {
+
+      .native-panel {
+        padding-bottom: 28px;
+      }
+
+      .native-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .native-command {
         grid-template-columns: 1fr;
         gap: 4px;
       }
-      .command-card span {
-        white-space: normal;
+
+      .output-block { padding: 10px; }
+
+      .output-block pre {
+        font-size: 11px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+
+      .summary-card {
+        padding: 12px;
+      }
+
+      .summary-head {
+        display: grid;
+        gap: 10px;
+      }
+
+      .price-stack {
+        justify-items: start;
+      }
+
+      .metric-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .estimate-table,
+      .data-table {
+        overflow-x: auto;
+      }
+
+      .estimate-row,
+      .matrix-row {
+        min-width: calc(148px + (var(--cols, 4) * 110px));
+      }
+
+      .data-row {
+        min-width: calc(var(--cols, 4) * 118px);
       }
     }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <header class="topbar">
-      <div class="brand">
-        <img src="/static/tek2day-icon.png" alt="TEK2day">
-        <div class="brand-title">
+  <div class="shell" id="shell">
+    <aside class="sidebar" id="sidebar" aria-label="Command sidebar">
+      <div class="sidebar-head">
+        <div class="brand">
+          <img src="/static/tek2day-icon.png" alt="TEK2day">
           <strong>TEK2day Finance</strong>
         </div>
       </div>
 
-      <form class="command-form" id="command-form">
-        <input class="command-input" id="command-input" autocomplete="off" spellcheck="false" placeholder="/AAPL" aria-label="Command">
-        <button class="run-btn" id="run-btn" type="submit">Run</button>
-      </form>
-
-      <div class="status"><span class="status-dot"></span><span id="status-text">Ready</span></div>
-    </header>
-
-    <main class="workspace">
-      <aside class="rail">
-        <section class="rail-section">
-          <div class="section-title">Command Menu</div>
-          <div class="command-list">
-            <button class="command-card" data-template="/{symbol}"><code>/ticker</code><span>Summary</span></button>
-            <button class="command-card" data-template="/{symbol} inc"><code>/ticker inc</code><span>Income statement</span></button>
-            <button class="command-card" data-template="/{symbol} bal"><code>/ticker bal</code><span>Balance sheet</span></button>
-            <button class="command-card" data-template="/{symbol} cf"><code>/ticker cf</code><span>Cash flow</span></button>
-            <button class="command-card" data-template="/{symbol} mgmt"><code>/ticker mgmt</code><span>Management / CEO</span></button>
-            <button class="command-card" data-template="/{symbol} filings"><code>/ticker filings</code><span>SEC filings</span></button>
-            <button class="command-card" data-template="/{symbol} news"><code>/ticker news</code><span>Recent news</span></button>
-            <button class="command-card" data-command="/comp AAPL MSFT"><code>/comp TICKER1 TICKER2</code><span>Comp table</span></button>
-            <button class="command-card" data-command="/help"><code>/help</code><span>Show this menu</span></button>
-            <button class="command-card" data-command="/exit"><code>/exit</code><span>Quit</span></button>
+      <div class="sidebar-body">
+        <section class="sidebar-section">
+          <div class="nav-list">
+            <button class="nav-item" type="button" data-command="/help">
+              <span class="nav-icon">+</span>
+              <span class="nav-copy"><code>New command</code><span>Show menu</span></span>
+            </button>
           </div>
         </section>
 
-        <section class="rail-section">
+        <section class="sidebar-section">
           <div class="section-title">Recent</div>
-          <div class="history" id="history"></div>
+          <div class="nav-list" id="history"></div>
         </section>
-      </aside>
 
-      <section class="terminal-pane">
-        <div class="pane-head">
-          <div class="pane-title">
+        <section class="sidebar-section">
+          <div class="section-title">Commands</div>
+          <div class="nav-list">
+            <button class="nav-item" type="button" data-template="/{symbol}"><span class="nav-icon">/</span><span class="nav-copy"><code>/ticker</code><span>Summary</span></span></button>
+            <button class="nav-item" type="button" data-template="/{symbol} inc"><span class="nav-icon">I</span><span class="nav-copy"><code>/ticker inc</code><span>Income statement</span></span></button>
+            <button class="nav-item" type="button" data-template="/{symbol} bal"><span class="nav-icon">B</span><span class="nav-copy"><code>/ticker bal</code><span>Balance sheet</span></span></button>
+            <button class="nav-item" type="button" data-template="/{symbol} cf"><span class="nav-icon">C</span><span class="nav-copy"><code>/ticker cf</code><span>Cash flow</span></span></button>
+            <button class="nav-item" type="button" data-template="/{symbol} mgmt"><span class="nav-icon">M</span><span class="nav-copy"><code>/ticker mgmt</code><span>Management / CEO</span></span></button>
+            <button class="nav-item" type="button" data-template="/{symbol} filings"><span class="nav-icon">F</span><span class="nav-copy"><code>/ticker filings</code><span>SEC filings</span></span></button>
+            <button class="nav-item" type="button" data-template="/{symbol} news"><span class="nav-icon">N</span><span class="nav-copy"><code>/ticker news</code><span>Recent news</span></span></button>
+            <button class="nav-item" type="button" data-command="/comp AAPL MSFT"><span class="nav-icon">=</span><span class="nav-copy"><code>/comp TICKER1 TICKER2</code><span>Comp table</span></span></button>
+            <button class="nav-item" type="button" data-command="/help"><span class="nav-icon">?</span><span class="nav-copy"><code>/help</code><span>Show commands</span></span></button>
+          </div>
+        </section>
+      </div>
+
+      <div class="sidebar-foot">
+        <div class="status"><span class="status-dot"></span><span id="status-text">Ready</span></div>
+      </div>
+    </aside>
+
+    <div class="scrim" id="scrim"></div>
+
+    <main class="main">
+      <header class="command-bar">
+        <button class="icon-btn mobile-menu-btn" id="mobile-menu-btn" type="button" aria-label="Open commands"><span class="hamburger"></span></button>
+        <form class="command-form" id="command-form">
+          <input class="command-input" id="command-input" autocomplete="off" spellcheck="false" placeholder="/AAPL" aria-label="Command">
+          <button class="run-btn" id="run-btn" type="submit" aria-label="Send command" title="Send">
+            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m22 2-7 20-4-9-9-4Z"></path>
+              <path d="M22 2 11 13"></path>
+            </svg>
+          </button>
+        </form>
+      </header>
+
+      <section class="content">
+        <div class="content-head">
+          <div class="content-title">
             <strong>Output</strong>
             <span id="terminal-command">Idle</span>
           </div>
-          <button class="copy-btn" id="copy-btn" type="button">Copy</button>
         </div>
-        <div class="terminal-output empty" id="terminal-output">Enter a command or choose one from the menu.</div>
+        <div class="terminal-output empty" id="terminal-output"></div>
       </section>
     </main>
   </div>
 
   <script>
+    const shell = document.getElementById("shell");
+    const mobileMenuBtn = document.getElementById("mobile-menu-btn");
+    const scrim = document.getElementById("scrim");
     const commandForm = document.getElementById("command-form");
     const commandInput = document.getElementById("command-input");
     const runBtn = document.getElementById("run-btn");
@@ -541,36 +864,29 @@
     let commandHistory = [];
     let terminalPlainText = "";
 
+    mobileMenuBtn.addEventListener("click", () => shell.classList.add("sidebar-open"));
+    scrim.addEventListener("click", closeSidebar);
+
     commandForm.addEventListener("submit", (event) => {
       event.preventDefault();
       runCommand(commandInput.value.trim());
     });
 
-    document.querySelectorAll(".command-card").forEach((button) => {
+    document.querySelectorAll(".nav-item").forEach((button) => {
       button.addEventListener("click", () => {
         const activeSymbol = symbolFromCommand(commandInput.value) || currentSymbol || "AAPL";
         const command = button.dataset.command || button.dataset.template.replace("{symbol}", activeSymbol);
         commandInput.value = command;
+        closeSidebar();
         runCommand(command);
       });
-    });
-
-    document.getElementById("copy-btn").addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(terminalPlainText || terminalOutput.textContent || "");
-        setStatus("Copied");
-      } catch (err) {
-        setStatus("Copy failed");
-      }
     });
 
     async function runCommand(rawCommand) {
       if (!rawCommand) return;
       const command = normalizeCommand(rawCommand);
       const symbol = symbolFromCommand(command);
-      if (symbol) {
-        currentSymbol = symbol;
-      }
+      if (symbol) currentSymbol = symbol;
 
       commandInput.value = command;
       terminalCommand.textContent = command;
@@ -588,7 +904,7 @@
         });
         const result = await resp.json();
         terminalPlainText = result.output || result.error || "No output.";
-        renderOutput(terminalPlainText);
+        renderResult(result, terminalPlainText);
         terminalOutput.classList.toggle("error", result.kind === "error");
         addHistory(result.command || command);
         setStatus(result.kind === "error" ? "Error" : "Ready");
@@ -614,6 +930,10 @@
     }
 
     function terminalWidth() {
+      if (window.matchMedia("(max-width: 760px)").matches) {
+        const cols = Math.floor((terminalOutput.clientWidth || 360) / 8.2);
+        return Math.max(44, Math.min(64, cols));
+      }
       const cols = Math.floor((terminalOutput.clientWidth || 720) / 7);
       return Math.max(72, Math.min(132, cols));
     }
@@ -626,13 +946,21 @@
 
     function addHistory(command) {
       commandHistory = [command, ...commandHistory.filter((item) => item !== command)].slice(0, 8);
-      historyEl.innerHTML = commandHistory.map((item) => `<button type="button">${escapeHtml(item)}</button>`).join("");
+      historyEl.innerHTML = commandHistory.map((item) => (
+        `<button class="nav-item" type="button"><span class="nav-icon">#</span><span class="nav-copy"><code>${escapeHtml(item)}</code><span>Recent command</span></span></button>`
+      )).join("");
       historyEl.querySelectorAll("button").forEach((button) => {
         button.addEventListener("click", () => {
-          commandInput.value = button.textContent;
-          runCommand(button.textContent);
+          const command = button.querySelector("code").textContent;
+          commandInput.value = command;
+          closeSidebar();
+          runCommand(command);
         });
       });
+    }
+
+    function closeSidebar() {
+      shell.classList.remove("sidebar-open");
     }
 
     function setStatus(text) {
@@ -648,6 +976,310 @@
       pre.textContent = String(text || "No output.");
       wrapper.appendChild(pre);
       terminalOutput.appendChild(wrapper);
+    }
+
+    function renderResult(result, text) {
+      if (result.kind === "help") {
+        renderEmpty();
+        return;
+      }
+      if (result.kind === "summary" && result.data) {
+        renderSummary(result.data);
+        return;
+      }
+      if (result.data && result.data.type === "financials") {
+        renderFinancials(result.data);
+        return;
+      }
+      if (result.data && result.data.type === "management") {
+        renderManagement(result.data);
+        return;
+      }
+      if (result.data && result.data.type === "filings") {
+        renderFilings(result.data);
+        return;
+      }
+      if (result.data && result.data.type === "news") {
+        renderNews(result.data);
+        return;
+      }
+      if (result.data && result.data.type === "compare") {
+        renderCompare(result.data);
+        return;
+      }
+      renderOutput(text);
+    }
+
+    function renderSummary(data) {
+      const overview = data.overview || {};
+      terminalOutput.classList.remove("empty", "error");
+      terminalOutput.innerHTML = "";
+
+      const panel = document.createElement("div");
+      panel.className = "native-panel";
+
+      const card = document.createElement("section");
+      card.className = "summary-card";
+      const changeClass = Number(overview.change || 0) >= 0 ? "up" : "down";
+      const changeText = overview.change === null || overview.change === undefined || overview.change_pct === null || overview.change_pct === undefined
+        ? "N/A"
+        : `${Number(overview.change) > 0 ? "+" : ""}${Number(overview.change).toFixed(2)} (${Number(overview.change_pct) > 0 ? "+" : ""}${Number(overview.change_pct).toFixed(2)}%)`;
+      card.innerHTML = `
+        <div class="summary-head">
+          <div class="summary-title">
+            <h1>${escapeHtml(overview.name || overview.symbol || "Summary")}</h1>
+            <span>${escapeHtml(overview.symbol || "")}</span>
+          </div>
+          <div class="price-stack">
+            <strong>${escapeHtml(overview.price || "N/A")}</strong>
+            <span class="${changeClass}">${escapeHtml(changeText)}</span>
+            <span>Vol: ${escapeHtml(overview.volume || "N/A")}</span>
+          </div>
+        </div>
+        <div class="metric-grid">
+          ${(overview.metrics || []).map((metric) => `
+            <div class="metric">
+              <span>${escapeHtml(metric.label)}</span>
+              <strong>${escapeHtml(metric.value)}</strong>
+            </div>
+          `).join("")}
+        </div>
+        ${overview.description ? `<p class="description">${escapeHtml(overview.description)}</p>` : ""}
+        <div class="source-line">Source: ${escapeHtml(overview.source || "Yahoo Finance, TEK2day")}</div>
+      `;
+      panel.appendChild(card);
+
+      if (data.estimates && Array.isArray(data.estimates.sections)) {
+        data.estimates.sections.forEach((section) => {
+          panel.appendChild(renderEstimateSection(section, data.estimates));
+        });
+      }
+
+      if (data.shortInterest) {
+        const shortCard = document.createElement("section");
+        shortCard.className = "summary-card native-section";
+        shortCard.innerHTML = `
+          <h2>${escapeHtml(data.shortInterest.title || "Short Interest")}</h2>
+          <div class="metric-grid">
+            ${(data.shortInterest.metrics || []).map((metric) => `
+              <div class="metric">
+                <span>${escapeHtml(metric.label)}</span>
+                <strong>${escapeHtml(metric.value)}</strong>
+              </div>
+            `).join("")}
+          </div>
+          <div class="source-line">Source: ${escapeHtml(data.shortInterest.source || "Yahoo Finance, TEK2day")}</div>
+        `;
+        panel.appendChild(shortCard);
+      }
+
+      terminalOutput.appendChild(panel);
+    }
+
+    function createPanel() {
+      terminalOutput.classList.remove("empty", "error");
+      terminalOutput.innerHTML = "";
+      const panel = document.createElement("div");
+      panel.className = "native-panel";
+      terminalOutput.appendChild(panel);
+      return panel;
+    }
+
+    function renderHeaderCard(panel, title, subtitle, source) {
+      const card = document.createElement("section");
+      card.className = "summary-card";
+      card.innerHTML = `
+        <div class="summary-head">
+          <div class="summary-title">
+            <h1>${escapeHtml(title || "Output")}</h1>
+            <span>${escapeHtml(subtitle || "")}</span>
+          </div>
+        </div>
+        ${source ? `<div class="source-line">Source: ${escapeHtml(source)}</div>` : ""}
+      `;
+      panel.appendChild(card);
+      return card;
+    }
+
+    function renderFinancials(data) {
+      const panel = createPanel();
+      renderHeaderCard(panel, data.title, data.symbol, data.source);
+      (data.sections || []).forEach((section) => {
+        panel.appendChild(renderMatrixSection(section));
+      });
+    }
+
+    function renderMatrixSection(section) {
+      const wrap = document.createElement("section");
+      wrap.className = "native-section";
+      const header = document.createElement("h2");
+      header.textContent = section.title || "Data";
+      wrap.appendChild(header);
+
+      const table = document.createElement("div");
+      table.className = "data-table";
+      const colCount = (section.periods || []).length || 1;
+      table.style.setProperty("--cols", String(colCount));
+
+      const head = document.createElement("div");
+      head.className = "matrix-row data-head";
+      head.innerHTML = `<div class="data-cell">Metric</div>${(section.periods || []).map((period) => `<div class="data-cell">${escapeHtml(period)}</div>`).join("")}`;
+      table.appendChild(head);
+
+      (section.rows || []).forEach((row) => {
+        const el = document.createElement("div");
+        el.className = "matrix-row";
+        el.innerHTML = `<div class="data-cell">${escapeHtml(row.label)}</div>${(row.values || []).map((value) => `<div class="data-cell">${escapeHtml(value || "")}</div>`).join("")}`;
+        table.appendChild(el);
+      });
+
+      wrap.appendChild(table);
+      return wrap;
+    }
+
+    function renderManagement(data) {
+      const panel = createPanel();
+      renderHeaderCard(panel, data.title, data.symbol, data.source);
+
+      if (Array.isArray(data.leaders) && data.leaders.length) {
+        data.leaders.forEach((leader, index) => {
+          const card = document.createElement("section");
+          card.className = "summary-card native-section";
+          const ceoName = (leader.metrics || []).find((metric) => metric.label === "CEO")?.value || `Leader ${index + 1}`;
+          card.innerHTML = `
+            <h2>${escapeHtml(ceoName)}</h2>
+            <div class="metric-grid">
+              ${(leader.metrics || []).filter((metric) => metric.label !== "CEO").map((metric) => `
+                <div class="metric">
+                  <span>${escapeHtml(metric.label)}</span>
+                  <strong>${escapeHtml(metric.value || "N/A")}</strong>
+                </div>
+              `).join("")}
+            </div>
+          `;
+          panel.appendChild(card);
+        });
+        return;
+      }
+
+      if (Array.isArray(data.officers) && data.officers.length) {
+        panel.appendChild(renderSimpleTable("Officers", ["Name", "Title", "Age", "Total Pay"], data.officers.map((officer) => [
+          officer.name,
+          officer.title,
+          officer.age,
+          officer.totalPay,
+        ])));
+      }
+    }
+
+    function renderFilings(data) {
+      const panel = createPanel();
+      renderHeaderCard(panel, data.title, data.symbol, data.source);
+      panel.appendChild(renderSimpleTable("Filings", ["Date", "Form", "Description", "Accession"], (data.filings || []).map((filing) => [
+        escapeHtml(filing.date || ""),
+        escapeHtml(filing.form || ""),
+        filing.url ? `<a href="${escapeHtml(filing.url)}" target="_blank" rel="noopener">${escapeHtml(filing.description || "Filing")}</a>` : escapeHtml(filing.description || ""),
+        filing.url ? `<a href="${escapeHtml(filing.url)}" target="_blank" rel="noopener"><code>${escapeHtml(filing.accession || "")}</code></a>` : `<code>${escapeHtml(filing.accession || "")}</code>`,
+      ]), true));
+    }
+
+    function renderNews(data) {
+      const panel = createPanel();
+      renderHeaderCard(panel, data.title, data.symbol, data.source);
+
+      const wrap = document.createElement("section");
+      wrap.className = "native-section";
+      const list = document.createElement("div");
+      list.className = "news-list";
+      (data.items || []).forEach((item) => {
+        const tag = item.url ? "a" : "div";
+        const node = document.createElement(tag);
+        node.className = "news-item";
+        if (item.url) {
+          node.href = item.url;
+          node.target = "_blank";
+          node.rel = "noopener";
+        }
+        node.innerHTML = `
+          <div class="news-title">${escapeHtml(item.title || "Untitled")}</div>
+          <div class="news-meta">${escapeHtml([item.publisher, item.date].filter(Boolean).join(" | "))}</div>
+        `;
+        list.appendChild(node);
+      });
+      wrap.appendChild(list);
+      panel.appendChild(wrap);
+    }
+
+    function renderCompare(data) {
+      const panel = createPanel();
+      renderHeaderCard(panel, data.title, (data.symbols || []).map((item) => item.symbol).join(" vs "), data.source);
+      panel.appendChild(renderMatrixSection({
+        title: "Metrics",
+        periods: (data.symbols || []).map((item) => item.symbol),
+        rows: data.rows || [],
+      }));
+    }
+
+    function renderSimpleTable(title, headers, rows, htmlCells = false) {
+      const wrap = document.createElement("section");
+      wrap.className = "native-section";
+      const header = document.createElement("h2");
+      header.textContent = title;
+      wrap.appendChild(header);
+
+      const table = document.createElement("div");
+      table.className = "data-table";
+      table.style.setProperty("--cols", String(headers.length || 1));
+      const head = document.createElement("div");
+      head.className = "data-row data-head";
+      head.innerHTML = headers.map((item) => `<div class="data-cell">${escapeHtml(item)}</div>`).join("");
+      table.appendChild(head);
+
+      rows.forEach((row) => {
+        const el = document.createElement("div");
+        el.className = "data-row";
+        el.innerHTML = row.map((value) => `<div class="data-cell">${htmlCells ? value : escapeHtml(value || "")}</div>`).join("");
+        table.appendChild(el);
+      });
+
+      wrap.appendChild(table);
+      return wrap;
+    }
+
+    function renderEstimateSection(section, meta) {
+      const wrap = document.createElement("section");
+      wrap.className = "native-section";
+      const header = document.createElement("h2");
+      header.textContent = section.title || "Estimates";
+      wrap.appendChild(header);
+
+      const table = document.createElement("div");
+      table.className = "estimate-table";
+      table.style.setProperty("--cols", String((section.periods || []).length || 1));
+      const head = document.createElement("div");
+      head.className = "estimate-row estimate-head";
+      head.innerHTML = `<div class="estimate-cell">Metric</div>${(section.periods || []).map((period) => `<div class="estimate-cell">${escapeHtml(period)}</div>`).join("")}`;
+      table.appendChild(head);
+
+      (section.rows || []).forEach((row) => {
+        const el = document.createElement("div");
+        el.className = "estimate-row";
+        el.innerHTML = `<div class="estimate-cell">${escapeHtml(row.label)}</div>${(row.values || []).map((value) => `<div class="estimate-cell">${escapeHtml(value)}</div>`).join("")}`;
+        table.appendChild(el);
+      });
+
+      wrap.appendChild(table);
+      const source = document.createElement("div");
+      source.className = "source-line";
+      source.textContent = `As of ${meta.asOf || "unknown"} | Source: ${meta.source || "Yahoo Finance, TEK2day"}`;
+      wrap.appendChild(source);
+      return wrap;
+    }
+
+    function renderEmpty() {
+      terminalOutput.classList.remove("error");
+      terminalOutput.classList.add("empty");
+      terminalOutput.textContent = "";
     }
 
     function escapeHtml(value) {

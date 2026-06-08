@@ -1,4 +1,4 @@
-const CACHE_NAME = "tek2day-finance-v1";
+const CACHE_NAME = "tek2day-finance-v4";
 const APP_SHELL = [
   "/",
   "/static/favicon.ico",
@@ -26,6 +26,18 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
   event.respondWith(
     caches.match(event.request).then((cached) => cached || fetch(event.request))
   );

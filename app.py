@@ -10,6 +10,7 @@ Usage:
 import io
 import re
 import threading
+from datetime import datetime
 from html import escape
 from typing import Callable
 
@@ -45,7 +46,7 @@ MENU_SUBCMDS = {
 
 class CommandRequest(BaseModel):
     command: str = Field(..., min_length=1, max_length=160)
-    width: int = Field(default=104, ge=72, le=140)
+    width: int = Field(default=104, ge=44, le=140)
 
 
 def _validate_symbol(symbol: str) -> str:
@@ -70,7 +71,7 @@ def _capture_terminal(fn: Callable[[], None], width: int) -> dict:
         width=width,
         legacy_windows=False,
     )
-    table_width = max(72, min(width, 120))
+    table_width = max(44, min(width, 120))
     with COMMAND_LOCK:
         old_console = terminal.console
         old_table_width = terminal.TABLE_WIDTH
@@ -84,6 +85,440 @@ def _capture_terminal(fn: Callable[[], None], width: int) -> dict:
     text = captured.export_text(styles=False, clear=False).strip()
     html = captured.export_html(inline_styles=True, code_format="{code}").strip()
     return {"output": text, "output_html": html}
+
+
+def _summary_payload(symbol: str) -> dict | None:
+    snap = terminal._market_snapshot(symbol)
+    if not snap:
+        return None
+
+    desc = terminal._company_summary(symbol, snap)
+    estimates = _estimates_payload(symbol)
+    short_interest = _short_interest_payload(symbol)
+
+    return {
+        "overview": {
+            "symbol": symbol,
+            "name": snap.get("name") or symbol,
+            "price": terminal._price(snap.get("price")),
+            "change": snap.get("change"),
+            "change_pct": snap.get("change_pct"),
+            "volume": terminal._count(snap.get("volume")),
+            "description": desc or "",
+            "source": "Yahoo Finance, TEK2day",
+            "metrics": [
+                {"label": "Market Cap", "value": terminal._dollar(snap.get("market_cap"))},
+                {"label": "Diluted Shares", "value": terminal._count(snap.get("shares"))},
+                {"label": "52wk High", "value": terminal._price(snap.get("fifty_two_week_high"))},
+                {"label": "52wk Low", "value": terminal._price(snap.get("fifty_two_week_low"))},
+                {"label": "Sector", "value": str(snap.get("sector") or "N/A")},
+                {"label": "Industry", "value": str(snap.get("industry") or "N/A")},
+                {"label": "Beta", "value": terminal._num(snap.get("beta"))},
+                {"label": "P/E TTM (GAAP)", "value": terminal._ratio(snap.get("pe_ttm"))},
+                {"label": "Fwd P/E (Est)", "value": terminal._ratio(snap.get("forward_pe"))},
+                {"label": "P/S (TTM)", "value": terminal._ratio(snap.get("ps_ttm"))},
+                {"label": "EV/EBITDA (TTM)", "value": terminal._ratio(snap.get("ev_ebitda"))},
+                {"label": "EV/Rev (TTM)", "value": terminal._ratio(snap.get("ev_revenue"))},
+            ],
+        },
+        "estimates": estimates,
+        "shortInterest": short_interest,
+    }
+
+
+def _estimates_payload(symbol: str) -> dict | None:
+    if not terminal._has_firestore():
+        return None
+    history = storage.get_estimate_history(symbol, limit=1)
+    if not history:
+        return None
+
+    data = history[0]
+    sections = []
+    for prefix, title in [("eps", "EPS Estimates"), ("rev", "Revenue Estimates")]:
+        metric_map = {
+            k[len(prefix) + 1:]: v
+            for k, v in data.items()
+            if k.startswith(f"{prefix}_")
+        }
+        if not metric_map:
+            continue
+
+        sample = next(iter(metric_map.values()))
+        period_codes = list(sample.keys()) if isinstance(sample, dict) else []
+        periods = [p for p in terminal.PERIOD_ORDER if p in period_codes]
+        periods += [p for p in period_codes if p not in periods]
+        metric_order = terminal.METRIC_ORDER_REV if prefix == "rev" else terminal.METRIC_ORDER_EPS
+        rows = []
+
+        for metric_key in metric_order:
+            if metric_key not in metric_map:
+                continue
+            values = []
+            for period in periods:
+                val = metric_map[metric_key].get(period)
+                if metric_key == "growth":
+                    values.append(terminal._pct(val))
+                elif metric_key == "numberofanalysts":
+                    values.append(str(int(val)) if val is not None else "N/A")
+                elif prefix == "rev" and metric_key in ("avg", "high", "low", "yearagorevenue"):
+                    values.append(terminal._dollar(val))
+                elif prefix == "eps" and metric_key in ("avg", "high", "low", "yearagoeps"):
+                    values.append(terminal._price(val))
+                else:
+                    values.append(terminal._num(val))
+            rows.append({
+                "label": terminal.METRIC_LABELS.get(metric_key, metric_key),
+                "values": values,
+            })
+
+        sections.append({
+            "title": title,
+            "periods": [terminal.PERIOD_LABELS.get(p, p) for p in periods],
+            "rows": rows,
+        })
+
+    return {
+        "asOf": data.get("date", "unknown"),
+        "source": "Yahoo Finance, TEK2day",
+        "sections": sections,
+    }
+
+
+def _short_interest_payload(symbol: str) -> dict | None:
+    meta = terminal._firestore_meta(symbol) or {}
+    values = {
+        "date": terminal._first_value(meta, ["date_short_interest", "dateShortInterest"]),
+        "shares": terminal._first_value(meta, ["shares_short", "sharesShort"]),
+        "ratio": terminal._first_value(meta, ["short_ratio", "shortRatio"]),
+        "float_pct": terminal._first_value(meta, ["short_percent_of_float", "shortPercentOfFloat"]),
+        "shares_out_pct": terminal._first_value(meta, ["shares_percent_shares_out", "sharesPercentSharesOut"]),
+    }
+    if not any(v is not None for v in values.values()):
+        info = terminal._yahoo(symbol)
+        values = {
+            "date": info.get("dateShortInterest"),
+            "shares": info.get("sharesShort"),
+            "ratio": info.get("shortRatio"),
+            "float_pct": info.get("shortPercentOfFloat"),
+            "shares_out_pct": info.get("sharesPercentSharesOut"),
+        }
+    if not any(v is not None for v in values.values()):
+        return None
+
+    short_date = values["date"]
+    if isinstance(short_date, (int, float)):
+        short_date = datetime.fromtimestamp(short_date).strftime("%Y-%m-%d")
+
+    return {
+        "title": "Short Interest",
+        "source": "Yahoo Finance, TEK2day",
+        "metrics": [
+            {"label": "Shares Short", "value": terminal._count(values["shares"])},
+            {"label": "Short Ratio", "value": terminal._num(values["ratio"])},
+            {"label": "Short % of Float", "value": terminal._pct(values["float_pct"])},
+            {"label": "Short % of Shares Out", "value": terminal._pct(values["shares_out_pct"])},
+            {"label": "As of", "value": str(short_date or "N/A")},
+        ],
+    }
+
+
+def _field_parts(field) -> tuple[str, str]:
+    if isinstance(field, tuple):
+        return field
+    return field, field
+
+
+def _statement_rows(periods: list[dict], section: str, fields: list) -> list[dict]:
+    rows = []
+    for field in fields:
+        key, label = _field_parts(field)
+        values = [p.get(section, {}).get(key) for p in periods]
+        if not any(v is not None for v in values):
+            continue
+        rows.append({
+            "label": label,
+            "values": [terminal._fin(v) for v in values],
+        })
+
+    if rows:
+        return rows
+
+    all_keys = set()
+    for period in periods:
+        all_keys.update(period.get(section, {}).keys())
+    for key in sorted(all_keys):
+        values = [p.get(section, {}).get(key) for p in periods]
+        rows.append({
+            "label": key,
+            "values": [terminal._fin(v) for v in values],
+        })
+    return rows
+
+
+def _financial_payload(symbol: str, section: str, fields: list, title: str) -> dict | None:
+    if not terminal._has_firestore():
+        return None
+    all_fins = storage.get_all_financials(symbol)
+    if not all_fins:
+        return None
+
+    sections = []
+    if section == "balance_sheet":
+        seen = set()
+        unique = []
+        for financial in sorted(all_fins, key=lambda f: f.get("period_end", "")):
+            period_end = financial.get("period_end", "")
+            if period_end in seen:
+                continue
+            seen.add(period_end)
+            unique.append(financial)
+        periods = unique[-8:]
+        if periods:
+            sections.append({
+                "title": "Recent Periods",
+                "periods": [str(p.get("period_end", p.get("period", ""))) for p in periods],
+                "rows": _statement_rows(periods, section, fields),
+            })
+    else:
+        quarterly = sorted(
+            [f for f in all_fins if f.get("freq") != "FY"],
+            key=lambda f: f.get("period_end", ""),
+        )[-4:]
+        annual = sorted(
+            [f for f in all_fins if f.get("freq") == "FY"],
+            key=lambda f: f.get("period_end", ""),
+        )[-4:]
+        for label, periods in [("Quarterly", quarterly), ("Annual", annual)]:
+            if not periods:
+                continue
+            sections.append({
+                "title": label,
+                "periods": [str(p.get("period_end", p.get("period", ""))) for p in periods],
+                "rows": _statement_rows(periods, section, fields),
+            })
+
+    if not sections:
+        return None
+    return {
+        "type": "financials",
+        "symbol": symbol,
+        "title": title,
+        "source": "TEK2day Firestore",
+        "sections": sections,
+    }
+
+
+def _management_payload(symbol: str) -> dict | None:
+    ceo_data = terminal._get_ceorater(symbol)
+    if ceo_data:
+        leaders = []
+        for ceo in ceo_data:
+            founder = ceo.get("Founder (Y/N)") or ceo.get("founderCEO")
+            metrics = [
+                {"label": "CEO", "value": str(ceo.get("CEO Name") or ceo.get("ceo") or "N/A")},
+                {"label": "Founder CEO", "value": "Yes" if founder in (True, "Y") else "No"},
+                {"label": "Tenure", "value": str(ceo.get("Tenure (years)") or ceo.get("tenure") or "N/A")},
+                {"label": "CEORater Score", "value": terminal._num(ceo.get("CEORaterScore") or ceo.get("ceoraterScore"), 0)},
+                {"label": "Alpha Score", "value": terminal._num(ceo.get("AlphaScore") or ceo.get("alphaScore"), 0)},
+                {"label": "Comp Score", "value": str(ceo.get("CompScore") or ceo.get("compScore") or "N/A")},
+                {"label": "Revenue CAGR", "value": str(ceo.get("Revenue CAGR (Adj.)") or "N/A")},
+                {"label": "TSR During Tenure", "value": str(ceo.get("TSR During Tenure") or "N/A")},
+                {"label": "Avg Annual TSR", "value": str(ceo.get("Avg. Annual TSR") or "N/A")},
+                {"label": "TSR vs SPY", "value": str(ceo.get("TSR vs. SPY") or "N/A")},
+                {"label": "Compensation", "value": str(ceo.get("Compensation ($ millions)") or ceo.get("compensationMM") or "N/A")},
+            ]
+            leaders.append({"metrics": metrics})
+        return {
+            "type": "management",
+            "symbol": symbol,
+            "title": "Management / CEO",
+            "source": "CEORater",
+            "leaders": leaders,
+        }
+
+    info = terminal._yahoo(symbol) or {}
+    officers = info.get("companyOfficers", [])
+    if not officers:
+        return None
+    return {
+        "type": "management",
+        "symbol": symbol,
+        "title": "Management / Officers",
+        "source": "Yahoo Finance",
+        "officers": [
+            {
+                "name": str(officer.get("name", "")),
+                "title": str(officer.get("title", "")),
+                "age": str(officer.get("age", "") or "N/A"),
+                "totalPay": terminal._dollar(officer.get("totalPay")) if officer.get("totalPay") else "N/A",
+            }
+            for officer in officers[:10]
+        ],
+    }
+
+
+def _filings_payload(symbol: str) -> dict | None:
+    terminal._load_cik_cache()
+    cik = terminal._cik_cache.get(symbol)
+    if not cik:
+        return None
+
+    cik_padded = cik.zfill(10)
+    resp = requests.get(
+        f"https://data.sec.gov/submissions/CIK{cik_padded}.json",
+        headers=terminal.SEC_HEADERS,
+        timeout=15,
+    )
+    if resp.status_code != 200:
+        return None
+
+    recent = resp.json().get("filings", {}).get("recent", {})
+    forms = recent.get("form", [])
+    dates = recent.get("filingDate", [])
+    descs = recent.get("primaryDocDescription", [])
+    accessions = recent.get("accessionNumber", [])
+    primary_docs = recent.get("primaryDocument", [])
+    if not forms:
+        return None
+
+    filings = []
+    for idx in range(min(15, len(forms))):
+        accession = accessions[idx] if idx < len(accessions) else ""
+        primary_doc = primary_docs[idx] if idx < len(primary_docs) else ""
+        archive_path = accession.replace("-", "")
+        url = ""
+        if accession and primary_doc:
+            url = f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{archive_path}/{primary_doc}"
+        filings.append({
+            "date": dates[idx] if idx < len(dates) else "",
+            "form": forms[idx],
+            "description": descs[idx] if idx < len(descs) else "",
+            "accession": accession,
+            "url": url,
+        })
+
+    return {
+        "type": "filings",
+        "symbol": symbol,
+        "title": "Recent SEC Filings",
+        "source": "SEC EDGAR",
+        "filings": filings,
+    }
+
+
+def _news_payload(symbol: str) -> dict | None:
+    ticker = terminal._yf().Ticker(symbol)
+    news = ticker.news
+    if not news:
+        return None
+
+    items = []
+    for item in news[:10]:
+        content = item.get("content", item)
+        provider = content.get("provider", {})
+        publisher = provider.get("displayName", "") if isinstance(provider, dict) else str(provider)
+        click_url = content.get("clickThroughUrl", {})
+        canonical_url = content.get("canonicalUrl", {})
+        link = ""
+        if isinstance(click_url, dict):
+            link = click_url.get("url", "")
+        if not link and isinstance(canonical_url, dict):
+            link = canonical_url.get("url", "")
+        if not link:
+            link = content.get("link", "")
+
+        pub_date = content.get("pubDate", "")
+        date_str = ""
+        if isinstance(pub_date, str) and pub_date:
+            date_str = pub_date[:16].replace("T", " ")
+        elif isinstance(pub_date, (int, float)):
+            date_str = datetime.fromtimestamp(pub_date).strftime("%Y-%m-%d %H:%M")
+
+        items.append({
+            "title": str(content.get("title", "")),
+            "publisher": publisher,
+            "date": date_str,
+            "url": link,
+        })
+
+    return {
+        "type": "news",
+        "symbol": symbol,
+        "title": "Recent News",
+        "source": "Yahoo Finance",
+        "items": items,
+    }
+
+
+def _compare_payload(symbols: list[str]) -> dict | None:
+    snapshots = {}
+    for symbol in symbols[:6]:
+        snap = terminal._market_snapshot(symbol)
+        if snap:
+            snapshots[symbol] = snap
+    if not snapshots:
+        return None
+
+    metrics = [
+        ("Price", lambda item: terminal._price(item.get("price"))),
+        ("Market Cap", lambda item: terminal._dollar(item.get("market_cap"))),
+        ("EV", lambda item: terminal._dollar(item.get("enterprise_value"))),
+        ("Revenue", lambda item: terminal._dollar(item.get("revenue"))),
+        ("EBITDA", lambda item: terminal._dollar(item.get("ebitda"))),
+        ("Net Income", lambda item: terminal._dollar(item.get("net_income"))),
+        ("EPS (TTM)", lambda item: terminal._num(item.get("eps_ttm"))),
+        ("EPS (Fwd)", lambda item: terminal._num(item.get("forward_eps"))),
+        ("P/E TTM (GAAP)", lambda item: terminal._ratio(item.get("pe_ttm"))),
+        ("Fwd P/E (Est)", lambda item: terminal._ratio(item.get("forward_pe"))),
+        ("P/S (TTM)", lambda item: terminal._ratio(item.get("ps_ttm"))),
+        ("EV/Rev (TTM)", lambda item: terminal._ratio(item.get("ev_revenue"))),
+        ("EV/EBITDA (TTM)", lambda item: terminal._ratio(item.get("ev_ebitda"))),
+        ("EV/OpCF", lambda item: terminal._ratio(item.get("ev_opcf"))),
+        ("EV/FCF", lambda item: terminal._ratio(item.get("ev_fcf"))),
+        ("Div Yield", lambda item: terminal._pct(item.get("dividend_yield"))),
+        ("Beta", lambda item: terminal._num(item.get("beta"))),
+    ]
+    ordered_symbols = list(snapshots.keys())
+    return {
+        "type": "compare",
+        "title": "Comparison",
+        "source": "Yahoo Finance, TEK2day",
+        "symbols": [
+            {"symbol": symbol, "name": snapshots[symbol].get("name", symbol)}
+            for symbol in ordered_symbols
+        ],
+        "rows": [
+            {
+                "label": label,
+                "values": [formatter(snapshots[symbol]) for symbol in ordered_symbols],
+            }
+            for label, formatter in metrics
+        ],
+    }
+
+
+def _web_payload(kind: str, symbol: str | None = None, symbols: list[str] | None = None) -> dict | None:
+    try:
+        if kind == "summary" and symbol:
+            return _summary_payload(symbol)
+        if kind == "inc" and symbol:
+            return _financial_payload(symbol, "income", terminal.INCOME_FIELDS, "Income Statement")
+        if kind == "bal" and symbol:
+            return _financial_payload(symbol, "balance_sheet", terminal.BALANCE_FIELDS, "Balance Sheet")
+        if kind == "cf" and symbol:
+            return _financial_payload(symbol, "cash_flow", terminal.CASHFLOW_FIELDS, "Cash Flow")
+        if kind == "mgmt" and symbol:
+            return _management_payload(symbol)
+        if kind == "filings" and symbol:
+            return _filings_payload(symbol)
+        if kind == "news" and symbol:
+            return _news_payload(symbol)
+        if kind == "compare" and symbols:
+            return _compare_payload(symbols)
+    except Exception:
+        return None
+    return None
 
 
 def _run_terminal_command(line: str, width: int) -> dict:
@@ -119,6 +554,7 @@ def _run_terminal_command(line: str, width: int) -> dict:
             "command": "/comp " + " ".join(symbols),
             "kind": "compare",
             "symbols": symbols,
+            "data": _web_payload("compare", symbols=symbols),
             **output,
         }
 
@@ -143,6 +579,7 @@ def _run_terminal_command(line: str, width: int) -> dict:
         "kind": kind,
         "symbol": symbol,
         "subcommand": subcmd,
+        "data": _web_payload(kind, symbol=symbol),
         **output,
     }
 
