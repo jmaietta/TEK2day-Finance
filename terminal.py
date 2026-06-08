@@ -18,7 +18,7 @@ try:
 except ImportError:
     pass
 
-__version__ = "1.0.0"
+__version__ = "1.0.2"
 
 import requests
 from rich.console import Console, Group
@@ -187,25 +187,33 @@ def _color(val):
 
 # ── Version check ──────────────────────────────────────────────────────────
 
-GITHUB_REPO = "jmaietta/TEK2day-Finance"
+PYPI_PACKAGE = "tek2day-finance"
+
+
+def _version_tuple(version):
+    parts = []
+    for part in str(version).split("."):
+        digits = "".join(ch for ch in part if ch.isdigit())
+        parts.append(int(digits or 0))
+    return tuple(parts)
 
 
 def _check_for_update():
     try:
         resp = requests.get(
-            f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest",
-            timeout=3,
+            f"https://pypi.org/pypi/{PYPI_PACKAGE}/json",
+            timeout=2,
         )
         if resp.status_code == 200:
-            latest = resp.json().get("tag_name", "").lstrip("v")
-            if latest and latest != __version__:
+            latest = resp.json().get("info", {}).get("version", "")
+            if latest and _version_tuple(latest) > _version_tuple(__version__):
                 console.print(
                     f"[yellow]  Update available: v{latest} "
                     f"(you have v{__version__})[/yellow]"
                 )
                 console.print(
-                    '[yellow]  Run: pip install --upgrade '
-                    'git+https://github.com/jmaietta/TEK2day-Finance.git[/yellow]'
+                    "[yellow]  Run: python -m pip install --upgrade "
+                    f"{PYPI_PACKAGE}[/yellow]"
                 )
                 console.print()
     except Exception:
@@ -269,10 +277,310 @@ def _print_banner():
 
 def _yahoo(symbol):
     try:
-        return _yf().Ticker(symbol).info or {}
+        return _yf().Ticker(symbol.replace(".", "-")).info or {}
     except Exception as e:
         console.print(f"[red]Error fetching {symbol}: {e}[/red]")
         return {}
+
+
+def _to_float(val):
+    if val is None:
+        return None
+    try:
+        v = float(val)
+        if v != v:
+            return None
+        return v
+    except (ValueError, TypeError):
+        return None
+
+
+def _first_value(data, keys):
+    if not isinstance(data, dict):
+        return None
+    for key in keys:
+        val = data.get(key)
+        if val is not None:
+            return val
+    return None
+
+
+def _fast_value(data, *keys):
+    for key in keys:
+        try:
+            val = data.get(key)
+        except Exception:
+            try:
+                val = data[key]
+            except Exception:
+                try:
+                    val = getattr(data, key)
+                except Exception:
+                    val = None
+        if val is not None:
+            return val
+    return None
+
+
+def _live_quote(symbol):
+    """Return only live quote fields from Yahoo."""
+    quote = {
+        "price": None,
+        "previous_close": None,
+        "change": None,
+        "change_pct": None,
+        "volume": None,
+        "fifty_two_week_high": None,
+        "fifty_two_week_low": None,
+    }
+    yahoo_symbol = symbol.replace(".", "-")
+    try:
+        ticker = _yf().Ticker(yahoo_symbol)
+        fast = getattr(ticker, "fast_info", {}) or {}
+        quote["price"] = _to_float(_fast_value(fast, "last_price", "lastPrice"))
+        quote["previous_close"] = _to_float(_fast_value(
+            fast, "previous_close", "previousClose", "regularMarketPreviousClose"
+        ))
+        quote["volume"] = _to_float(_fast_value(fast, "last_volume", "lastVolume"))
+        quote["fifty_two_week_high"] = _to_float(_fast_value(
+            fast, "year_high", "yearHigh"
+        ))
+        quote["fifty_two_week_low"] = _to_float(_fast_value(
+            fast, "year_low", "yearLow"
+        ))
+    except Exception:
+        pass
+
+    if quote["price"] is None or quote["previous_close"] is None:
+        try:
+            info = _yf().Ticker(yahoo_symbol).info or {}
+            quote["price"] = quote["price"] or _to_float(
+                info.get("regularMarketPrice") or info.get("currentPrice")
+            )
+            quote["previous_close"] = quote["previous_close"] or _to_float(
+                info.get("regularMarketPreviousClose") or info.get("previousClose")
+            )
+            quote["volume"] = quote["volume"] or _to_float(info.get("regularMarketVolume"))
+            quote["fifty_two_week_high"] = quote["fifty_two_week_high"] or _to_float(
+                info.get("fiftyTwoWeekHigh")
+            )
+            quote["fifty_two_week_low"] = quote["fifty_two_week_low"] or _to_float(
+                info.get("fiftyTwoWeekLow")
+            )
+        except Exception as e:
+            console.print(f"[red]Error fetching live quote for {symbol}: {e}[/red]")
+
+    price = quote["price"]
+    previous_close = quote["previous_close"]
+    if price is not None and previous_close:
+        quote["change"] = price - previous_close
+        quote["change_pct"] = (price - previous_close) / previous_close * 100
+    return quote
+
+
+def _firestore_meta(symbol):
+    if not _has_firestore():
+        return None
+    try:
+        return storage.get_ticker_meta(symbol) or {}
+    except Exception:
+        return None
+
+
+def _sum_recent(periods, section, keys):
+    vals = []
+    for period in periods[:4]:
+        val = _to_float(_first_value(period.get(section, {}), keys))
+        if val is None:
+            return None
+        vals.append(val)
+    return sum(vals) if len(vals) == 4 else None
+
+
+def _latest_annual_value(periods, section, keys):
+    if not periods:
+        return None
+    return _to_float(_first_value(periods[0].get(section, {}), keys))
+
+
+def _statement_value(quarterly, annual, section, keys):
+    val = _sum_recent(quarterly, section, keys)
+    if val is not None:
+        return val
+    return _latest_annual_value(annual, section, keys)
+
+
+def _latest_balance_value(latest, keys):
+    if not latest:
+        return None
+    return _to_float(_first_value(latest.get("balance_sheet", {}), keys))
+
+
+def _estimate_value(data, prefix, metric, periods):
+    metric_map = data.get(f"{prefix}_{metric}")
+    if isinstance(metric_map, dict):
+        for period in periods:
+            for key in (period, period.replace("+", "plus")):
+                val = _to_float(metric_map.get(key))
+                if val is not None:
+                    return val
+
+    for period in periods:
+        for key in (period, period.replace("+", "plus")):
+            period_map = data.get(f"{prefix}_{key}")
+            if isinstance(period_map, dict):
+                val = _to_float(period_map.get(metric))
+                if val is not None:
+                    return val
+    return None
+
+
+def _latest_forward_eps(symbol):
+    if not _has_firestore():
+        return None
+    try:
+        history = storage.get_estimate_history(symbol, limit=1)
+    except Exception:
+        return None
+    if not history:
+        return None
+    return _estimate_value(history[0], "eps", "avg", ["+1y", "plus1y", "0y"])
+
+
+def _firestore_fundamentals(symbol, meta):
+    result = {
+        "shares": _to_float((meta or {}).get("shares_outstanding")),
+        "revenue": None,
+        "ebitda": None,
+        "net_income": None,
+        "operating_cashflow": None,
+        "free_cashflow": None,
+        "cash": None,
+        "debt": None,
+    }
+    if not _has_firestore():
+        return result
+
+    try:
+        all_fins = storage.get_all_financials(symbol)
+    except Exception:
+        return result
+
+    quarterly = sorted(
+        [f for f in all_fins if f.get("freq") != "FY"],
+        key=lambda f: f.get("period_end", ""),
+        reverse=True,
+    )
+    annual = sorted(
+        [f for f in all_fins if f.get("freq") == "FY"],
+        key=lambda f: f.get("period_end", ""),
+        reverse=True,
+    )
+    latest = quarterly[0] if quarterly else (annual[0] if annual else None)
+
+    if latest:
+        shares = _to_float(_first_value(latest.get("income", {}), [
+            "Diluted Average Shares",
+            "Basic Average Shares",
+        ]))
+        if shares is not None:
+            result["shares"] = shares
+
+    result["revenue"] = _statement_value(quarterly, annual, "income", [
+        "Total Revenue",
+    ])
+    result["ebitda"] = _statement_value(quarterly, annual, "income", [
+        "EBITDA",
+        "Normalized EBITDA",
+    ])
+    result["net_income"] = _statement_value(quarterly, annual, "income", [
+        "Net Income",
+        "Net Income Common Stockholders",
+        "Net Income Continuous Operations",
+    ])
+    result["operating_cashflow"] = _statement_value(quarterly, annual, "cash_flow", [
+        "Operating Cash Flow",
+    ])
+    result["free_cashflow"] = _statement_value(quarterly, annual, "cash_flow", [
+        "Free Cash Flow",
+    ])
+    if result["free_cashflow"] is None:
+        capex = _statement_value(quarterly, annual, "cash_flow", [
+            "Capital Expenditure",
+        ])
+        if result["operating_cashflow"] is not None and capex is not None:
+            result["free_cashflow"] = result["operating_cashflow"] + capex
+
+    result["cash"] = _latest_balance_value(latest, [
+        "Cash And Cash Equivalents",
+        "Cash Cash Equivalents And Short Term Investments",
+        "Cash And Short Term Investments",
+    ])
+    result["debt"] = _latest_balance_value(latest, [
+        "Total Debt",
+        "Long Term Debt",
+        "Long Term Debt And Capital Lease Obligation",
+    ])
+    return result
+
+
+def _calc_ratio(num, denom):
+    num = _to_float(num)
+    denom = _to_float(denom)
+    if num is None or denom in (None, 0):
+        return None
+    return num / denom
+
+
+def _market_snapshot(symbol):
+    meta = _firestore_meta(symbol)
+    if meta is None:
+        return None
+
+    quote = _live_quote(symbol)
+    fundamentals = _firestore_fundamentals(symbol, meta)
+
+    price = quote.get("price")
+    shares = fundamentals.get("shares")
+    market_cap = price * shares if price is not None and shares is not None else None
+    debt = fundamentals.get("debt") or 0
+    cash = fundamentals.get("cash") or 0
+    enterprise_value = (
+        market_cap + debt - cash if market_cap is not None else None
+    )
+    eps_ttm = _calc_ratio(fundamentals.get("net_income"), shares)
+    forward_eps = _latest_forward_eps(symbol)
+
+    return {
+        "symbol": symbol,
+        "name": meta.get("name") or meta.get("shortName") or symbol,
+        "sector": meta.get("sector", ""),
+        "industry": meta.get("industry", ""),
+        "summary": meta.get("summary") or meta.get("longBusinessSummary", ""),
+        "beta": meta.get("beta"),
+        "price": price,
+        "change": quote.get("change"),
+        "change_pct": quote.get("change_pct"),
+        "volume": quote.get("volume"),
+        "fifty_two_week_high": quote.get("fifty_two_week_high"),
+        "fifty_two_week_low": quote.get("fifty_two_week_low"),
+        "shares": shares,
+        "market_cap": market_cap,
+        "enterprise_value": enterprise_value,
+        "revenue": fundamentals.get("revenue"),
+        "ebitda": fundamentals.get("ebitda"),
+        "net_income": fundamentals.get("net_income"),
+        "eps_ttm": eps_ttm,
+        "forward_eps": forward_eps,
+        "pe_ttm": _calc_ratio(price, eps_ttm),
+        "forward_pe": _calc_ratio(price, forward_eps),
+        "ps_ttm": _calc_ratio(market_cap, fundamentals.get("revenue")),
+        "ev_revenue": _calc_ratio(enterprise_value, fundamentals.get("revenue")),
+        "ev_ebitda": _calc_ratio(enterprise_value, fundamentals.get("ebitda")),
+        "ev_opcf": _calc_ratio(enterprise_value, fundamentals.get("operating_cashflow")),
+        "ev_fcf": _calc_ratio(enterprise_value, fundamentals.get("free_cashflow")),
+        "dividend_yield": meta.get("dividend_yield"),
+    }
 
 
 def _get_diluted_shares(symbol, info):
@@ -294,18 +602,17 @@ def _get_diluted_shares(symbol, info):
 
 
 def cmd_overview(symbol, info=None):
-    if not info:
-        console.print(f"[grey70]Fetching live data for {symbol}...[/grey70]")
-        info = _yahoo(symbol)
-    if not info or not info.get("shortName"):
-        console.print(f"[red]{symbol}: no data found[/red]")
+    console.print(f"[grey70]Reading Firestore fundamentals and live quote for {symbol}...[/grey70]")
+    snap = _market_snapshot(symbol)
+    if not snap:
+        console.print(f"[yellow]{symbol}: no Firestore metadata found[/yellow]")
         return
 
-    name = info.get("shortName", symbol)
-    price = info.get("regularMarketPrice") or info.get("currentPrice")
-    change = info.get("regularMarketChange")
-    change_pct = info.get("regularMarketChangePercent")
-    volume = info.get("regularMarketVolume")
+    name = snap.get("name") or symbol
+    price = snap.get("price")
+    change = snap.get("change")
+    change_pct = snap.get("change_pct")
+    volume = snap.get("volume")
 
     price_text = Text()
     price_text.append(f"  {_price(price)}  ", style="bold white")
@@ -325,25 +632,25 @@ def cmd_overview(symbol, info=None):
     t.add_column("", style="white", width=14)
 
     rows = [
-        ("Market Cap", _dollar(info.get("marketCap")),
-         "P/E TTM (GAAP)", _ratio(info.get("trailingPE"))),
-        ("Diluted Shares", _get_diluted_shares(symbol, info),
-         "Fwd P/E (Est)", _ratio(info.get("forwardPE"))),
-        ("52wk High", _price(info.get("fiftyTwoWeekHigh")),
-         "P/S (TTM)", _ratio(info.get("priceToSalesTrailing12Months"))),
-        ("52wk Low", _price(info.get("fiftyTwoWeekLow")),
-         "EV/EBITDA (TTM)", _ratio(info.get("enterpriseToEbitda"))),
-        ("Sector", str(info.get("sector", "N/A")),
-         "EV/Rev (TTM)", _ratio(info.get("enterpriseToRevenue"))),
-        ("Industry", str(info.get("industry", "N/A"))[:26],
+        ("Market Cap", _dollar(snap.get("market_cap")),
+         "P/E TTM (GAAP)", _ratio(snap.get("pe_ttm"))),
+        ("Diluted Shares", _count(snap.get("shares")),
+         "Fwd P/E (Est)", _ratio(snap.get("forward_pe"))),
+        ("52wk High", _price(snap.get("fifty_two_week_high")),
+         "P/S (TTM)", _ratio(snap.get("ps_ttm"))),
+        ("52wk Low", _price(snap.get("fifty_two_week_low")),
+         "EV/EBITDA (TTM)", _ratio(snap.get("ev_ebitda"))),
+        ("Sector", str(snap.get("sector") or "N/A"),
+         "EV/Rev (TTM)", _ratio(snap.get("ev_revenue"))),
+        ("Industry", str(snap.get("industry") or "N/A")[:26],
          "", ""),
-        ("Beta", _num(info.get("beta")),
+        ("Beta", _num(snap.get("beta")),
          "", ""),
     ]
     for r in rows:
         t.add_row(*r)
 
-    desc = info.get("longBusinessSummary", "")
+    desc = snap.get("summary", "")
     if desc and len(desc) > 220:
         desc = desc[:217] + "..."
 
@@ -616,11 +923,12 @@ def cmd_dividends(symbol):
 
 
 def cmd_short(symbol, info=None):
-    if not info:
-        console.print(f"[grey70]Fetching live data for {symbol}...[/grey70]")
-        info = _yahoo(symbol)
-    if not info or not info.get("shortName"):
-        console.print(f"[red]{symbol}: no data found[/red]")
+    meta = _firestore_meta(symbol)
+    if meta is None:
+        console.print("[yellow]Short interest requires Firestore. Set FIRESTORE_PROJECT.[/yellow]")
+        return
+    if not meta:
+        console.print(f"[yellow]No stored short interest for {symbol}[/yellow]")
         return
 
     t = Table(
@@ -631,17 +939,21 @@ def cmd_short(symbol, info=None):
     t.add_column("Metric", style="bold", width=24)
     t.add_column("Value", justify="right", width=16)
 
-    short_date = info.get("dateShortInterest")
+    short_date = _first_value(meta, ["date_short_interest", "dateShortInterest"])
     if isinstance(short_date, (int, float)):
         short_date = datetime.fromtimestamp(short_date).strftime("%Y-%m-%d")
 
-    t.add_row("Shares Short", _count(info.get("sharesShort")))
-    t.add_row("Short Ratio", _num(info.get("shortRatio")))
+    t.add_row("Shares Short", _count(
+        _first_value(meta, ["shares_short", "sharesShort"])
+    ))
+    t.add_row("Short Ratio", _num(
+        _first_value(meta, ["short_ratio", "shortRatio"])
+    ))
     t.add_row("Short % of Float", _pct(
-        info.get("shortPercentOfFloat")
+        _first_value(meta, ["short_percent_of_float", "shortPercentOfFloat"])
     ))
     t.add_row("Short % of Shares Out", _pct(
-        info.get("sharesPercentSharesOut")
+        _first_value(meta, ["shares_percent_shares_out", "sharesPercentSharesOut"])
     ))
     t.add_row("As of", str(short_date or "N/A"))
 
@@ -1015,17 +1327,19 @@ def cmd_compare(symbols):
     if len(symbols) > 6:
         console.print("[yellow]Max 6 tickers for comparison. Using first 6.[/yellow]")
         symbols = symbols[:6]
-    console.print(f"[grey70]Fetching live data for {', '.join(symbols)}...[/grey70]")
+    console.print(
+        f"[grey70]Reading Firestore fundamentals and live quotes for {', '.join(symbols)}...[/grey70]"
+    )
 
-    infos = {}
+    snapshots = {}
     for sym in symbols:
-        info = _yahoo(sym)
-        if info and info.get("shortName"):
-            infos[sym] = info
+        snap = _market_snapshot(sym)
+        if snap:
+            snapshots[sym] = snap
         else:
-            console.print(f"[yellow]{sym}: no data[/yellow]")
+            console.print(f"[yellow]{sym}: no Firestore metadata[/yellow]")
 
-    if not infos:
+    if not snapshots:
         return
 
     t = Table(
@@ -1034,37 +1348,34 @@ def cmd_compare(symbols):
         expand=False, pad_edge=False,
     )
     t.add_column("", style="bold", no_wrap=True)
-    col_width = max(12, max(len(s) for s in infos) + 2)
-    for sym in infos:
-        name = infos[sym].get("shortName", sym)
+    col_width = max(12, max(len(s) for s in snapshots) + 2)
+    for sym in snapshots:
+        name = snapshots[sym].get("name", sym)
         t.add_column(f"{sym}\n[grey70]{name}[/grey70]", justify="right", width=col_width)
 
     metrics = [
-        ("Price", lambda i: _price(
-            i.get("regularMarketPrice") or i.get("currentPrice"))),
-        ("Market Cap", lambda i: _dollar(i.get("marketCap"))),
-        ("EV", lambda i: _dollar(i.get("enterpriseValue"))),
-        ("Revenue", lambda i: _dollar(i.get("totalRevenue"))),
+        ("Price", lambda i: _price(i.get("price"))),
+        ("Market Cap", lambda i: _dollar(i.get("market_cap"))),
+        ("EV", lambda i: _dollar(i.get("enterprise_value"))),
+        ("Revenue", lambda i: _dollar(i.get("revenue"))),
         ("EBITDA", lambda i: _dollar(i.get("ebitda"))),
-        ("Net Income", lambda i: _dollar(i.get("netIncomeToCommon"))),
-        ("EPS (TTM)", lambda i: _num(i.get("trailingEps"))),
-        ("EPS (Fwd)", lambda i: _num(i.get("forwardEps"))),
-        ("P/E TTM (GAAP)", lambda i: _ratio(i.get("trailingPE"))),
-        ("Fwd P/E (Est)", lambda i: _ratio(i.get("forwardPE"))),
-        ("P/S (TTM)", lambda i: _ratio(i.get("priceToSalesTrailing12Months"))),
-        ("EV/Rev (TTM)", lambda i: _ratio(i.get("enterpriseToRevenue"))),
-        ("EV/EBITDA (TTM)", lambda i: _ratio(i.get("enterpriseToEbitda"))),
-        ("EV/OpCF", lambda i: _safe_ratio(
-            i.get("enterpriseValue"), i.get("operatingCashflow"))),
-        ("EV/FCF", lambda i: _safe_ratio(
-            i.get("enterpriseValue"), i.get("freeCashflow"))),
-        ("Div Yield", lambda i: _pct(i.get("dividendYield"))),
+        ("Net Income", lambda i: _dollar(i.get("net_income"))),
+        ("EPS (TTM)", lambda i: _num(i.get("eps_ttm"))),
+        ("EPS (Fwd)", lambda i: _num(i.get("forward_eps"))),
+        ("P/E TTM (GAAP)", lambda i: _ratio(i.get("pe_ttm"))),
+        ("Fwd P/E (Est)", lambda i: _ratio(i.get("forward_pe"))),
+        ("P/S (TTM)", lambda i: _ratio(i.get("ps_ttm"))),
+        ("EV/Rev (TTM)", lambda i: _ratio(i.get("ev_revenue"))),
+        ("EV/EBITDA (TTM)", lambda i: _ratio(i.get("ev_ebitda"))),
+        ("EV/OpCF", lambda i: _ratio(i.get("ev_opcf"))),
+        ("EV/FCF", lambda i: _ratio(i.get("ev_fcf"))),
+        ("Div Yield", lambda i: _pct(i.get("dividend_yield"))),
         ("Beta", lambda i: _num(i.get("beta"))),
     ]
 
     for idx, (label, fn) in enumerate(metrics):
         style = "on grey11" if idx % 2 == 1 else None
-        row = [label] + [fn(infos[sym]) for sym in infos]
+        row = [label] + [fn(snapshots[sym]) for sym in snapshots]
         t.add_row(*row, style=style)
 
     console.print(t)
@@ -1074,31 +1385,21 @@ def cmd_compare(symbols):
 
 
 def cmd_full(symbol):
-    console.print(f"[grey70]Fetching data for {symbol}...[/grey70]")
-    info = _yahoo(symbol)
-    if not info or not info.get("shortName"):
-        console.print(f"[red]{symbol}: no data found[/red]")
-        return
-
-    cmd_overview(symbol, info=info)
-    console.print("[grey70]  Source: Yahoo Finance[/grey70]")
+    cmd_overview(symbol)
+    console.print("[grey70]  Source: Firestore fundamentals + live Yahoo quote[/grey70]")
     console.print()
     cmd_estimates(symbol)
     console.print()
-    cmd_short(symbol, info=info)
-    console.print("[grey70]  Source: Yahoo Finance[/grey70]")
+    cmd_short(symbol)
+    console.print("[grey70]  Source: Firestore metadata[/grey70]")
 
 
 # ── Command router ─────────────────────────────────────────────────────────
 
 SUBCMDS = {
-    "est": cmd_estimates,
     "inc": cmd_income,
     "bal": cmd_balance,
     "cf": cmd_cashflow,
-    "div": cmd_dividends,
-    "short": cmd_short,
-    "target": cmd_target,
     "mgmt": cmd_mgmt,
     "filings": cmd_filings,
     "news": cmd_news,
@@ -1107,6 +1408,7 @@ SUBCMDS = {
 
 def main():
     _print_banner()
+    _check_for_update()
 
     while True:
         try:
@@ -1149,6 +1451,10 @@ def main():
 
         symbol = parts[0].upper()
         subcmd = parts[1].lower() if len(parts) > 1 else None
+
+        if len(parts) > 2:
+            console.print("[yellow]Ticker commands accept one optional subcommand.[/yellow]")
+            continue
 
         if subcmd is None:
             cmd_full(symbol)

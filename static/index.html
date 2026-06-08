@@ -1,669 +1,564 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TEK2day Finance — Stock Prices and Fundamentals</title>
-    <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-        :root { color-scheme: dark; }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TEK2day Finance - Terminal GUI</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #000;
+      --panel: #050505;
+      --panel-2: #0a0a0a;
+      --line: #171717;
+      --line-2: #242424;
+      --text: #e5e7eb;
+      --muted: #7a7a7a;
+      --dim: #4b5563;
+      --blue: #2563eb;
+      --blue-2: #3b82f6;
+      --green: #4ade80;
+      --red: #f87171;
+      --radius: 8px;
+    }
 
-        body {
-            font-family: 'DM Sans', sans-serif;
-            background: #000;
-            color: #e0e0e0;
-        }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
-        .header {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            padding: 16px 24px;
-            background: #000;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
-        }
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "DM Sans", system-ui, sans-serif;
+      overflow: hidden;
+    }
 
-        .header h1 {
-            font-size: 18px;
-            font-weight: 600;
-            color: #fff;
-            letter-spacing: -0.01em;
-        }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
 
-        .search-container {
-            position: relative;
-            width: 320px;
-        }
+    .shell {
+      display: grid;
+      grid-template-rows: 58px 1fr;
+      height: 100vh;
+    }
 
-        #search-input {
-            width: 100%;
-            padding: 8px 14px;
-            background: #111;
-            border: 1px solid #2a2a2a;
-            border-radius: 10px;
-            color: #e0e0e0;
-            font-size: 14px;
-            font-family: 'DM Sans', sans-serif;
-            outline: none;
-        }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--line);
+      background: #000;
+    }
 
-        #search-input:focus {
-            border-color: #2563eb;
-            box-shadow: 0 0 0 1px rgba(37,99,235,0.25);
-        }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 220px;
+    }
 
-        #search-input::placeholder {
-            color: #555;
-        }
+    .brand img {
+      width: 30px;
+      height: 30px;
+      border-radius: 6px;
+    }
 
-        .search-results {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: #111;
-            border: 1px solid #2a2a2a;
-            border-radius: 0 0 10px 10px;
-            max-height: 300px;
-            overflow-y: auto;
-            z-index: 100;
-            display: none;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
-        }
+    .brand-title {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.1;
+    }
 
-        .search-results.visible { display: block; }
+    .brand-title strong {
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+    }
 
-        .search-result {
-            padding: 10px 14px;
-            cursor: pointer;
-            border-bottom: 1px solid #1a1a1a;
-        }
+    .brand-title span {
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 3px;
+    }
 
-        .search-result:hover { background: rgba(255,255,255,0.04); }
+    .command-form {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 10px;
+      width: min(780px, 58vw);
+    }
 
-        .search-result .symbol {
-            font-weight: 700;
-            color: #93c5fd;
-            margin-right: 8px;
-            font-size: 13px;
-        }
+    .command-input {
+      width: 100%;
+      height: 38px;
+      border: 1px solid var(--line-2);
+      border-radius: var(--radius);
+      background: #080808;
+      color: #fff;
+      font-family: "Fira Code", Consolas, monospace;
+      font-size: 13px;
+      outline: none;
+      padding: 0 14px;
+    }
 
-        .search-result .name {
-            color: #888;
-            font-size: 13px;
-        }
+    .command-input:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2);
+    }
 
-        .ticker-header {
-            padding: 16px 24px;
-            display: none;
-        }
+    .run-btn {
+      min-width: 76px;
+      height: 38px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      background: var(--blue);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+    }
 
-        .ticker-header.visible { display: block; }
+    .run-btn:disabled {
+      cursor: wait;
+      opacity: 0.65;
+    }
 
-        .ticker-header .symbol {
-            font-size: 28px;
-            font-weight: 700;
-            color: #fff;
-            letter-spacing: -0.02em;
-        }
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-family: "Fira Code", Consolas, monospace;
+      font-size: 11px;
+      min-width: 96px;
+      text-transform: uppercase;
+    }
 
-        .ticker-header .name {
-            font-size: 14px;
-            color: #888;
-            margin-top: 2px;
-        }
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--green);
+      box-shadow: 0 0 14px rgba(74, 222, 128, 0.45);
+    }
 
-        .ticker-header .price {
-            font-size: 24px;
-            font-weight: 700;
-            margin-top: 8px;
-            letter-spacing: -0.02em;
-        }
+    .workspace {
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+      min-height: 0;
+    }
 
-        .ticker-header .price.up { color: #4ade80; }
-        .ticker-header .price.down { color: #f87171; }
+    .rail,
+    .terminal-pane {
+      min-height: 0;
+      border-right: 1px solid var(--line);
+      background: #000;
+    }
 
-        .ticker-header .change {
-            font-size: 14px;
-            margin-left: 10px;
-        }
+    .rail {
+      display: flex;
+      flex-direction: column;
+      background: #020202;
+    }
 
-        .tabs {
-            display: flex;
-            gap: 0;
-            padding: 0 24px;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
-        }
+    .rail-section {
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+    }
 
-        .tab {
-            padding: 10px 20px;
-            cursor: pointer;
-            color: #888;
-            font-size: 13px;
-            font-weight: 500;
-            font-family: 'DM Sans', sans-serif;
-            border-bottom: 2px solid transparent;
-            transition: all 0.15s;
-        }
+    .section-title {
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
 
-        .tab:hover { color: #ccc; }
-        .tab.active { color: #2563eb; border-bottom-color: #2563eb; }
+    .command-list {
+      display: grid;
+      gap: 8px;
+    }
 
-        #chart-container {
-            width: 100%;
-            height: 500px;
-            padding: 0 24px;
-        }
+    .command-card {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      min-height: 42px;
+      border: 1px solid #151515;
+      border-radius: var(--radius);
+      background: var(--panel);
+      color: var(--text);
+      text-align: left;
+      padding: 9px 10px;
+    }
 
-        #volume-note {
-            padding: 4px 24px;
-            font-size: 11px;
-            color: #555;
-        }
+    .command-card:hover {
+      border-color: var(--blue-2);
+      background: #080808;
+    }
 
-        .panel {
-            padding: 24px;
-            display: none;
-        }
+    .command-card code {
+      color: #fff;
+      font-family: "Fira Code", Consolas, monospace;
+      font-size: 11px;
+    }
 
-        .panel.visible { display: block; }
+    .command-card span {
+      color: var(--muted);
+      font-size: 12px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
 
-        .financials-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-        }
+    .terminal-pane {
+      display: flex;
+      flex-direction: column;
+      border-right: 0;
+    }
 
-        .financials-table th {
-            text-align: left;
-            padding: 8px 12px;
-            color: #888;
-            font-weight: 600;
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
-            white-space: nowrap;
-        }
+    .pane-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      height: 48px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--line);
+      background: #000;
+    }
 
-        .financials-table td {
-            padding: 8px 12px;
-            border-bottom: 1px solid #111;
-            white-space: nowrap;
-            font-variant-numeric: tabular-nums;
-        }
+    .pane-title {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 0;
+    }
 
-        .financials-table tr:hover { background: rgba(255,255,255,0.02); }
+    .pane-title strong {
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+    }
 
-        .estimate-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 16px;
-        }
+    .pane-title span {
+      overflow: hidden;
+      color: var(--muted);
+      font-family: "Fira Code", Consolas, monospace;
+      font-size: 11px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
 
-        .estimate-card {
-            background: rgba(22,22,22,0.55);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            border: 1px solid rgba(255,255,255,0.06);
-            border-radius: 12px;
-            padding: 16px;
-        }
+    .copy-btn {
+      height: 30px;
+      border: 1px solid var(--line-2);
+      border-radius: 7px;
+      background: #080808;
+      color: var(--muted);
+      padding: 0 10px;
+      font-size: 12px;
+    }
 
-        .estimate-card h3 {
-            font-size: 10px;
-            color: #888;
-            margin-bottom: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
+    .copy-btn:hover {
+      color: #fff;
+      border-color: var(--blue-2);
+    }
 
-        .estimate-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 4px 0;
-            font-size: 13px;
-        }
+    .terminal-output {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 16px;
+      background: #000;
+      color: #d6d6d6;
+      display: grid;
+      align-content: start;
+      gap: 12px;
+    }
 
-        .estimate-row .label { color: #999; }
-        .estimate-row .value { color: #e0e0e0; font-weight: 500; font-variant-numeric: tabular-nums; }
+    .output-block {
+      overflow: auto;
+      border: 1px solid #151515;
+      border-radius: var(--radius);
+      background: var(--panel);
+      padding: 12px;
+    }
 
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #555;
-            font-size: 13px;
-        }
-    </style>
+    .output-block pre {
+      color: inherit;
+      font-family: "Fira Code", Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre;
+    }
+
+    .terminal-output.empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .terminal-output.error { color: var(--red); }
+
+    .history {
+      display: grid;
+      gap: 8px;
+    }
+
+    .history button {
+      width: 100%;
+      border: 1px solid #151515;
+      border-radius: var(--radius);
+      background: var(--panel);
+      color: #cbd5e1;
+      padding: 8px 10px;
+      text-align: left;
+      font-family: "Fira Code", Consolas, monospace;
+      font-size: 11px;
+    }
+
+    @media (max-width: 1100px) {
+      body { overflow: auto; }
+      .shell { height: auto; min-height: 100vh; }
+      .command-form { width: min(620px, 52vw); }
+    }
+
+    @media (max-width: 760px) {
+      .topbar {
+        height: auto;
+        min-height: 58px;
+        flex-direction: column;
+        align-items: stretch;
+        padding: 12px;
+      }
+      .command-form { width: 100%; }
+      .status { display: none; }
+      .workspace { grid-template-columns: 1fr; }
+      .terminal-pane {
+        order: 1;
+        min-height: calc(100vh - 128px);
+        border-right: 0;
+      }
+      .rail {
+        order: 2;
+        border-right: 0;
+      }
+      .terminal-output {
+        padding: 10px;
+        gap: 10px;
+      }
+      .output-block {
+        padding: 10px;
+      }
+      .output-block pre {
+        font-size: 11px;
+      }
+      .pane-head {
+        height: 42px;
+        padding: 0 10px;
+      }
+      .command-card {
+        grid-template-columns: 132px 1fr;
+      }
+    }
+  </style>
 </head>
 <body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <img src="/static/tek2day-icon.png" alt="TEK2day">
+        <div class="brand-title">
+          <strong>TEK2day Finance</strong>
+          <span>Terminal GUI</span>
+        </div>
+      </div>
 
-<div class="header">
-    <img src="/static/tek2day-icon.png" alt="TEK2day" style="height:36px;"><h1>TEK2day Finance</h1><span style="color:#666; font-size:13px; margin-left:8px;">Stock Prices and Fundamentals</span>
-    <div class="search-container">
-        <input type="text" id="search-input" placeholder="Search ticker or company name..." autocomplete="off">
-        <div class="search-results" id="search-results"></div>
-    </div>
-</div>
+      <form class="command-form" id="command-form">
+        <input class="command-input" id="command-input" autocomplete="off" spellcheck="false" value="/AAPL" aria-label="Command">
+        <button class="run-btn" id="run-btn" type="submit">Run</button>
+      </form>
 
-<div class="ticker-header" id="ticker-header">
-    <div class="symbol" id="ticker-symbol"></div>
-    <div class="name" id="ticker-name"></div>
-    <div>
-        <span class="price" id="ticker-price"></span>
-        <span class="change" id="ticker-change"></span>
-    </div>
-</div>
+      <div class="status"><span class="status-dot"></span><span id="status-text">Ready</span></div>
+    </header>
 
-<div class="tabs" id="tabs" style="display:none;">
-    <div class="tab active" data-tab="chart">Chart</div>
-    <div class="tab" data-tab="estimates">Estimates</div>
-    <div class="tab" data-tab="financials">Financials</div>
-</div>
+    <main class="workspace">
+      <aside class="rail">
+        <section class="rail-section">
+          <div class="section-title">Command Menu</div>
+          <div class="command-list">
+            <button class="command-card" data-template="/{symbol}"><code>/ticker</code><span>Summary</span></button>
+            <button class="command-card" data-template="/{symbol} inc"><code>/ticker inc</code><span>Income statement</span></button>
+            <button class="command-card" data-template="/{symbol} bal"><code>/ticker bal</code><span>Balance sheet</span></button>
+            <button class="command-card" data-template="/{symbol} cf"><code>/ticker cf</code><span>Cash flow</span></button>
+            <button class="command-card" data-template="/{symbol} mgmt"><code>/ticker mgmt</code><span>Management / CEO</span></button>
+            <button class="command-card" data-template="/{symbol} filings"><code>/ticker filings</code><span>SEC filings</span></button>
+            <button class="command-card" data-template="/{symbol} news"><code>/ticker news</code><span>Recent news</span></button>
+            <button class="command-card" data-command="/comp AAPL MSFT"><code>/comp TICKER1 TICKER2</code><span>Comp table</span></button>
+            <button class="command-card" data-command="/help"><code>/help</code><span>Show this menu</span></button>
+            <button class="command-card" data-command="/exit"><code>/exit</code><span>Quit</span></button>
+          </div>
+        </section>
 
-<div id="chart-panel" class="panel visible">
-    <div id="chart-container"></div>
-    <div id="volume-note"></div>
-</div>
+        <section class="rail-section">
+          <div class="section-title">Recent</div>
+          <div class="history" id="history"></div>
+        </section>
+      </aside>
 
-<div id="estimates-panel" class="panel">
-    <div id="estimates-content"></div>
-</div>
+      <section class="terminal-pane">
+        <div class="pane-head">
+          <div class="pane-title">
+            <strong>Output</strong>
+            <span id="terminal-command">Idle</span>
+          </div>
+          <button class="copy-btn" id="copy-btn" type="button">Copy</button>
+        </div>
+        <div class="terminal-output empty" id="terminal-output">Enter a command or choose one from the menu.</div>
+      </section>
+    </main>
+  </div>
 
-<div id="financials-panel" class="panel">
-    <div id="financials-content"></div>
-</div>
+  <script>
+    const commandForm = document.getElementById("command-form");
+    const commandInput = document.getElementById("command-input");
+    const runBtn = document.getElementById("run-btn");
+    const terminalOutput = document.getElementById("terminal-output");
+    const terminalCommand = document.getElementById("terminal-command");
+    const statusText = document.getElementById("status-text");
+    const historyEl = document.getElementById("history");
 
-<div id="empty-state"></div>
+    let currentSymbol = "AAPL";
+    let commandHistory = [];
+    let terminalPlainText = "";
 
-<script>
-    let chart = null;
-    let candleSeries = null;
-    let volumeSeries = null;
-    let currentSymbol = null;
-    let searchTimeout = null;
-
-    // ── Search ──────────────────────────────────────────────────────
-    const searchInput = document.getElementById('search-input');
-    const searchResults = document.getElementById('search-results');
-
-    searchInput.addEventListener('input', () => {
-        clearTimeout(searchTimeout);
-        const q = searchInput.value.trim();
-        if (q.length < 1) {
-            searchResults.classList.remove('visible');
-            return;
-        }
-        searchTimeout = setTimeout(() => fetchSearch(q), 200);
+    commandForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      runCommand(commandInput.value.trim());
     });
 
-    searchInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            const q = searchInput.value.trim().toUpperCase();
-            if (q) {
-                searchResults.classList.remove('visible');
-                loadTicker(q);
-            }
-        }
+    document.querySelectorAll(".command-card").forEach((button) => {
+      button.addEventListener("click", () => {
+        const activeSymbol = symbolFromCommand(commandInput.value) || currentSymbol || "AAPL";
+        const command = button.dataset.command || button.dataset.template.replace("{symbol}", activeSymbol);
+        commandInput.value = command;
+        runCommand(command);
+      });
     });
 
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.search-container')) {
-            searchResults.classList.remove('visible');
-        }
+    document.getElementById("copy-btn").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(terminalPlainText || terminalOutput.textContent || "");
+        setStatus("Copied");
+      } catch (err) {
+        setStatus("Copy failed");
+      }
     });
 
-    async function fetchSearch(q) {
-        try {
-            const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
-            const data = await res.json();
-            renderSearchResults(data);
-        } catch (err) {
-            console.error('Search error:', err);
-        }
-    }
-
-    function renderSearchResults(results) {
-        if (!results.length) {
-            searchResults.classList.remove('visible');
-            return;
-        }
-        searchResults.innerHTML = results.map(r => `
-            <div class="search-result" onclick="selectTicker('${r.symbol}')">
-                <span class="symbol">${r.symbol}</span>
-                <span class="name">${r.name}</span>
-            </div>
-        `).join('');
-        searchResults.classList.add('visible');
-    }
-
-    function selectTicker(symbol) {
-        searchInput.value = symbol;
-        searchResults.classList.remove('visible');
-        loadTicker(symbol);
-    }
-
-    // ── Tabs ────────────────────────────────────────────────────────
-    document.querySelectorAll('.tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            const target = tab.dataset.tab;
-            document.querySelectorAll('.panel').forEach(p => p.classList.remove('visible'));
-            document.getElementById(target + '-panel').classList.add('visible');
-            if (target === 'chart' && chart) {
-                chart.timeScale().fitContent();
-            }
-        });
-    });
-
-    // ── Load ticker ─────────────────────────────────────────────────
-    async function loadTicker(symbol) {
+    async function runCommand(rawCommand) {
+      if (!rawCommand) return;
+      const command = normalizeCommand(rawCommand);
+      const symbol = symbolFromCommand(command);
+      if (symbol) {
         currentSymbol = symbol;
-        document.getElementById('empty-state').style.display = 'none';
-        document.getElementById('tabs').style.display = 'flex';
-        document.getElementById('ticker-header').classList.add('visible');
-        document.getElementById('ticker-symbol').textContent = symbol;
-        document.getElementById('ticker-name').textContent = 'Loading...';
-        document.getElementById('ticker-price').textContent = '';
-        document.getElementById('ticker-change').textContent = '';
+      }
 
-        // Activate chart tab
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.querySelector('[data-tab="chart"]').classList.add('active');
-        document.querySelectorAll('.panel').forEach(p => p.classList.remove('visible'));
-        document.getElementById('chart-panel').classList.add('visible');
+      commandInput.value = command;
+      terminalCommand.textContent = command;
+      terminalOutput.classList.remove("empty", "error");
+      terminalOutput.textContent = "Running...";
+      terminalPlainText = "Running...";
+      runBtn.disabled = true;
+      setStatus("Running");
 
-        loadTickerInfo(symbol);
-        loadChart(symbol);
-        loadEstimates(symbol);
-        loadFinancials(symbol);
+      try {
+        const resp = await fetch("/api/command", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ command, width: terminalWidth() }),
+        });
+        const result = await resp.json();
+        terminalPlainText = result.output || result.error || "No output.";
+        renderOutput(terminalPlainText);
+        terminalOutput.classList.toggle("error", result.kind === "error");
+        addHistory(result.command || command);
+        setStatus(result.kind === "error" ? "Error" : "Ready");
+      } catch (err) {
+        terminalPlainText = `Command failed: ${err}`;
+        renderOutput(terminalPlainText);
+        terminalOutput.classList.add("error");
+        setStatus("Error");
+      } finally {
+        runBtn.disabled = false;
+      }
     }
 
-    async function loadTickerInfo(symbol) {
-        try {
-            const res = await fetch(`/api/ticker/${symbol}`);
-            const data = await res.json();
-            if (data.name) {
-                document.getElementById('ticker-name').textContent =
-                    `${data.name} · ${data.sector || ''} · ${data.industry || ''}`;
-            }
-        } catch (err) {
-            console.error('Ticker info error:', err);
-        }
+    function normalizeCommand(rawCommand) {
+      let command = rawCommand.trim();
+      if (!command.startsWith("/")) command = `/${command}`;
+      const parts = command.slice(1).split(/\s+/);
+      if (parts[0] && parts[0].toLowerCase() === "ticker") {
+        parts[0] = currentSymbol || "AAPL";
+        command = `/${parts.join(" ")}`;
+      }
+      return command;
     }
 
-    // ── Chart ───────────────────────────────────────────────────────
-    async function loadChart(symbol) {
-        const container = document.getElementById('chart-container');
-        container.innerHTML = '<div class="loading">Loading chart...</div>';
-
-        try {
-            const res = await fetch(`/api/prices/${symbol}`);
-            const prices = await res.json();
-
-            if (!prices.length) {
-                container.innerHTML = '<div class="loading">No price data available.</div>';
-                return;
-            }
-
-            container.innerHTML = '';
-
-            if (chart) {
-                chart.remove();
-            }
-
-            chart = LightweightCharts.createChart(container, {
-                width: container.clientWidth,
-                height: 500,
-                layout: {
-                    background: { color: '#000' },
-                    textColor: '#888',
-                },
-                grid: {
-                    vertLines: { color: 'rgba(255,255,255,0.06)' },
-                    horzLines: { color: 'rgba(255,255,255,0.06)' },
-                },
-                crosshair: {
-                    mode: LightweightCharts.CrosshairMode.Normal,
-                },
-                rightPriceScale: {
-                    borderColor: 'rgba(255,255,255,0.06)',
-                },
-                timeScale: {
-                    borderColor: 'rgba(255,255,255,0.06)',
-                    timeVisible: false,
-                },
-            });
-
-            candleSeries = chart.addCandlestickSeries({
-                upColor: '#4ade80',
-                downColor: '#f87171',
-                borderDownColor: '#f87171',
-                borderUpColor: '#4ade80',
-                wickDownColor: '#f87171',
-                wickUpColor: '#4ade80',
-            });
-
-            candleSeries.setData(prices.map(p => ({
-                time: p.time,
-                open: p.open,
-                high: p.high,
-                low: p.low,
-                close: p.close,
-            })));
-
-            volumeSeries = chart.addHistogramSeries({
-                color: '#4ade80',
-                priceFormat: { type: 'volume' },
-                priceScaleId: '',
-            });
-
-            volumeSeries.priceScale().applyOptions({
-                scaleMargins: { top: 0.8, bottom: 0 },
-            });
-
-            volumeSeries.setData(prices.map(p => ({
-                time: p.time,
-                value: p.volume,
-                color: p.close >= p.open ? 'rgba(74, 222, 128, 0.3)' : 'rgba(248, 113, 113, 0.3)',
-            })));
-
-            chart.timeScale().fitContent();
-
-            // Update price display
-            const last = prices[prices.length - 1];
-            const prev = prices.length > 1 ? prices[prices.length - 2] : last;
-            const priceEl = document.getElementById('ticker-price');
-            const changeEl = document.getElementById('ticker-change');
-
-            priceEl.textContent = `$${last.close.toFixed(2)}`;
-            const diff = last.close - prev.close;
-            const pct = ((diff / prev.close) * 100).toFixed(2);
-            const sign = diff >= 0 ? '+' : '';
-            changeEl.textContent = `${sign}${diff.toFixed(2)} (${sign}${pct}%)`;
-            priceEl.className = `price ${diff >= 0 ? 'up' : 'down'}`;
-            changeEl.style.color = diff >= 0 ? '#4ade80' : '#f87171';
-
-            // Resize handler
-            window.addEventListener('resize', () => {
-                if (chart) chart.applyOptions({ width: container.clientWidth });
-            });
-
-        } catch (err) {
-            container.innerHTML = '<div class="loading">Error loading chart.</div>';
-            console.error('Chart error:', err);
-        }
+    function terminalWidth() {
+      const cols = Math.floor((terminalOutput.clientWidth || 720) / 7);
+      return Math.max(72, Math.min(132, cols));
     }
 
-    // ── Estimates ───────────────────────────────────────────────────
-    async function loadEstimates(symbol) {
-        const container = document.getElementById('estimates-content');
-        container.innerHTML = '<div class="loading">Loading estimates...</div>';
-
-        try {
-            const res = await fetch(`/api/estimates/${symbol}?limit=1`);
-            const data = await res.json();
-
-            if (!data.length) {
-                container.innerHTML = '<div class="loading">No estimate data available.</div>';
-                return;
-            }
-
-            const est = data[0];
-            const periods = [
-                { key: '0q', label: 'Current Quarter' },
-                { key: '+1q', label: 'Next Quarter' },
-                { key: '0y', label: 'Current Year' },
-                { key: '+1y', label: 'Next Year' },
-            ];
-
-            let html = '<div class="estimate-grid">';
-
-            for (const { key, label } of periods) {
-                const epsAvg = est.eps_avg?.[key];
-                const epsHigh = est.eps_high?.[key];
-                const epsLow = est.eps_low?.[key];
-                const epsAnalysts = est.eps_numberofanalysts?.[key];
-                const epsGrowth = est.eps_growth?.[key];
-                const revAvg = est.rev_avg?.[key];
-                const revHigh = est.rev_high?.[key];
-                const revLow = est.rev_low?.[key];
-                const revAnalysts = est.rev_numberofanalysts?.[key];
-                const revGrowth = est.rev_growth?.[key];
-
-                html += `
-                    <div class="estimate-card">
-                        <h3>${label}</h3>
-                        <div class="estimate-row">
-                            <span class="label">EPS Consensus</span>
-                            <span class="value">${epsAvg != null ? '$' + epsAvg.toFixed(2) : '—'}</span>
-                        </div>
-                        <div class="estimate-row">
-                            <span class="label">EPS Range</span>
-                            <span class="value">${epsLow != null ? '$' + epsLow.toFixed(2) + ' — $' + epsHigh.toFixed(2) : '—'}</span>
-                        </div>
-                        <div class="estimate-row">
-                            <span class="label">EPS Growth</span>
-                            <span class="value">${epsGrowth != null ? (epsGrowth * 100).toFixed(1) + '%' : '—'}</span>
-                        </div>
-                        <div class="estimate-row">
-                            <span class="label"># Analysts (EPS)</span>
-                            <span class="value">${epsAnalysts != null ? Math.round(epsAnalysts) : '—'}</span>
-                        </div>
-                        <hr style="border-color:rgba(255,255,255,0.06); margin: 8px 0;">
-                        <div class="estimate-row">
-                            <span class="label">Revenue Consensus</span>
-                            <span class="value">${revAvg != null ? formatLargeNum(revAvg) : '—'}</span>
-                        </div>
-                        <div class="estimate-row">
-                            <span class="label">Revenue Range</span>
-                            <span class="value">${revLow != null ? formatLargeNum(revLow) + ' — ' + formatLargeNum(revHigh) : '—'}</span>
-                        </div>
-                        <div class="estimate-row">
-                            <span class="label">Revenue Growth</span>
-                            <span class="value">${revGrowth != null ? (revGrowth * 100).toFixed(1) + '%' : '—'}</span>
-                        </div>
-                        <div class="estimate-row">
-                            <span class="label"># Analysts (Rev)</span>
-                            <span class="value">${revAnalysts != null ? Math.round(revAnalysts) : '—'}</span>
-                        </div>
-                    </div>
-                `;
-            }
-
-            html += '</div>';
-            container.innerHTML = html;
-
-        } catch (err) {
-            container.innerHTML = '<div class="loading">Error loading estimates.</div>';
-            console.error('Estimates error:', err);
-        }
+    function symbolFromCommand(command) {
+      const parts = command.replace(/^\//, "").trim().split(/\s+/);
+      if (!parts[0] || ["help", "exit", "quit", "q", "comp"].includes(parts[0].toLowerCase())) return null;
+      return parts[0].toUpperCase();
     }
 
-    // ── Financials ──────────────────────────────────────────────────
-    async function loadFinancials(symbol) {
-        const container = document.getElementById('financials-content');
-        container.innerHTML = '<div class="loading">Loading financials...</div>';
-
-        try {
-            const res = await fetch(`/api/financials/${symbol}`);
-            const data = await res.json();
-
-            if (!data.length) {
-                container.innerHTML = '<div class="loading">No financial data available.</div>';
-                return;
-            }
-
-            const periods = data.reverse();
-
-            const keyMetrics = [
-                { section: 'Income Statement', items: [
-                    ['Total Revenue', 'income', 'Total Revenue'],
-                    ['Gross Profit', 'income', 'Gross Profit'],
-                    ['Operating Income', 'income', 'Operating Income'],
-                    ['Net Income', 'income', 'Net Income'],
-                    ['EBITDA', 'income', 'EBITDA'],
-                ]},
-                { section: 'Balance Sheet', items: [
-                    ['Total Assets', 'balance_sheet', 'Total Assets'],
-                    ['Total Liabilities', 'balance_sheet', 'Total Liabilities Net Minority Interest'],
-                    ['Total Equity', 'balance_sheet', 'Stockholders Equity'],
-                    ['Cash & Equivalents', 'balance_sheet', 'Cash And Cash Equivalents'],
-                    ['Total Debt', 'balance_sheet', 'Total Debt'],
-                ]},
-                { section: 'Cash Flow', items: [
-                    ['Operating Cash Flow', 'cash_flow', 'Operating Cash Flow'],
-                    ['Capital Expenditure', 'cash_flow', 'Capital Expenditure'],
-                    ['Free Cash Flow', 'cash_flow', 'Free Cash Flow'],
-                ]},
-            ];
-
-            let html = '';
-
-            for (const { section, items } of keyMetrics) {
-                html += `<h3 style="color:#888; font-size:13px; font-weight:500; margin:20px 0 10px; padding-left:12px;">${section}</h3>`;
-                html += '<table class="financials-table"><thead><tr><th></th>';
-
-                for (const p of periods) {
-                    html += `<th>${p.period || p.period_end || '—'}</th>`;
-                }
-                html += '</tr></thead><tbody>';
-
-                for (const [label, group, field] of items) {
-                    html += `<tr><td style="color:#ccc; font-weight:500;">${label}</td>`;
-                    for (const p of periods) {
-                        const val = p[group]?.[field];
-                        html += `<td>${val != null ? formatLargeNum(val) : '—'}</td>`;
-                    }
-                    html += '</tr>';
-                }
-                html += '</tbody></table>';
-            }
-
-            container.innerHTML = html;
-
-        } catch (err) {
-            container.innerHTML = '<div class="loading">Error loading financials.</div>';
-            console.error('Financials error:', err);
-        }
+    function addHistory(command) {
+      commandHistory = [command, ...commandHistory.filter((item) => item !== command)].slice(0, 8);
+      historyEl.innerHTML = commandHistory.map((item) => `<button type="button">${escapeHtml(item)}</button>`).join("");
+      historyEl.querySelectorAll("button").forEach((button) => {
+        button.addEventListener("click", () => {
+          commandInput.value = button.textContent;
+          runCommand(button.textContent);
+        });
+      });
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────
-    function formatLargeNum(n) {
-        if (n == null) return '—';
-        const abs = Math.abs(n);
-        const sign = n < 0 ? '-' : '';
-        if (abs >= 1e12) return sign + '$' + (abs / 1e12).toFixed(2) + 'T';
-        if (abs >= 1e9) return sign + '$' + (abs / 1e9).toFixed(2) + 'B';
-        if (abs >= 1e6) return sign + '$' + (abs / 1e6).toFixed(1) + 'M';
-        if (abs >= 1e3) return sign + '$' + (abs / 1e3).toFixed(1) + 'K';
-        return sign + '$' + n.toFixed(2);
+    function setStatus(text) {
+      statusText.textContent = text;
     }
-</script>
 
+    function renderOutput(text) {
+      terminalOutput.classList.remove("empty");
+      terminalOutput.innerHTML = "";
+      const wrapper = document.createElement("div");
+      wrapper.className = "output-block";
+      const pre = document.createElement("pre");
+      pre.textContent = String(text || "No output.");
+      wrapper.appendChild(pre);
+      terminalOutput.appendChild(wrapper);
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    addHistory("/help");
+  </script>
 </body>
 </html>

@@ -7,19 +7,144 @@ Usage:
     python app.py
     # or: uvicorn app:app --reload --port 8050
 """
+import io
+import re
+import threading
+from html import escape
+from typing import Callable
+
 from fastapi import FastAPI, Query
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
+from pydantic import BaseModel, Field
 import requests
+from rich.console import Console
+
 import storage
+import terminal
 from config import CEORATER_API_KEY
 
-app = FastAPI(title="YFinance Data Pipeline")
+app = FastAPI(title="TEK2day Finance")
 
 STATIC_DIR = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+COMMAND_LOCK = threading.Lock()
+SYMBOL_RE = re.compile(r"^[A-Z][A-Z0-9.\-]{0,12}$")
+MENU_SUBCMDS = {
+    "inc": terminal.cmd_income,
+    "bal": terminal.cmd_balance,
+    "cf": terminal.cmd_cashflow,
+    "mgmt": terminal.cmd_mgmt,
+    "filings": terminal.cmd_filings,
+    "news": terminal.cmd_news,
+}
+
+
+class CommandRequest(BaseModel):
+    command: str = Field(..., min_length=1, max_length=160)
+    width: int = Field(default=104, ge=72, le=140)
+
+
+def _validate_symbol(symbol: str) -> str:
+    symbol = symbol.upper()
+    if not SYMBOL_RE.fullmatch(symbol):
+        raise ValueError(f"Invalid ticker: {symbol}")
+    return symbol
+
+
+def _plain_output(text: str) -> dict:
+    return {"output": text, "output_html": escape(text)}
+
+
+def _capture_terminal(fn: Callable[[], None], width: int) -> dict:
+    """Run a terminal command with Rich output captured for the browser."""
+    buffer = io.StringIO()
+    captured = Console(
+        file=buffer,
+        record=True,
+        force_terminal=True,
+        color_system="truecolor",
+        width=width,
+        legacy_windows=False,
+    )
+    table_width = max(72, min(width, 120))
+    with COMMAND_LOCK:
+        old_console = terminal.console
+        old_table_width = terminal.TABLE_WIDTH
+        terminal.console = captured
+        terminal.TABLE_WIDTH = table_width
+        try:
+            fn()
+        finally:
+            terminal.console = old_console
+            terminal.TABLE_WIDTH = old_table_width
+    text = captured.export_text(styles=False, clear=False).strip()
+    html = captured.export_html(inline_styles=True, code_format="{code}").strip()
+    return {"output": text, "output_html": html}
+
+
+def _run_terminal_command(line: str, width: int) -> dict:
+    line = line.strip()
+    if not line.startswith("/"):
+        line = "/" + line
+
+    parts = line[1:].split()
+    if not parts:
+        raise ValueError("Enter a command such as /AAPL or /comp AAPL MSFT")
+
+    first = parts[0].lower()
+
+    if first in ("help", "?"):
+        output = _capture_terminal(terminal._print_banner, width)
+        return {"command": "/help", "kind": "help", **output}
+
+    if first in ("exit", "quit", "q"):
+        return {
+            "command": "/exit",
+            "kind": "system",
+            **_plain_output("This is the web wrapper. Close the browser tab to exit."),
+        }
+
+    if first == "comp":
+        if len(parts) < 3:
+            raise ValueError("Usage: /comp AAPL MSFT (up to 6 tickers)")
+        if len(parts) > 7:
+            raise ValueError("Maximum 6 tickers at a time.")
+        symbols = [_validate_symbol(part) for part in parts[1:]]
+        output = _capture_terminal(lambda: terminal.cmd_compare(symbols), width)
+        return {
+            "command": "/comp " + " ".join(symbols),
+            "kind": "compare",
+            "symbols": symbols,
+            **output,
+        }
+
+    symbol = _validate_symbol(parts[0])
+    subcmd = parts[1].lower() if len(parts) > 1 else None
+
+    if len(parts) > 2:
+        raise ValueError("Ticker commands accept one optional subcommand.")
+
+    if subcmd is None:
+        output = _capture_terminal(lambda: terminal.cmd_full(symbol), width)
+        kind = "summary"
+    elif subcmd in MENU_SUBCMDS:
+        output = _capture_terminal(lambda: MENU_SUBCMDS[subcmd](symbol), width)
+        kind = subcmd
+    else:
+        options = ", ".join(MENU_SUBCMDS)
+        raise ValueError(f"Unknown subcommand: {subcmd}. Options: {options}")
+
+    return {
+        "command": f"/{symbol}" + (f" {subcmd}" if subcmd else ""),
+        "kind": kind,
+        "symbol": symbol,
+        "subcommand": subcmd,
+        **output,
+    }
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -49,6 +174,22 @@ def search_tickers(q: str = Query(..., min_length=1)):
             "sector": d.get("sector", ""),
         })
     return results
+
+
+@app.post("/api/command")
+def run_command(req: CommandRequest):
+    """Run a whitelisted TEK2day terminal command and return captured text output."""
+    try:
+        return _run_terminal_command(req.command, req.width)
+    except ValueError as exc:
+        return {"command": req.command, "kind": "error", "error": str(exc), **_plain_output(str(exc))}
+    except Exception as exc:
+        return {
+            "command": req.command,
+            "kind": "error",
+            "error": str(exc),
+            **_plain_output(f"Command failed: {exc}"),
+        }
 
 
 @app.get("/api/prices/{symbol}")
