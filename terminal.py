@@ -368,7 +368,7 @@ def _live_quote(symbol):
                 info.get("fiftyTwoWeekLow")
             )
         except Exception as e:
-            console.print(f"[red]Error fetching live quote for {symbol}: {e}[/red]")
+            console.print(f"[red]Error fetching Yahoo Finance data for {symbol}: {e}[/red]")
 
     price = quote["price"]
     previous_close = quote["previous_close"]
@@ -607,10 +607,10 @@ def _get_diluted_shares(symbol, info):
 
 
 def cmd_overview(symbol, info=None):
-    console.print(f"[grey70]Reading Firestore fundamentals and live quote for {symbol}...[/grey70]")
+    console.print(f"[grey70]Reading Yahoo Finance and TEK2day data for {symbol}...[/grey70]")
     snap = _market_snapshot(symbol)
     if not snap:
-        console.print(f"[yellow]{symbol}: no Firestore metadata found[/yellow]")
+        console.print(f"[yellow]{symbol}: no TEK2day fundamentals found[/yellow]")
         return
 
     name = snap.get("name") or symbol
@@ -698,7 +698,7 @@ PERIOD_ORDER = ["0q", "+1q", "0y", "+1y"]
 
 def cmd_estimates(symbol):
     if not _has_firestore():
-        console.print("[yellow]Estimates require Firestore. Set FIRESTORE_PROJECT.[/yellow]")
+        console.print("[yellow]Estimates require TEK2day data access.[/yellow]")
         return
 
     history = storage.get_estimate_history(symbol, limit=1)
@@ -757,7 +757,7 @@ def cmd_estimates(symbol):
 
         console.print(t)
 
-    console.print(f"[grey70]  As of {pull_date} · Source: Yahoo Finance[/grey70]")
+    console.print(f"[grey70]  As of {pull_date} · Source: Yahoo Finance, TEK2day[/grey70]")
 
 
 # ── Financial statement helpers ────────────────────────────────────────────
@@ -791,7 +791,7 @@ CASHFLOW_FIELDS = [
 
 def _show_financials(symbol, section, fields, title, snapshot=False):
     if not _has_firestore():
-        console.print("[yellow]Financials require Firestore. Set FIRESTORE_PROJECT.[/yellow]")
+        console.print("[yellow]Financials require TEK2day data access.[/yellow]")
         return
 
     all_fins = storage.get_all_financials(symbol)
@@ -852,7 +852,7 @@ def cmd_income(symbol):
 
 def cmd_balance(symbol):
     if not _has_firestore():
-        console.print("[yellow]Financials require Firestore. Set FIRESTORE_PROJECT.[/yellow]")
+        console.print("[yellow]Financials require TEK2day data access.[/yellow]")
         return
     all_fins = storage.get_all_financials(symbol)
     if not all_fins:
@@ -931,7 +931,7 @@ def cmd_short(symbol, info=None):
     meta = _firestore_meta(symbol)
     if meta is None:
         meta = {}
-    source = "Firestore metadata"
+    source = "Yahoo Finance, TEK2day"
     values = {
         "date": _first_value(meta, ["date_short_interest", "dateShortInterest"]),
         "shares": _first_value(meta, ["shares_short", "sharesShort"]),
@@ -941,7 +941,7 @@ def cmd_short(symbol, info=None):
     }
     if not any(v is not None for v in values.values()):
         info = info or _yahoo(symbol)
-        source = "Yahoo Finance"
+        source = "Yahoo Finance, TEK2day"
         values = {
             "date": info.get("dateShortInterest"),
             "shares": info.get("sharesShort"),
@@ -1030,7 +1030,7 @@ def cmd_target(symbol, info=None):
 
 def cmd_chart(symbol):
     if not _has_firestore():
-        console.print("[yellow]Chart requires Firestore. Set FIRESTORE_PROJECT.[/yellow]")
+        console.print("[yellow]Chart requires TEK2day data access.[/yellow]")
         return
 
     prices = storage.get_prices_history(symbol, limit=252)
@@ -1343,7 +1343,7 @@ def cmd_compare(symbols):
         console.print("[yellow]Max 6 tickers for comparison. Using first 6.[/yellow]")
         symbols = symbols[:6]
     console.print(
-        f"[grey70]Reading Firestore fundamentals and live quotes for {', '.join(symbols)}...[/grey70]"
+        f"[grey70]Reading Yahoo Finance and TEK2day data for {', '.join(symbols)}...[/grey70]"
     )
 
     snapshots = {}
@@ -1352,7 +1352,7 @@ def cmd_compare(symbols):
         if snap:
             snapshots[sym] = snap
         else:
-            console.print(f"[yellow]{sym}: no Firestore metadata[/yellow]")
+            console.print(f"[yellow]{sym}: no TEK2day fundamentals[/yellow]")
 
     if not snapshots:
         return
@@ -1401,7 +1401,7 @@ def cmd_compare(symbols):
 
 def cmd_full(symbol):
     cmd_overview(symbol)
-    console.print("[grey70]  Source: Firestore fundamentals + live Yahoo quote + Yahoo company profile[/grey70]")
+    console.print("[grey70]  Source: Yahoo Finance, TEK2day[/grey70]")
     console.print()
     cmd_estimates(symbol)
     console.print()

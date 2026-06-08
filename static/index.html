@@ -3,7 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TEK2day Finance - Terminal GUI</title>
+  <meta name="theme-color" content="#000000">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="TEK2day">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <title>TEK2day Finance</title>
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="shortcut icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.webmanifest">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -107,6 +116,11 @@
     .command-input:focus {
       border-color: var(--blue);
       box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2);
+    }
+
+    .command-input::placeholder {
+      color: #6b7280;
+      opacity: 1;
     }
 
     .run-btn {
@@ -332,41 +346,129 @@
     }
 
     @media (max-width: 760px) {
+      body {
+        overflow: auto;
+        -webkit-text-size-adjust: 100%;
+      }
+      .shell {
+        grid-template-rows: auto 1fr;
+        min-height: 100svh;
+      }
       .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
         height: auto;
         min-height: 58px;
-        flex-direction: column;
+        display: grid;
+        grid-template-columns: 1fr;
         align-items: stretch;
-        padding: 12px;
+        gap: 10px;
+        padding: 10px 12px 12px;
+        border-bottom-color: #262626;
       }
-      .command-form { width: 100%; }
+      .brand {
+        min-width: 0;
+      }
+      .brand img {
+        width: 26px;
+        height: 26px;
+      }
+      .brand-title strong {
+        font-size: 14px;
+      }
+      .brand-title span {
+        display: none;
+      }
+      .command-form {
+        grid-template-columns: minmax(0, 1fr) 64px;
+        width: 100%;
+        gap: 8px;
+      }
+      .command-input {
+        height: 44px;
+        min-width: 0;
+        font-size: 16px;
+        padding: 0 12px;
+      }
+      .run-btn {
+        min-width: 64px;
+        height: 44px;
+        font-size: 13px;
+      }
       .status { display: none; }
-      .workspace { grid-template-columns: 1fr; }
+      .workspace {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
       .terminal-pane {
-        order: 1;
-        min-height: calc(100vh - 128px);
+        order: 2;
+        min-height: 58vh;
         border-right: 0;
       }
       .rail {
-        order: 2;
+        order: 1;
         border-right: 0;
+        background: #000;
+      }
+      .rail-section {
+        padding: 12px;
+      }
+      .rail-section + .rail-section {
+        display: none;
+      }
+      .command-list {
+        grid-template-columns: 1fr;
+        gap: 7px;
       }
       .terminal-output {
         padding: 10px;
         gap: 10px;
+        overflow-x: auto;
       }
       .output-block {
+        width: 100%;
+        max-width: 100%;
         padding: 10px;
       }
       .output-block pre {
         font-size: 11px;
+        line-height: 1.5;
+        min-width: max-content;
       }
       .pane-head {
         height: 42px;
         padding: 0 10px;
       }
       .command-card {
-        grid-template-columns: 132px 1fr;
+        grid-template-columns: minmax(116px, 42%) minmax(0, 1fr);
+        min-height: 44px;
+        padding: 10px;
+      }
+      .command-card code { font-size: 11px; }
+      .command-card span { font-size: 12px; }
+    }
+
+    @media (max-width: 420px) {
+      .topbar {
+        padding-inline: 10px;
+      }
+      .command-form {
+        grid-template-columns: minmax(0, 1fr) 58px;
+      }
+      .run-btn {
+        min-width: 58px;
+      }
+      .rail-section {
+        padding: 10px;
+      }
+      .command-card {
+        grid-template-columns: 1fr;
+        gap: 4px;
+      }
+      .command-card span {
+        white-space: normal;
       }
     }
   </style>
@@ -378,12 +480,11 @@
         <img src="/static/tek2day-icon.png" alt="TEK2day">
         <div class="brand-title">
           <strong>TEK2day Finance</strong>
-          <span>Terminal GUI</span>
         </div>
       </div>
 
       <form class="command-form" id="command-form">
-        <input class="command-input" id="command-input" autocomplete="off" spellcheck="false" value="/AAPL" aria-label="Command">
+        <input class="command-input" id="command-input" autocomplete="off" spellcheck="false" placeholder="/AAPL" aria-label="Command">
         <button class="run-btn" id="run-btn" type="submit">Run</button>
       </form>
 
@@ -559,6 +660,12 @@
     }
 
     addHistory("/help");
+
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/sw.js").catch(() => {});
+      });
+    }
   </script>
 </body>
 </html>
