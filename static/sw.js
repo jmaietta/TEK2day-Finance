@@ -1,4 +1,4 @@
-const CACHE_NAME = "tek2day-finance-v4";
+const CACHE_NAME = "tek2day-finance-v5";
 const APP_SHELL = [
   "/",
   "/static/favicon.ico",
