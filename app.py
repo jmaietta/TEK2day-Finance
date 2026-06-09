@@ -127,9 +127,7 @@ def _summary_payload(symbol: str) -> dict | None:
 
 
 def _estimates_payload(symbol: str) -> dict | None:
-    if not terminal._has_firestore():
-        return None
-    history = storage.get_estimate_history(symbol, limit=1)
+    history = terminal._estimate_history(symbol)
     if not history:
         return None
 
@@ -257,9 +255,7 @@ def _statement_rows(periods: list[dict], section: str, fields: list) -> list[dic
 
 
 def _financial_payload(symbol: str, section: str, fields: list, title: str) -> dict | None:
-    if not terminal._has_firestore():
-        return None
-    all_fins = storage.get_all_financials(symbol)
+    all_fins = terminal._all_financials(symbol)
     if not all_fins:
         return None
 
@@ -549,12 +545,20 @@ def _run_terminal_command(line: str, width: int) -> dict:
         if len(parts) > 7:
             raise ValueError("Maximum 6 tickers at a time.")
         symbols = [_validate_symbol(part) for part in parts[1:]]
-        output = _capture_terminal(lambda: terminal.cmd_compare(symbols), width)
+        data = _web_payload("compare", symbols=symbols)
+        # The browser renders the structured payload natively; only fall back
+        # to the captured terminal text when no payload could be built. This
+        # avoids fetching all data twice and skips the global COMMAND_LOCK.
+        output = (
+            _plain_output("")
+            if data is not None
+            else _capture_terminal(lambda: terminal.cmd_compare(symbols), width)
+        )
         return {
             "command": "/comp " + " ".join(symbols),
             "kind": "compare",
             "symbols": symbols,
-            "data": _web_payload("compare", symbols=symbols),
+            "data": data,
             **output,
         }
 
@@ -565,21 +569,27 @@ def _run_terminal_command(line: str, width: int) -> dict:
         raise ValueError("Ticker commands accept one optional subcommand.")
 
     if subcmd is None:
-        output = _capture_terminal(lambda: terminal.cmd_full(symbol), width)
         kind = "summary"
+        runner = lambda: terminal.cmd_full(symbol)
     elif subcmd in MENU_SUBCMDS:
-        output = _capture_terminal(lambda: MENU_SUBCMDS[subcmd](symbol), width)
         kind = subcmd
+        runner = lambda: MENU_SUBCMDS[subcmd](symbol)
     else:
         options = ", ".join(MENU_SUBCMDS)
         raise ValueError(f"Unknown subcommand: {subcmd}. Options: {options}")
+
+    data = _web_payload(kind, symbol=symbol)
+    # The browser renders the structured payload natively; only fall back to
+    # the captured terminal text when no payload could be built. This avoids
+    # fetching all data twice and skips the global COMMAND_LOCK.
+    output = _plain_output("") if data is not None else _capture_terminal(runner, width)
 
     return {
         "command": f"/{symbol}" + (f" {subcmd}" if subcmd else ""),
         "kind": kind,
         "symbol": symbol,
         "subcommand": subcmd,
-        "data": _web_payload(kind, symbol=symbol),
+        "data": data,
         **output,
     }
 

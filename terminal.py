@@ -5,9 +5,12 @@ TEK2day Finance — Interactive Terminal
 Usage:
     tek2day
 """
+import functools
 import io
 import os
 import sys
+import threading
+import time
 from datetime import datetime
 
 if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
@@ -272,9 +275,38 @@ def _print_banner():
     console.print()
 
 
+# ── Short-lived caches ──────────────────────────────────────────────────────
+# Live quotes stay fresh (short TTL); slow non-price lookups (Yahoo .info,
+# Firestore reads) are reused across commands so a burst of commands for the
+# same symbol does not refetch identical data.
+
+
+def _ttl_cache(ttl_seconds, should_cache=bool):
+    def wrap(fn):
+        cache = {}
+        lock = threading.Lock()
+
+        @functools.wraps(fn)
+        def inner(*args):
+            now = time.monotonic()
+            with lock:
+                hit = cache.get(args)
+                if hit is not None and now - hit[0] < ttl_seconds:
+                    return hit[1]
+            result = fn(*args)
+            if should_cache(result):
+                with lock:
+                    cache[args] = (now, result)
+            return result
+
+        return inner
+    return wrap
+
+
 # ── Live Yahoo ─────────────────────────────────────────────────────────────
 
 
+@_ttl_cache(600)
 def _yahoo(symbol):
     try:
         return _yf().Ticker(symbol.replace(".", "-")).info or {}
@@ -322,6 +354,7 @@ def _fast_value(data, *keys):
     return None
 
 
+@_ttl_cache(30, should_cache=lambda quote: quote.get("price") is not None)
 def _live_quote(symbol):
     """Return only live quote fields from Yahoo."""
     quote = {
@@ -353,7 +386,7 @@ def _live_quote(symbol):
 
     if quote["price"] is None or quote["previous_close"] is None:
         try:
-            info = _yf().Ticker(yahoo_symbol).info or {}
+            info = _yahoo(symbol)
             quote["price"] = quote["price"] or _to_float(
                 info.get("regularMarketPrice") or info.get("currentPrice")
             )
@@ -378,6 +411,7 @@ def _live_quote(symbol):
     return quote
 
 
+@_ttl_cache(300, should_cache=lambda meta: bool(meta))
 def _firestore_meta(symbol):
     if not _has_firestore():
         return None
@@ -385,6 +419,28 @@ def _firestore_meta(symbol):
         return storage.get_ticker_meta(symbol) or {}
     except Exception:
         return None
+
+
+@_ttl_cache(300)
+def _all_financials(symbol):
+    """Cached Firestore financials read shared by commands and web payloads."""
+    if not _has_firestore():
+        return []
+    try:
+        return storage.get_all_financials(symbol) or []
+    except Exception:
+        return []
+
+
+@_ttl_cache(300)
+def _estimate_history(symbol):
+    """Cached Firestore estimates read shared by commands and web payloads."""
+    if not _has_firestore():
+        return []
+    try:
+        return storage.get_estimate_history(symbol, limit=1) or []
+    except Exception:
+        return []
 
 
 def _sum_recent(periods, section, keys):
@@ -436,12 +492,7 @@ def _estimate_value(data, prefix, metric, periods):
 
 
 def _latest_forward_eps(symbol):
-    if not _has_firestore():
-        return None
-    try:
-        history = storage.get_estimate_history(symbol, limit=1)
-    except Exception:
-        return None
+    history = _estimate_history(symbol)
     if not history:
         return None
     return _estimate_value(history[0], "eps", "avg", ["+1y", "plus1y", "0y"])
@@ -458,12 +509,8 @@ def _firestore_fundamentals(symbol, meta):
         "cash": None,
         "debt": None,
     }
-    if not _has_firestore():
-        return result
-
-    try:
-        all_fins = storage.get_all_financials(symbol)
-    except Exception:
+    all_fins = _all_financials(symbol)
+    if not all_fins:
         return result
 
     quarterly = sorted(
@@ -584,22 +631,21 @@ def _market_snapshot(symbol):
 
 
 def _company_summary(symbol, snap):
+    # Firestore-first: the stored description avoids Yahoo's slow .info call.
+    stored = (snap or {}).get("summary", "")
+    if stored:
+        return stored
     info = _yahoo(symbol)
-    return info.get("longBusinessSummary", "") or (snap or {}).get("summary", "")
+    return info.get("longBusinessSummary", "")
 
 
 def _get_diluted_shares(symbol, info):
-    if _has_firestore():
-        try:
-            fins = storage.get_all_financials(symbol)
-            for f in fins:
-                if f.get("freq") == "Q":
-                    val = f.get("income", {}).get("Diluted Average Shares")
-                    if val is not None:
-                        return _count(val)
-                    break
-        except Exception:
-            pass
+    for f in _all_financials(symbol):
+        if f.get("freq") == "Q":
+            val = f.get("income", {}).get("Diluted Average Shares")
+            if val is not None:
+                return _count(val)
+            break
     return _count(info.get("sharesOutstanding"))
 
 
@@ -701,7 +747,7 @@ def cmd_estimates(symbol):
         console.print("[yellow]Estimates require TEK2day data access.[/yellow]")
         return
 
-    history = storage.get_estimate_history(symbol, limit=1)
+    history = _estimate_history(symbol)
     if not history:
         console.print(f"[yellow]No stored estimates for {symbol}[/yellow]")
         return
@@ -794,7 +840,7 @@ def _show_financials(symbol, section, fields, title, snapshot=False):
         console.print("[yellow]Financials require TEK2day data access.[/yellow]")
         return
 
-    all_fins = storage.get_all_financials(symbol)
+    all_fins = _all_financials(symbol)
     if not all_fins:
         console.print(f"[yellow]No financials stored for {symbol}[/yellow]")
         return
@@ -854,7 +900,7 @@ def cmd_balance(symbol):
     if not _has_firestore():
         console.print("[yellow]Financials require TEK2day data access.[/yellow]")
         return
-    all_fins = storage.get_all_financials(symbol)
+    all_fins = _all_financials(symbol)
     if not all_fins:
         console.print(f"[yellow]No financials stored for {symbol}[/yellow]")
         return
