@@ -1,0 +1,74 @@
+name: Build Data Pull Job Images
+
+# Rebuilds the Cloud Run job images whenever their code changes.
+# The scheduled jobs (daily prices, weekly estimates, quarterly
+# financials) always run :latest, so the next scheduled run picks up
+# the new image automatically — no manual steps.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/deploy-jobs.yml"
+      - "requirements.txt"
+      - "config.py"
+      - "storage.py"
+      - "fetchers.py"
+      - "pull_daily_prices.py"
+      - "pull_weekly_estimates.py"
+      - "pull_quarterly_financials.py"
+      - "Dockerfile.daily-prices"
+      - "Dockerfile.weekly-estimates"
+      - "Dockerfile.quarterly-financials"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PROJECT_ID: yfinance-cli
+  REGION: us-central1
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - dockerfile: Dockerfile.daily-prices
+            image: us-central1-docker.pkg.dev/yfinance-cli/tek2day/daily-prices
+          - dockerfile: Dockerfile.weekly-estimates
+            image: us-central1-docker.pkg.dev/yfinance-cli/tek2day/weekly-estimates
+          - dockerfile: Dockerfile.quarterly-financials
+            image: us-central1-docker.pkg.dev/yfinance-cli/tek2day/quarterly-financials
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker auth
+        run: gcloud auth configure-docker $REGION-docker.pkg.dev --quiet
+
+      - name: Build image
+        run: |
+          docker build \
+            -f ${{ matrix.dockerfile }} \
+            -t ${{ matrix.image }}:${{ github.sha }} \
+            -t ${{ matrix.image }}:latest \
+            .
+
+      - name: Push image
+        run: |
+          docker push ${{ matrix.image }}:${{ github.sha }}
+          docker push ${{ matrix.image }}:latest
