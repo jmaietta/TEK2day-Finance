@@ -11,7 +11,7 @@ import os
 import sys
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -356,7 +356,13 @@ def _fast_value(data, *keys):
 
 @_ttl_cache(30, should_cache=lambda quote: quote.get("price") is not None)
 def _live_quote(symbol):
-    """Return only live quote fields from Yahoo."""
+    """Return only live quote fields from Yahoo.
+
+    Primary source is the chart-metadata call, which carries the official
+    quote (price, previous close, day high/low, volume) PLUS its date —
+    one Yahoo read serves both the summary header and the chart's last
+    point, so the two always agree.
+    """
     quote = {
         "price": None,
         "previous_close": None,
@@ -365,24 +371,50 @@ def _live_quote(symbol):
         "volume": None,
         "fifty_two_week_high": None,
         "fifty_two_week_low": None,
+        "date": None,
+        "day_high": None,
+        "day_low": None,
     }
     yahoo_symbol = symbol.replace(".", "-")
     try:
         ticker = _yf().Ticker(yahoo_symbol)
-        fast = getattr(ticker, "fast_info", {}) or {}
-        quote["price"] = _to_float(_fast_value(fast, "last_price", "lastPrice"))
-        quote["previous_close"] = _to_float(_fast_value(
-            fast, "previous_close", "previousClose", "regularMarketPreviousClose"
-        ))
-        quote["volume"] = _to_float(_fast_value(fast, "last_volume", "lastVolume"))
-        quote["fifty_two_week_high"] = _to_float(_fast_value(
-            fast, "year_high", "yearHigh"
-        ))
-        quote["fifty_two_week_low"] = _to_float(_fast_value(
-            fast, "year_low", "yearLow"
-        ))
+        ticker.history(period="1d", auto_adjust=True)
+        meta = ticker.history_metadata or {}
+        quote["price"] = _to_float(meta.get("regularMarketPrice"))
+        quote["previous_close"] = _to_float(meta.get("previousClose"))
+        quote["volume"] = _to_float(meta.get("regularMarketVolume"))
+        quote["fifty_two_week_high"] = _to_float(meta.get("fiftyTwoWeekHigh"))
+        quote["fifty_two_week_low"] = _to_float(meta.get("fiftyTwoWeekLow"))
+        quote["day_high"] = _to_float(meta.get("regularMarketDayHigh"))
+        quote["day_low"] = _to_float(meta.get("regularMarketDayLow"))
+        ts = meta.get("regularMarketTime")
+        if ts:
+            # gmtoffset converts the quote timestamp to the exchange's
+            # local date without needing a tz database.
+            offset = meta.get("gmtoffset") or 0
+            quote["date"] = datetime.fromtimestamp(
+                ts + offset, tz=timezone.utc
+            ).strftime("%Y-%m-%d")
     except Exception:
         pass
+
+    if quote["price"] is None or quote["previous_close"] is None:
+        try:
+            ticker = _yf().Ticker(yahoo_symbol)
+            fast = getattr(ticker, "fast_info", {}) or {}
+            quote["price"] = quote["price"] or _to_float(_fast_value(fast, "last_price", "lastPrice"))
+            quote["previous_close"] = quote["previous_close"] or _to_float(_fast_value(
+                fast, "previous_close", "previousClose", "regularMarketPreviousClose"
+            ))
+            quote["volume"] = quote["volume"] or _to_float(_fast_value(fast, "last_volume", "lastVolume"))
+            quote["fifty_two_week_high"] = quote["fifty_two_week_high"] or _to_float(_fast_value(
+                fast, "year_high", "yearHigh"
+            ))
+            quote["fifty_two_week_low"] = quote["fifty_two_week_low"] or _to_float(_fast_value(
+                fast, "year_low", "yearLow"
+            ))
+        except Exception:
+            pass
 
     if quote["price"] is None or quote["previous_close"] is None:
         try:

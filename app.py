@@ -660,6 +660,23 @@ def run_command(req: CommandRequest):
         }
 
 
+def _live_bar(symbol: str) -> dict | None:
+    """The chart's last point, built from the SAME cached quote the summary
+    header uses (terminal._live_quote, 30s TTL) — one Yahoo read total."""
+    quote = terminal._live_quote(symbol)
+    if quote.get("price") is None or not quote.get("date"):
+        return None
+    volume = quote.get("volume")
+    return {
+        "date": quote["date"],
+        "open": None,
+        "high": quote.get("day_high"),
+        "low": quote.get("day_low"),
+        "close": quote["price"],
+        "volume": int(volume) if volume is not None else None,
+    }
+
+
 @app.get("/api/prices/{symbol}")
 def get_prices(symbol: str, limit: int = Query(default=1260, le=2000)):
     """Get historical prices for a ticker. Default 1260 = ~5 years of trading days."""
@@ -674,7 +691,7 @@ def get_prices(symbol: str, limit: int = Query(default=1260, le=2000)):
     # Newest-first then re-sorted ascending, so the limit keeps the most
     # recent rows (ascending order_by + limit would drop the newest days
     # once history exceeds the limit).
-    return [
+    rows = [
         {
             "time": d.get("date"),
             "open": clean(d.get("open")),
@@ -685,6 +702,27 @@ def get_prices(symbol: str, limit: int = Query(default=1260, le=2000)):
         }
         for d in storage.get_prices_history(symbol, limit)
     ]
+
+    # Merge the official live quote so the chart's last point always matches
+    # the summary header, even before the EOD bar reaches Firestore.
+    live = _live_bar(symbol)
+    if live and rows:
+        live_row = {
+            "time": live["date"],
+            "open": live["open"],
+            "high": live["high"],
+            "low": live["low"],
+            "close": live["close"],
+            "volume": live["volume"],
+        }
+        if live_row["time"] > rows[-1]["time"]:
+            rows.append(live_row)
+        elif live_row["time"] == rows[-1]["time"]:
+            stored = rows[-1]
+            # Live quote wins for price fields; keep the stored open (the
+            # metadata has no official open).
+            stored.update({k: v for k, v in live_row.items() if v is not None and k != "open"})
+    return rows
 
 
 @app.get("/api/estimates/{symbol}")

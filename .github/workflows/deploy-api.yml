@@ -10,6 +10,7 @@ on:
       - "requirements.txt"
       - "app.py"
       - "terminal.py"
+      - "fetchers.py"
       - "config.py"
       - "storage.py"
       - "static/**"

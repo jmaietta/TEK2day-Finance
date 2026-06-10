@@ -6,7 +6,7 @@ a normalized dict ready for Firestore storage.
 """
 import logging
 import math
-from datetime import date
+from datetime import date, datetime, timezone
 
 import yfinance as yf
 
@@ -84,6 +84,37 @@ def fetch_estimates(symbol: str) -> dict | None:
         return None
 
 
+def _bar_from_metadata(meta: dict, symbol: str) -> dict | None:
+    """
+    Build a daily bar from the chart response metadata, which carries the
+    official quote (regularMarketPrice/Time, day high/low, volume). Used
+    when Yahoo's bar feed has not yet published the latest day's OHLC.
+    Open is not in the metadata; it stays None until the official bar lands.
+    """
+    ts = meta.get("regularMarketTime")
+    close = meta.get("regularMarketPrice")
+    if not ts or close is None:
+        return None
+
+    def _round(value):
+        return None if value is None else round(float(value), 4)
+
+    # gmtoffset converts the quote timestamp to the exchange's local date
+    # without needing a tz database.
+    offset = meta.get("gmtoffset") or 0
+    bar_date = datetime.fromtimestamp(ts + offset, tz=timezone.utc).strftime("%Y-%m-%d")
+    volume = meta.get("regularMarketVolume")
+    return {
+        "date": bar_date,
+        "symbol": symbol,
+        "open": None,
+        "high": _round(meta.get("regularMarketDayHigh")),
+        "low": _round(meta.get("regularMarketDayLow")),
+        "close": _round(close),
+        "volume": int(volume) if volume is not None else None,
+    }
+
+
 def fetch_prices(symbol: str, period: str = "5d") -> list[dict]:
     """
     Fetch OHLCV price history. Default last 5 days to catch up
@@ -116,6 +147,13 @@ def fetch_prices(symbol: str, period: str = "5d") -> list[dict]:
                 "close": close,
                 "volume": None if math.isnan(volume) else int(volume),
             })
+
+        # If the latest day's bar was NaN (not yet published by Yahoo's bar
+        # feed), build it from the official quote in the same response. The
+        # next pull overwrites it with the official bar.
+        meta_bar = _bar_from_metadata(getattr(t, "history_metadata", None) or {}, symbol)
+        if meta_bar and meta_bar["date"] not in {r["date"] for r in rows}:
+            rows.append(meta_bar)
         return rows
 
     except Exception as exc:
