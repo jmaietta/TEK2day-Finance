@@ -8,12 +8,47 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="TEK2day">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <title>TEK2day Finance</title>
+  <title>TEK2day Finance — Free Stock Terminal: Prices, Financials, Estimates &amp; SEC Filings</title>
+  <meta name="description" content="A free browser-based stock terminal. Live quotes, price charts, income statements, balance sheets, cash flows, EPS and revenue estimates, SEC filings, news, and CEO analytics for US-listed stocks.">
+  <link rel="canonical" href="https://finance.tek2dayholdings.com/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="TEK2day Finance">
+  <meta property="og:title" content="TEK2day Finance — Free Stock Terminal">
+  <meta property="og:description" content="Live quotes, charts, financial statements, estimates, SEC filings, and CEO analytics for US-listed stocks. Free, in your browser.">
+  <meta property="og:url" content="https://finance.tek2dayholdings.com/">
+  <meta property="og:image" content="https://finance.tek2dayholdings.com/static/icon-512.png">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="TEK2day Finance — Free Stock Terminal">
+  <meta name="twitter:description" content="Live quotes, charts, financial statements, estimates, SEC filings, and CEO analytics for US-listed stocks. Free, in your browser.">
+  <meta name="twitter:image" content="https://finance.tek2dayholdings.com/static/icon-512.png">
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="shortcut icon" href="/favicon.ico">
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
   <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Archivo:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "name": "TEK2day Finance",
+        "url": "https://finance.tek2dayholdings.com/",
+        "description": "Free browser-based stock terminal: quotes, charts, financial statements, estimates, SEC filings, and CEO analytics for US-listed stocks.",
+        "publisher": { "@id": "https://finance.tek2dayholdings.com/#org" }
+      },
+      {
+        "@type": "Organization",
+        "@id": "https://finance.tek2dayholdings.com/#org",
+        "name": "TEK2day Holdings",
+        "url": "https://finance.tek2dayholdings.com/",
+        "logo": "https://finance.tek2dayholdings.com/static/icon-512.png"
+      }
+    ]
+  }
+  </script>
   <style>
     :root {
       color-scheme: dark;
@@ -167,6 +202,14 @@
     }
 
     .dot.error { background: var(--red); box-shadow: 0 0 10px rgba(255, 77, 66, 0.7); }
+
+    .foot-link {
+      margin-left: auto;
+      color: var(--muted);
+      text-decoration: none;
+    }
+
+    .foot-link:hover { color: var(--amber); }
 
     /* ───── main ───── */
     .main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
@@ -787,6 +830,7 @@
 
       <div class="sidebar-foot">
         <span class="dot" id="status-dot"></span><span id="status-text">Ready</span>
+        <a class="foot-link" href="/stocks">All&nbsp;Tickers</a>
       </div>
     </aside>
 

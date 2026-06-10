@@ -7,7 +7,19 @@
   <title>{{ symbol }} — {{ name }} Stock Price, Valuation &amp; Financials | TEK2day Finance</title>
   <meta name="description" content="{{ name }} ({{ symbol }}) stock data: {% if price %}price {{ price }} as of {{ price_date }}, {% endif %}market cap, valuation ratios, quarterly financials, and short interest. Free terminal-grade data from TEK2day Finance.">
   <link rel="canonical" href="{{ base_url }}/stock/{{ symbol }}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="TEK2day Finance">
+  <meta property="og:title" content="{{ symbol }} — {{ name }} Stock Price, Valuation &amp; Financials">
+  <meta property="og:description" content="{{ name }} ({{ symbol }}){% if price %} closed at {{ price }} on {{ price_date }}.{% endif %} Market cap, valuation ratios, quarterly financials, and short interest — free from TEK2day Finance.">
+  <meta property="og:url" content="{{ base_url }}/stock/{{ symbol }}">
+  <meta property="og:image" content="{{ base_url }}/static/icon-512.png">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="{{ symbol }} — {{ name }} Stock Price, Valuation &amp; Financials">
+  <meta name="twitter:description" content="{{ name }} ({{ symbol }}){% if price %} closed at {{ price }} on {{ price_date }}.{% endif %} Market cap, valuation, financials, and short interest.">
+  <meta name="twitter:image" content="{{ base_url }}/static/icon-512.png">
   <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Archivo:wght@600;700;800&display=swap" rel="stylesheet">
   <script type="application/ld+json">
   {
@@ -17,6 +29,17 @@
     "tickerSymbol": {{ symbol | tojson }},
     "url": "{{ base_url }}/stock/{{ symbol }}"{% if summary %},
     "description": {{ summary[:500] | tojson }}{% endif %}
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "TEK2day Finance", "item": "{{ base_url }}/" },
+      { "@type": "ListItem", "position": 2, "name": "All Tickers", "item": "{{ base_url }}/stocks" },
+      { "@type": "ListItem", "position": 3, "name": {{ symbol | tojson }}, "item": "{{ base_url }}/stock/{{ symbol }}" }
+    ]
   }
   </script>
   <style>
@@ -144,7 +167,7 @@
   <footer>
     <p>Data: TEK2day Finance database (EOD prices daily, financial statements quarterly, estimates weekly). Sources include Yahoo Finance and SEC EDGAR. Figures may be delayed or restated; verify before use.</p>
     <p style="margin-top: 6px;">TEK2day Finance is not providing investment advice. Nothing on this page is a recommendation to buy, hold, or sell any security.</p>
-    <p style="margin-top: 6px;">© {{ year }} TEK2day Holdings · <a href="/">Terminal</a> · <a href="/sitemap.xml">Sitemap</a></p>
+    <p style="margin-top: 6px;">© {{ year }} TEK2day Holdings · <a href="/">Terminal</a> · <a href="/stocks">All Tickers</a> · <a href="/sitemap.xml">Sitemap</a></p>
   </footer>
 </div>
 </body>

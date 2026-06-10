@@ -3,6 +3,7 @@ Server-rendered, crawlable pages for TEK2day Finance.
 
 Routes:
     GET /stock/{symbol}  - indexable stock page rendered from Firestore only
+    GET /stocks          - A-Z directory of all active tickers (crawl hub)
     GET /sitemap.xml     - all active tickers
     GET /robots.txt
 
@@ -19,7 +20,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import HTMLResponse, PlainTextResponse, Response
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 import storage
@@ -37,8 +38,10 @@ _env = Environment(
 
 PAGE_TTL = 3600        # seconds a rendered stock page stays cached
 SITEMAP_TTL = 86400    # sitemap regenerates daily
+DIRECTORY_TTL = 86400  # /stocks directory regenerates daily
 _page_cache: dict[str, tuple[float, str]] = {}
 _sitemap_cache: tuple[float, str] | None = None
+_directory_cache: tuple[float, str] | None = None
 
 INCOME_ROWS = [
     ("Total Revenue", "Revenue"),
@@ -259,21 +262,66 @@ def _build_page(symbol: str) -> str | None:
 
 @router.get("/stock/{symbol}", response_class=HTMLResponse)
 def stock_page(symbol: str):
-    symbol = symbol.upper()
-    if not SYMBOL_RE.fullmatch(symbol):
+    upper = symbol.upper()
+    if not SYMBOL_RE.fullmatch(upper):
         raise HTTPException(status_code=404, detail="Unknown ticker")
+    if symbol != upper:
+        # One canonical URL per ticker: /stock/aapl -> /stock/AAPL.
+        return RedirectResponse(f"/stock/{upper}", status_code=301)
 
     now = time.time()
-    cached = _page_cache.get(symbol)
+    cached = _page_cache.get(upper)
     if cached and cached[0] > now:
-        return HTMLResponse(cached[1])
+        return HTMLResponse(cached[1], headers={"Cache-Control": "public, max-age=3600"})
 
-    html = _build_page(symbol)
+    html = _build_page(upper)
     if html is None:
         raise HTTPException(status_code=404, detail="Unknown ticker")
 
-    _page_cache[symbol] = (now + PAGE_TTL, html)
-    return HTMLResponse(html)
+    _page_cache[upper] = (now + PAGE_TTL, html)
+    return HTMLResponse(html, headers={"Cache-Control": "public, max-age=3600"})
+
+
+@router.get("/stocks", response_class=HTMLResponse)
+def stocks_directory():
+    """A-Z directory of all active tickers: the crawl hub linking / to every
+    /stock/{symbol} page so none of them are sitemap-only orphans."""
+    global _directory_cache
+    now = time.time()
+    if _directory_cache and _directory_cache[0] > now:
+        return HTMLResponse(_directory_cache[1], headers={"Cache-Control": "public, max-age=3600"})
+
+    db = storage.get_db()
+    docs = (
+        db.collection(storage.COLLECTION_ROOT)
+        .where("active", "==", True)
+        .select(["long_name", "name"])
+        .stream()
+    )
+    tickers = sorted(
+        (
+            {"symbol": doc.id, "name": (d.get("long_name") or d.get("name") or doc.id)}
+            for doc in docs
+            if (d := doc.to_dict()) is not None
+        ),
+        key=lambda t: t["symbol"],
+    )
+
+    groups: list[tuple[str, list[dict]]] = []
+    for t in tickers:
+        letter = t["symbol"][0] if t["symbol"][0].isalpha() else "#"
+        if not groups or groups[-1][0] != letter:
+            groups.append((letter, []))
+        groups[-1][1].append(t)
+
+    html = _env.get_template("stocks.html").render(
+        base_url=BASE_URL,
+        count=len(tickers),
+        groups=groups,
+        year=date.today().year,
+    )
+    _directory_cache = (now + DIRECTORY_TTL, html)
+    return HTMLResponse(html, headers={"Cache-Control": "public, max-age=3600"})
 
 
 @router.get("/sitemap.xml", include_in_schema=False)
@@ -295,6 +343,7 @@ def sitemap():
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
         f"<url><loc>{BASE_URL}/</loc><changefreq>daily</changefreq></url>",
+        f"<url><loc>{BASE_URL}/stocks</loc><lastmod>{today}</lastmod><changefreq>daily</changefreq></url>",
     ]
     for doc in sorted(docs, key=lambda d: d.id):
         lines.append(

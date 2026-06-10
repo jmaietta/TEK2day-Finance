@@ -16,7 +16,7 @@ from html import escape
 from typing import Callable
 
 from fastapi import FastAPI, Query
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
@@ -27,10 +27,23 @@ from rich.console import Console
 import storage
 import terminal
 from config import CEORATER_API_KEY
-from seo_pages import router as seo_router
+from seo_pages import BASE_URL, router as seo_router
 
 app = FastAPI(title="TEK2day Finance")
 app.include_router(seo_router)
+
+
+@app.middleware("http")
+async def canonical_host_redirect(request, call_next):
+    """301 the default Cloud Run hostname to the canonical domain so search
+    engines index exactly one copy of the site."""
+    host = request.headers.get("host", "").split(":")[0]
+    if host.endswith(".run.app"):
+        url = f"{BASE_URL}{request.url.path}"
+        if request.url.query:
+            url += f"?{request.url.query}"
+        return RedirectResponse(url, status_code=301)
+    return await call_next(request)
 
 STATIC_DIR = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")

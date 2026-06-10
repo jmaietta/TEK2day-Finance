@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#000000">
+  <title>All Tickers — Browse {{ count }} US-Listed Stocks | TEK2day Finance</title>
+  <meta name="description" content="Browse all {{ count }} stocks covered by TEK2day Finance. Free stock pages with prices, valuation ratios, quarterly financials, and short interest for every ticker.">
+  <link rel="canonical" href="{{ base_url }}/stocks">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="TEK2day Finance">
+  <meta property="og:title" content="All Tickers — TEK2day Finance">
+  <meta property="og:description" content="Browse all {{ count }} stocks covered by TEK2day Finance: prices, valuation, financials, and short interest.">
+  <meta property="og:url" content="{{ base_url }}/stocks">
+  <meta property="og:image" content="{{ base_url }}/static/icon-512.png">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Archivo:wght@600;700;800&display=swap" rel="stylesheet">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "TEK2day Finance", "item": "{{ base_url }}/" },
+      { "@type": "ListItem", "position": 2, "name": "All Tickers", "item": "{{ base_url }}/stocks" }
+    ]
+  }
+  </script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #000; --panel: #070705; --line: #1c1b14; --line-2: #2b2a1e;
+      --text: #e8e6df; --muted: #8a8878;
+      --amber: #ff9f1c; --cyan: #38c8d8;
+      --mono: "IBM Plex Mono", Consolas, monospace;
+      --sans: "Archivo", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 14px; line-height: 1.55; }
+    a { color: var(--cyan); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .wrap { max-width: 960px; margin: 0 auto; padding: 0 16px 48px; }
+    header.site { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); margin-bottom: 24px; }
+    .brand { font-family: var(--sans); font-weight: 800; color: var(--amber); font-size: 16px; letter-spacing: 0.02em; }
+    .cta { display: inline-block; background: var(--amber); color: #000; font-weight: 700; padding: 8px 14px; border-radius: 4px; font-size: 13px; }
+    .cta:hover { text-decoration: none; filter: brightness(1.1); }
+    h1 { font-family: var(--sans); font-size: 26px; line-height: 1.25; margin-bottom: 4px; }
+    .sub { color: var(--muted); margin-bottom: 22px; font-size: 13px; }
+    h2 { font-family: var(--sans); font-size: 16px; color: var(--amber); margin: 26px 0 10px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+    nav.letters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+    nav.letters a { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 4px 9px; font-size: 13px; font-weight: 600; }
+    ul.tickers { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 4px 16px; }
+    ul.tickers li { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+    ul.tickers .sym { display: inline-block; min-width: 64px; font-weight: 600; }
+    ul.tickers .nm { color: var(--muted); }
+    footer { margin-top: 40px; border-top: 1px solid var(--line); padding-top: 16px; color: var(--muted); font-size: 11.5px; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="site">
+    <a class="brand" href="/">TEK2day FINANCE</a>
+    <a class="cta" href="/">Open Terminal →</a>
+  </header>
+
+  <main>
+    <h1>All Tickers</h1>
+    <p class="sub">{{ count }} US-listed stocks with free price, valuation, and financials pages. Updated daily.</p>
+
+    <nav class="letters" aria-label="Jump to letter">
+      {% for letter, _ in groups %}<a href="#{{ letter }}">{{ letter }}</a>{% endfor %}
+    </nav>
+
+    {% for letter, items in groups %}
+    <h2 id="{{ letter }}">{{ letter }}</h2>
+    <ul class="tickers">
+      {% for t in items %}
+      <li><a href="/stock/{{ t.symbol }}"><span class="sym">{{ t.symbol }}</span> <span class="nm">{{ t.name }}</span></a></li>
+      {% endfor %}
+    </ul>
+    {% endfor %}
+  </main>
+
+  <footer>
+    <p>Data: TEK2day Finance database (EOD prices daily, financial statements quarterly, estimates weekly). Sources include Yahoo Finance and SEC EDGAR.</p>
+    <p style="margin-top: 6px;">TEK2day Finance is not providing investment advice. Nothing on this page is a recommendation to buy, hold, or sell any security.</p>
+    <p style="margin-top: 6px;">© {{ year }} TEK2day Holdings · <a href="/">Terminal</a> · <a href="/sitemap.xml">Sitemap</a></p>
+  </footer>
+</div>
+</body>
+</html>
