@@ -11,12 +11,13 @@ import io
 import math
 import re
 import threading
+import time
 from datetime import datetime
 from html import escape
 from typing import Callable
 
 from fastapi import FastAPI, Query
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
@@ -44,6 +45,75 @@ async def canonical_host_redirect(request, call_next):
             url += f"?{request.url.query}"
         return RedirectResponse(url, status_code=301)
     return await call_next(request)
+
+
+# ───── hardening: per-IP rate limit on /api/* + security headers ─────
+
+RATE_CAPACITY = 30   # burst size (typeahead fires one request per keystroke)
+RATE_REFILL = 2.0    # tokens/second; sustained 120 requests/min per IP
+RATE_MAX_IPS = 10_000
+
+_rate_buckets: dict[str, tuple[float, float]] = {}  # ip -> (tokens, last_ts)
+_rate_lock = threading.Lock()
+
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Content-Security-Policy": (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src https://fonts.gstatic.com; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
+        "object-src 'none'; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'"
+    ),
+}
+
+
+def _client_ip(request) -> str:
+    # Cloud Run appends the real client IP as the last entry.
+    fwd = request.headers.get("x-forwarded-for")
+    if fwd:
+        return fwd.split(",")[-1].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _rate_limited(ip: str) -> bool:
+    now = time.monotonic()
+    with _rate_lock:
+        if len(_rate_buckets) > RATE_MAX_IPS:
+            _rate_buckets.clear()  # cheap reset; refills cost one burst per IP
+        tokens, last = _rate_buckets.get(ip, (float(RATE_CAPACITY), now))
+        tokens = min(float(RATE_CAPACITY), tokens + (now - last) * RATE_REFILL)
+        if tokens < 1.0:
+            _rate_buckets[ip] = (tokens, now)
+            return True
+        _rate_buckets[ip] = (tokens - 1.0, now)
+        return False
+
+
+@app.middleware("http")
+async def security_middleware(request, call_next):
+    if request.url.path.startswith("/api/") and _rate_limited(_client_ip(request)):
+        return JSONResponse(
+            {"detail": "Too many requests"},
+            status_code=429,
+            headers={"Retry-After": "1", **SECURITY_HEADERS},
+        )
+    response = await call_next(request)
+    for header, value in SECURITY_HEADERS.items():
+        response.headers.setdefault(header, value)
+    if request.headers.get("x-forwarded-proto") == "https":
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+        )
+    return response
 
 STATIC_DIR = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
