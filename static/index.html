@@ -650,6 +650,44 @@
 
     .scrim { display: none; }
 
+    /* ───── price chart ───── */
+    .chart-wrap { border-bottom: 1px solid var(--line); }
+
+    .chart-readout {
+      padding: 8px 12px 0;
+      height: 22px;
+      color: var(--muted);
+      font-size: 11.5px;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .chart-readout b { color: var(--text); font-weight: 600; }
+
+    .chart-el { width: 100%; height: 360px; }
+
+    .chart-ranges {
+      display: flex;
+      gap: 4px;
+      padding: 10px 12px;
+      border-top: 1px solid var(--line);
+    }
+
+    .chart-ranges button {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--text);
+      padding: 6px 14px;
+      border-radius: 3px;
+      border: 1px solid var(--line-2);
+      background: #0c0c09;
+    }
+
+    .chart-ranges button:hover { color: var(--amber); border-color: var(--amber); }
+    .chart-ranges button.active { color: #000; background: var(--amber); border-color: var(--amber); }
+
     /* ───── responsive ───── */
     @media (max-width: 1100px) {
       .grid { grid-template-columns: 1fr; }
@@ -702,6 +740,10 @@
       .col { gap: 10px; }
 
       .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+      .chart-el { height: 240px; }
+      .chart-readout { padding: 8px 10px 0; font-size: 10px; }
+      .chart-ranges button { flex: 1; padding: 10px 0; text-align: center; }
 
       .quote-px { margin-left: 0; }
 
@@ -774,6 +816,7 @@
     </main>
   </div>
 
+  <script src="/static/lightweight-charts.standalone.production.js"></script>
   <script>
     const shell = document.getElementById("shell");
     const mobileMenuBtn = document.getElementById("mobile-menu-btn");
@@ -1075,6 +1118,7 @@
         ${overview.description ? `<p class="description">${escapeHtml(overview.description)}</p>` : ""}
         ${sourceLineHtml(`Source: ${overview.source || "Yahoo Finance, TEK2day"}`)}
       `;
+      mountChart(panel, overview.symbol || "AAPL");
     }
 
     function fillEstimates(panel, result) {
@@ -1216,6 +1260,141 @@
       pre.textContent = String(text);
       wrapper.appendChild(pre);
       panel.body.appendChild(wrapper);
+    }
+
+    /* ───── price chart (ported from approved terminal_chart_preview.py) ───── */
+
+    const priceCache = new Map();
+
+    async function fetchPrices(symbol) {
+      if (priceCache.has(symbol)) return priceCache.get(symbol);
+      const resp = await fetch(`/api/prices/${encodeURIComponent(symbol)}?limit=1260`);
+      if (!resp.ok) throw new Error(`prices ${resp.status}`);
+      const raw = await resp.json();
+      const rows = (Array.isArray(raw) ? raw : []).filter((r) => r && r.time && r.close != null);
+      priceCache.set(symbol, rows);
+      return rows;
+    }
+
+    async function mountChart(panel, symbol) {
+      const strip = panel.body.querySelector(".quote-strip");
+      if (!strip) return;
+      const wrap = document.createElement("div");
+      wrap.className = "chart-wrap";
+      wrap.innerHTML = `<div class="panel-loading">Loading chart…</div>`;
+      strip.insertAdjacentElement("afterend", wrap);
+
+      let rows = null;
+      try { rows = await fetchPrices(symbol); } catch (err) { rows = null; }
+      if (!wrap.isConnected) return;
+      if (!rows || rows.length < 30) {
+        wrap.innerHTML = `<div class="panel-note">No price history available.</div>`;
+        return;
+      }
+      renderChart(wrap, rows);
+    }
+
+    function renderChart(wrap, RAW) {
+      wrap.innerHTML = `
+        <div class="chart-readout"></div>
+        <div class="chart-el"></div>
+        <div class="chart-ranges"></div>
+      `;
+      const readoutEl = wrap.querySelector(".chart-readout");
+      const chartEl = wrap.querySelector(".chart-el");
+      const rangesEl = wrap.querySelector(".chart-ranges");
+
+      const byTime = new Map(RAW.map((r) => [r.time, r]));
+      const lastRow = RAW[RAW.length - 1];
+
+      const fmt = (n) => n == null ? "—" : n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const fmtVol = (n) => n == null ? "—" : n >= 1e9 ? (n / 1e9).toFixed(2) + "B" : n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n.toLocaleString();
+
+      const chart = LightweightCharts.createChart(chartEl, {
+        autoSize: true,
+        layout: {
+          background: { color: "#070705" },
+          textColor: "#8a8878",
+          fontFamily: '"IBM Plex Mono", Consolas, monospace',
+          fontSize: 11,
+        },
+        grid: {
+          vertLines: { color: "#14130e" },
+          horzLines: { color: "#14130e" },
+        },
+        crosshair: {
+          mode: LightweightCharts.CrosshairMode.Magnet,
+          vertLine: { color: "#8a8878", labelBackgroundColor: "#ff9f1c" },
+          horzLine: { color: "#8a8878", labelBackgroundColor: "#ff9f1c" },
+        },
+        rightPriceScale: { borderColor: "#1c1b14" },
+        timeScale: { borderColor: "#1c1b14", timeVisible: false },
+        // Drag-pan and scroll-zoom are intentionally disabled:
+        handleScroll: false,
+        handleScale: false,
+        kineticScroll: { touch: false, mouse: false },
+      });
+
+      const area = chart.addAreaSeries({
+        lineColor: "#ff9f1c",
+        topColor: "rgba(255, 159, 28, 0.20)",
+        bottomColor: "rgba(255, 159, 28, 0)",
+        lineWidth: 2,
+        priceLineVisible: false,
+        lastValueVisible: true,
+      });
+      area.setData(RAW.map((r) => ({ time: r.time, value: r.close })));
+
+      const vol = chart.addHistogramSeries({
+        priceScaleId: "",
+        priceFormat: { type: "volume" },
+        lastValueVisible: false,
+        priceLineVisible: false,
+      });
+      chart.priceScale("").applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
+      vol.setData(RAW.map((r, i) => ({
+        time: r.time,
+        value: r.volume || 0,
+        color: (i > 0 && r.close >= RAW[i - 1].close) ? "rgba(47, 212, 127, 0.55)" : "rgba(255, 77, 66, 0.55)",
+      })));
+
+      function showRow(r) {
+        if (!r) { readoutEl.innerHTML = ""; return; }
+        readoutEl.innerHTML =
+          `${r.time} &nbsp; O:<b>${fmt(r.open)}</b> H:<b>${fmt(r.high)}</b> L:<b>${fmt(r.low)}</b> C:<b>${fmt(r.close)}</b> V:<b>${fmtVol(r.volume)}</b>`;
+      }
+      showRow(lastRow);
+      chart.subscribeCrosshairMove((p) => {
+        if (p.time) { showRow(byTime.get(p.time)); } else { showRow(lastRow); }
+      });
+
+      const last = new Date(lastRow.time);
+      function monthsBack(m) {
+        const d = new Date(last);
+        d.setMonth(d.getMonth() - m);
+        return d.toISOString().slice(0, 10);
+      }
+      const RANGES = [
+        ["1M", () => monthsBack(1)],
+        ["3M", () => monthsBack(3)],
+        ["6M", () => monthsBack(6)],
+        ["YTD", () => `${last.getFullYear()}-01-01`],
+        ["1Y", () => monthsBack(12)],
+        ["5Y", () => RAW[0].time],
+      ];
+      RANGES.forEach(([label, fromFn]) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = label;
+        button.onclick = () => {
+          chart.timeScale().setVisibleRange({ from: fromFn(), to: lastRow.time });
+          rangesEl.querySelectorAll("button").forEach((other) => other.classList.remove("active"));
+          button.classList.add("active");
+        };
+        rangesEl.appendChild(button);
+      });
+      // Default: 6M
+      rangesEl.children[2].click();
     }
 
     /* ───── idle state ───── */

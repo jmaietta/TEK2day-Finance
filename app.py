@@ -8,6 +8,7 @@ Usage:
     # or: uvicorn app:app --reload --port 8050
 """
 import io
+import math
 import re
 import threading
 from datetime import datetime
@@ -663,27 +664,27 @@ def run_command(req: CommandRequest):
 def get_prices(symbol: str, limit: int = Query(default=1260, le=2000)):
     """Get historical prices for a ticker. Default 1260 = ~5 years of trading days."""
     symbol = symbol.upper()
-    db = storage.get_db()
-    docs = (
-        db.collection(storage.COLLECTION_ROOT)
-        .document(symbol)
-        .collection("prices")
-        .order_by("date")
-        .limit(limit)
-        .stream()
-    )
-    prices = []
-    for doc in docs:
-        d = doc.to_dict()
-        prices.append({
+
+    def clean(value):
+        # Older rows may contain NaN, which is not JSON-serializable.
+        if isinstance(value, float) and math.isnan(value):
+            return None
+        return value
+
+    # Newest-first then re-sorted ascending, so the limit keeps the most
+    # recent rows (ascending order_by + limit would drop the newest days
+    # once history exceeds the limit).
+    return [
+        {
             "time": d.get("date"),
-            "open": d.get("open"),
-            "high": d.get("high"),
-            "low": d.get("low"),
-            "close": d.get("close"),
-            "volume": d.get("volume"),
-        })
-    return prices
+            "open": clean(d.get("open")),
+            "high": clean(d.get("high")),
+            "low": clean(d.get("low")),
+            "close": clean(d.get("close")),
+            "volume": clean(d.get("volume")),
+        }
+        for d in storage.get_prices_history(symbol, limit)
+    ]
 
 
 @app.get("/api/estimates/{symbol}")

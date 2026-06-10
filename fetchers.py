@@ -5,6 +5,7 @@ Each function pulls a specific data type for a single ticker and returns
 a normalized dict ready for Firestore storage.
 """
 import logging
+import math
 from datetime import date
 
 import yfinance as yf
@@ -96,16 +97,24 @@ def fetch_prices(symbol: str, period: str = "5d") -> list[dict]:
             logger.warning("%s: no price history returned", symbol)
             return []
 
+        def _num(value):
+            value = float(value)
+            return None if math.isnan(value) else round(value, 4)
+
         rows = []
         for idx, row in hist.iterrows():
+            close = _num(row["Close"])
+            if close is None:
+                continue  # NaN close is unusable (and not JSON-serializable)
+            volume = float(row["Volume"])
             rows.append({
                 "date": idx.strftime("%Y-%m-%d"),
                 "symbol": symbol,
-                "open": round(float(row["Open"]), 4),
-                "high": round(float(row["High"]), 4),
-                "low": round(float(row["Low"]), 4),
-                "close": round(float(row["Close"]), 4),
-                "volume": int(row["Volume"]),
+                "open": _num(row["Open"]),
+                "high": _num(row["High"]),
+                "low": _num(row["Low"]),
+                "close": close,
+                "volume": None if math.isnan(volume) else int(volume),
             })
         return rows
 

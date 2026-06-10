@@ -10,6 +10,7 @@ are impossible — existing days get overwritten with the same data.
 Designed to run as a Cloud Run Job triggered by Cloud Scheduler, Mon–Fri.
 """
 import logging
+import os
 import random
 import time
 from datetime import datetime, timezone
@@ -29,6 +30,9 @@ logger = logging.getLogger("ydp.daily_prices")
 DELAY = 2
 MAX_YAHOO_RETRIES = 3
 MAX_FIRESTORE_RETRIES = 5
+
+# Override for catch-up runs after an outage, e.g. PRICE_PULL_PERIOD=1mo.
+PERIOD = os.environ.get("PRICE_PULL_PERIOD", "5d")
 
 
 def call_with_retry(fn, label):
@@ -62,7 +66,7 @@ def firestore_write_with_retry(fn, label):
 
 def main():
     start = datetime.now(timezone.utc)
-    logger.info("Daily price pull starting")
+    logger.info("Daily price pull starting (period=%s)", PERIOD)
 
     tickers = storage.list_active_tickers()
     total = len(tickers)
@@ -75,7 +79,7 @@ def main():
         yahoo_sym = symbol.replace(".", "-")
 
         rows = call_with_retry(
-            lambda s=yahoo_sym: fetchers.fetch_prices(s, period="5d"),
+            lambda s=yahoo_sym: fetchers.fetch_prices(s, period=PERIOD),
             f"{symbol} prices",
         )
 
