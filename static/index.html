@@ -1325,6 +1325,12 @@
         navigator.serviceWorker.register("/sw.js").catch(() => {});
       });
     }
+
+    /* Deep link: /?t=AAPL runs that ticker on load (used by the SEO tear sheets). */
+    const deepLinkSymbol = new URLSearchParams(window.location.search).get("t");
+    if (deepLinkSymbol && /^[A-Za-z][A-Za-z0-9.\-]{0,12}$/.test(deepLinkSymbol)) {
+      runCommand("/" + deepLinkSymbol.toUpperCase());
+    }
   </script>
 </body>
 </html>
