@@ -26,8 +26,10 @@ from rich.console import Console
 import storage
 import terminal
 from config import CEORATER_API_KEY
+from seo_pages import router as seo_router
 
 app = FastAPI(title="TEK2day Finance")
+app.include_router(seo_router)
 
 STATIC_DIR = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")

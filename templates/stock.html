@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#000000">
+  <title>{{ symbol }} — {{ name }} Stock Price, Valuation &amp; Financials | TEK2day Finance</title>
+  <meta name="description" content="{{ name }} ({{ symbol }}) stock data: {% if price %}price {{ price }} as of {{ price_date }}, {% endif %}market cap, valuation ratios, quarterly financials, and short interest. Free terminal-grade data from TEK2day Finance.">
+  <link rel="canonical" href="{{ base_url }}/stock/{{ symbol }}">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Archivo:wght@600;700;800&display=swap" rel="stylesheet">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Corporation",
+    "name": {{ name | tojson }},
+    "tickerSymbol": {{ symbol | tojson }},
+    "url": "{{ base_url }}/stock/{{ symbol }}"{% if summary %},
+    "description": {{ summary[:500] | tojson }}{% endif %}
+  }
+  </script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #000; --panel: #070705; --line: #1c1b14; --line-2: #2b2a1e;
+      --text: #e8e6df; --muted: #8a8878;
+      --amber: #ff9f1c; --cyan: #38c8d8; --green: #2fd47f; --red: #ff4d42;
+      --mono: "IBM Plex Mono", Consolas, monospace;
+      --sans: "Archivo", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 14px; line-height: 1.55; }
+    a { color: var(--cyan); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .wrap { max-width: 960px; margin: 0 auto; padding: 0 16px 48px; }
+    header.site { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); margin-bottom: 24px; }
+    .brand { font-family: var(--sans); font-weight: 800; color: var(--amber); font-size: 16px; letter-spacing: 0.02em; }
+    .cta { display: inline-block; background: var(--amber); color: #000; font-weight: 700; padding: 8px 14px; border-radius: 4px; font-size: 13px; }
+    .cta:hover { text-decoration: none; filter: brightness(1.1); }
+    h1 { font-family: var(--sans); font-size: 26px; line-height: 1.25; margin-bottom: 2px; }
+    .sub { color: var(--muted); margin-bottom: 18px; font-size: 13px; }
+    .price-block { display: flex; align-items: baseline; gap: 12px; margin: 14px 0 4px; }
+    .price { font-size: 30px; font-weight: 700; }
+    .chg-up { color: var(--green); } .chg-down { color: var(--red); }
+    .asof { color: var(--muted); font-size: 12px; margin-bottom: 20px; }
+    h2 { font-family: var(--sans); font-size: 16px; color: var(--amber); margin: 28px 0 10px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
+    .metric { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px; }
+    .metric .l { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .metric .v { font-size: 15px; font-weight: 600; margin-top: 2px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+    th:first-child, td:first-child { text-align: left; }
+    th { color: var(--muted); font-weight: 600; font-size: 12px; }
+    .tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); }
+    p.desc { color: var(--text); margin-bottom: 8px; }
+    footer { margin-top: 40px; border-top: 1px solid var(--line); padding-top: 16px; color: var(--muted); font-size: 11.5px; }
+    .terminal-banner { margin-top: 32px; background: var(--panel); border: 1px solid var(--line-2); border-radius: 6px; padding: 18px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="site">
+    <a class="brand" href="/">TEK2day FINANCE</a>
+    <a class="cta" href="/">Open Terminal →</a>
+  </header>
+
+  <main>
+    <h1>{{ name }} ({{ symbol }})</h1>
+    <p class="sub">{{ exchange }}{% if sector %} · {{ sector }}{% endif %}{% if industry %} · {{ industry }}{% endif %}</p>
+
+    {% if price %}
+    <div class="price-block">
+      <span class="price">{{ price }}</span>
+      {% if change_pct is not none %}
+      <span class="{{ 'chg-up' if change_pct >= 0 else 'chg-down' }}">{{ '%+.2f' % change_pct }}%</span>
+      {% endif %}
+    </div>
+    <p class="asof">Closing price as of {{ price_date }} · Source: TEK2day Finance</p>
+    {% endif %}
+
+    {% if chart %}{{ chart | safe }}{% endif %}
+
+    {% if metrics %}
+    <h2>Key Metrics</h2>
+    <div class="grid">
+      {% for m in metrics %}
+      <div class="metric"><div class="l">{{ m.label }}</div><div class="v">{{ m.value }}</div></div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if summary %}
+    <h2>About {{ name }}</h2>
+    <p class="desc">{{ summary }}</p>
+    {% endif %}
+
+    {% if quarterly %}
+    <h2>Quarterly Financials</h2>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Metric</th>{% for p in quarterly.periods %}<th>{{ p }}</th>{% endfor %}</tr></thead>
+        <tbody>
+          {% for row in quarterly.rows %}
+          <tr><td>{{ row.label }}</td>{% for v in row["values"] %}<td>{{ v }}</td>{% endfor %}</tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {% if annual %}
+    <h2>Annual Financials</h2>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Metric</th>{% for p in annual.periods %}<th>{{ p }}</th>{% endfor %}</tr></thead>
+        <tbody>
+          {% for row in annual.rows %}
+          <tr><td>{{ row.label }}</td>{% for v in row["values"] %}<td>{{ v }}</td>{% endfor %}</tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {% if short_interest %}
+    <h2>Short Interest</h2>
+    <div class="grid">
+      {% for m in short_interest %}
+      <div class="metric"><div class="l">{{ m.label }}</div><div class="v">{{ m.value }}</div></div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="terminal-banner">
+      <div>
+        <strong style="font-family: var(--sans);">Want live quotes, estimates, SEC filings, and CEO analytics for {{ symbol }}?</strong><br>
+        <span style="color: var(--muted); font-size: 12.5px;">The free TEK2day terminal runs in your browser — type /{{ symbol }} to get started.</span>
+      </div>
+      <a class="cta" href="/">Open {{ symbol }} in the Terminal →</a>
+    </div>
+  </main>
+
+  <footer>
+    <p>Data: TEK2day Finance database (EOD prices daily, financial statements quarterly, estimates weekly). Sources include Yahoo Finance and SEC EDGAR. Figures may be delayed or restated; verify before use.</p>
+    <p style="margin-top: 6px;">TEK2day Finance is not providing investment advice. Nothing on this page is a recommendation to buy, hold, or sell any security.</p>
+    <p style="margin-top: 6px;">© {{ year }} TEK2day Holdings · <a href="/">Terminal</a> · <a href="/sitemap.xml">Sitemap</a></p>
+  </footer>
+</div>
+</body>
+</html>
