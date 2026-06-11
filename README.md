@@ -1,10 +1,21 @@
 # TEK2day Finance
 
-Open-source stock data terminal and web wrapper for market data and fundamentals.
+TEK2day Finance is a market data, fundamentals and alternative data platform
+for institutional and retail investors.
+
+**Use it free in your browser — no install, no account:**
+**[finance.tek2dayholdings.com](https://finance.tek2dayholdings.com)**
+
+![TEK2day Finance — home](https://raw.githubusercontent.com/jmaietta/TEK2day-Finance/main/docs/screenshots/web-home.png)
+
+![Ticker summary with interactive chart](https://raw.githubusercontent.com/jmaietta/TEK2day-Finance/main/docs/screenshots/web-ticker-summary.png)
+
+![Comp table](https://raw.githubusercontent.com/jmaietta/TEK2day-Finance/main/docs/screenshots/web-comp-table.png)
 
 ## Features
 
 - **Live quote data** - real-time price, price change, volume, and quote-sensitive valuation calculations
+- **Interactive price charts** - selectable ranges; the chart's last point always matches the live quote
 - **Stored fundamentals** - ticker metadata, estimates, quarterly and annual income statements, balance sheets, and cash flow statements from Firestore
 - **SEC filings** - recent 10-K, 10-Q, 8-K, and other filings from SEC EDGAR
 - **CEO Analytics** - via CEORater
@@ -55,14 +66,6 @@ python app.py
 
 The web command surface calls the same command functions as the terminal, so
 Terminal and Web return the same data fields from the same sources.
-
-## Screenshots
-
-![TEK2day Finance terminal menu](https://raw.githubusercontent.com/jmaietta/TEK2day-Finance/main/docs/screenshots/terminal-menu.png)
-
-![Ticker summary](https://raw.githubusercontent.com/jmaietta/TEK2day-Finance/main/docs/screenshots/ticker-summary.png)
-
-![Comp table](https://raw.githubusercontent.com/jmaietta/TEK2day-Finance/main/docs/screenshots/comp-table.png)
 
 ## Commands
 
