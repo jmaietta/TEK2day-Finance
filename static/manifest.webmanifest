@@ -1,7 +1,7 @@
 {
   "name": "TEK2day Finance",
   "short_name": "TEK2day",
-  "description": "TEK2day Finance terminal-style market data GUI.",
+  "description": "TEK2day Finance is a market data, fundamentals and alternative data platform for institutional and retail investors.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
