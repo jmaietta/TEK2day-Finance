@@ -30,7 +30,28 @@ import terminal
 from config import CEORATER_API_KEY
 from seo_pages import BASE_URL, router as seo_router
 
-app = FastAPI(title="TEK2day Finance")
+def _json_safe(value):
+    """Recursively replace NaN/Inf floats with None so Starlette's JSONResponse
+    (which serializes with allow_nan=False) can encode Yahoo-sourced numbers.
+    Yahoo returns NaN for inapplicable line items (e.g. preferred dividends),
+    which otherwise raises and returns HTTP 500."""
+    if isinstance(value, float):
+        return None if (math.isnan(value) or math.isinf(value)) else value
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    return value
+
+
+class SafeJSONResponse(JSONResponse):
+    """App-wide default JSON response: coerces NaN/Inf -> null before encoding."""
+
+    def render(self, content):
+        return super().render(_json_safe(content))
+
+
+app = FastAPI(title="TEK2day Finance", default_response_class=SafeJSONResponse)
 app.include_router(seo_router)
 
 
