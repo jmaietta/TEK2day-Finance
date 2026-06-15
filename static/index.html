@@ -1369,7 +1369,7 @@
       let rows = null;
       try { rows = await fetchPrices(symbol); } catch (err) { rows = null; }
       if (!wrap.isConnected) return;
-      if (!rows || rows.length < 30) {
+      if (!rows || rows.length < 2) {
         wrap.innerHTML = `<div class="panel-note">No price history available.</div>`;
         return;
       }
@@ -1475,8 +1475,10 @@
         };
         rangesEl.appendChild(button);
       });
-      // Default: 6M
-      rangesEl.children[2].click();
+      // Default: 6M — but if the history is shorter (e.g. a recent IPO), show the
+      // full span so the line isn't squished against the right edge.
+      const sixMonthsAgo = monthsBack(6);
+      rangesEl.children[RAW[0].time > sixMonthsAgo ? RANGES.length - 1 : 2].click();
     }
 
     /* ───── idle state ───── */
