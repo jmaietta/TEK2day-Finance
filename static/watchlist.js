@@ -279,10 +279,10 @@
 
   // ---------- command palette ----------
   const CMDS = [
-    { code: "/{t}", label: "Summary", sub: "" }, { code: "/{t} inc", label: "Income statement", sub: "inc" },
-    { code: "/{t} bal", label: "Balance sheet", sub: "bal" }, { code: "/{t} cf", label: "Cash flow", sub: "cf" },
-    { code: "/{t} mgmt", label: "Management / CEO", sub: "mgmt" }, { code: "/{t} filings", label: "SEC filings", sub: "filings" },
-    { code: "/{t} news", label: "Recent news", sub: "news" }, { code: "/comp T1 T2", label: "Comparison table", comp: true },
+    { code: "/ticker", label: "Summary", sub: "" }, { code: "/ticker inc", label: "Income statement", sub: "inc" },
+    { code: "/ticker bal", label: "Balance sheet", sub: "bal" }, { code: "/ticker cf", label: "Cash flow", sub: "cf" },
+    { code: "/ticker mgmt", label: "Management / CEO", sub: "mgmt" }, { code: "/ticker filings", label: "SEC filings", sub: "filings" },
+    { code: "/ticker news", label: "Recent news", sub: "news" }, { code: "/comp T1 T2", label: "Comparison table", comp: true },
     { code: "/help", label: "Show all commands", help: true },
   ];
   let pal = null, palItems = [], palSel = 0, searchT = null;
