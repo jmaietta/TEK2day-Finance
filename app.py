@@ -466,44 +466,54 @@ def _management_payload(symbol: str) -> dict | None:
     }
 
 
-def _filings_payload(symbol: str) -> dict | None:
-    terminal._load_cik_cache()
-    cik = terminal._cik_cache.get(symbol)
-    if not cik:
+# Per-ticker filings cache (per instance). Also cuts SEC request volume, which is
+# what triggers EDGAR's rate limiting in the first place.
+_FILINGS_CACHE: dict = {}            # symbol -> (expires_ts, payload)
+_FILINGS_TTL = 3600                  # 1 hour
+
+
+def _fetch_filings_from_sec(symbol: str, cik: str) -> dict | None:
+    """One SEC EDGAR submissions fetch -> filings payload, or None. Retries
+    transient failures (EDGAR rate-limits aggressively)."""
+    url = f"https://data.sec.gov/submissions/CIK{cik.zfill(10)}.json"
+    resp = None
+    for attempt in range(1, 4):
+        try:
+            resp = requests.get(url, headers=terminal.SEC_HEADERS, timeout=15)
+            if resp.status_code == 200:
+                break
+        except Exception:
+            resp = None
+        time.sleep(0.6 * attempt)
+    if resp is None or resp.status_code != 200:
         return None
 
-    cik_padded = cik.zfill(10)
-    resp = requests.get(
-        f"https://data.sec.gov/submissions/CIK{cik_padded}.json",
-        headers=terminal.SEC_HEADERS,
-        timeout=15,
-    )
-    if resp.status_code != 200:
+    try:
+        recent = resp.json().get("filings", {}).get("recent", {})
+    except Exception:
         return None
-
-    recent = resp.json().get("filings", {}).get("recent", {})
     forms = recent.get("form", [])
+    if not forms:
+        return None
     dates = recent.get("filingDate", [])
     descs = recent.get("primaryDocDescription", [])
     accessions = recent.get("accessionNumber", [])
     primary_docs = recent.get("primaryDocument", [])
-    if not forms:
-        return None
 
     filings = []
     for idx in range(min(15, len(forms))):
         accession = accessions[idx] if idx < len(accessions) else ""
         primary_doc = primary_docs[idx] if idx < len(primary_docs) else ""
         archive_path = accession.replace("-", "")
-        url = ""
+        url_doc = ""
         if accession and primary_doc:
-            url = f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{archive_path}/{primary_doc}"
+            url_doc = f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{archive_path}/{primary_doc}"
         filings.append({
             "date": dates[idx] if idx < len(dates) else "",
             "form": forms[idx],
             "description": descs[idx] if idx < len(descs) else "",
             "accession": accession,
-            "url": url,
+            "url": url_doc,
         })
 
     return {
@@ -513,6 +523,30 @@ def _filings_payload(symbol: str) -> dict | None:
         "source": "SEC EDGAR",
         "filings": filings,
     }
+
+
+def _filings_payload(symbol: str) -> dict | None:
+    terminal._load_cik_cache()
+    cik = terminal._cik_cache.get(symbol)
+    if not cik:
+        return None  # genuinely not in SEC's ticker map
+
+    now = time.time()
+    cached = _FILINGS_CACHE.get(symbol)
+    if cached and cached[0] > now:
+        return cached[1]
+
+    try:
+        payload = _fetch_filings_from_sec(symbol, cik)
+    except Exception:
+        payload = None
+
+    if payload:
+        _FILINGS_CACHE[symbol] = (now + _FILINGS_TTL, payload)
+        return payload
+    # Transient SEC failure after retries: serve stale cache if we have one,
+    # so a momentary throttle doesn't blank the panel.
+    return cached[1] if cached else None
 
 
 def _news_payload(symbol: str) -> dict | None:
