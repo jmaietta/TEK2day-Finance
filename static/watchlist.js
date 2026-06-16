@@ -289,17 +289,21 @@
     { code: "/ticker news", label: "Recent news", sub: "news" }, { code: "/comp T1 T2", label: "Comparison table", comp: true },
     { code: "/help", label: "Show all commands", help: true },
   ];
-  let pal = null, palItems = [], palSel = 0, searchT = null;
+  let pal = null, palItems = [], palSel = 0, searchT = null, palNavigated = false;
   function palEl() { if (!pal) { pal = document.createElement("div"); pal.className = "pal"; document.body.appendChild(pal); } return pal; }
   function place() { const r = cmd.getBoundingClientRect(); const p = palEl(); p.style.left = r.left + "px"; p.style.top = r.bottom + 6 + "px"; p.style.width = Math.max(r.width, 360) + "px"; }
-  function closePal() { if (pal) pal.classList.remove("open"); palItems = []; }
+  function closePal() { if (pal) pal.classList.remove("open"); palItems = []; palNavigated = false; }
   function buildPal(raw) {
-    const q = raw.trim(); if (!q) { closePal(); return; }
-    const body = (q[0] === "/" ? q.slice(1) : q).trim(); const tok = body.split(/\s+/)[0].toUpperCase();
+    const q = raw.trim(); palNavigated = false; if (!q) { closePal(); return; }
+    const body = (q[0] === "/" ? q.slice(1) : q).trim();
+    const words = body.split(/\s+/);
+    const lastTok = (words[words.length - 1] || "").toUpperCase();  // the word being typed
+    const RESERVED = ["COMP", "HELP", "INC", "BAL", "CF", "MGMT", "FILINGS", "NEWS"];
+    const searchTok = RESERVED.includes(lastTok) ? "" : lastTok;    // don't ticker-search a command word
     let cmds = (q === "/") ? CMDS.slice() : CMDS.filter((c) => c.label.toLowerCase().includes(body.toLowerCase()) || c.code.toLowerCase().includes(body.toLowerCase()) || (c.sub && c.sub.startsWith(body.toLowerCase())));
     palItems = cmds.map((c) => ({ type: "cmd", c }));
     renderPal();
-    if (tok && q !== "/") { clearTimeout(searchT); searchT = setTimeout(async () => { let tk = []; try { tk = await jget("/api/search?q=" + encodeURIComponent(tok)); } catch (e) {} palItems = tk.slice(0, 6).map((t) => ({ type: "tk", t })).concat(cmds.map((c) => ({ type: "cmd", c }))); palSel = 0; renderPal(); }, 140); }
+    if (searchTok && q !== "/") { clearTimeout(searchT); searchT = setTimeout(async () => { let tk = []; try { tk = await jget("/api/search?q=" + encodeURIComponent(searchTok)); } catch (e) {} palItems = tk.slice(0, 6).map((t) => ({ type: "tk", t })).concat(cmds.map((c) => ({ type: "cmd", c }))); palSel = 0; renderPal(); }, 140); }
   }
   function renderPal() {
     const p = palEl(); if (!palItems.length) { closePal(); return; }
@@ -321,9 +325,14 @@
     cmd.addEventListener("input", (e) => buildPal(e.target.value));
     cmd.addEventListener("keydown", (e) => {
       if (!pal || !pal.classList.contains("open") || !palItems.length) return;
-      if (e.key === "ArrowDown") { e.preventDefault(); palSel = (palSel + 1) % palItems.length; renderPal(); }
-      else if (e.key === "ArrowUp") { e.preventDefault(); palSel = (palSel - 1 + palItems.length) % palItems.length; renderPal(); }
-      else if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); runPal(); }
+      if (e.key === "ArrowDown") { e.preventDefault(); palNavigated = true; palSel = (palSel + 1) % palItems.length; renderPal(); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); palNavigated = true; palSel = (palSel - 1 + palItems.length) % palItems.length; renderPal(); }
+      else if (e.key === "Enter") {
+        // Run a palette suggestion ONLY if the user arrow-navigated to one;
+        // otherwise let the form submit run exactly what was typed (Enter == <GO>).
+        if (palNavigated) { e.preventDefault(); e.stopPropagation(); runPal(); }
+        else closePal();
+      }
       else if (e.key === "Escape") closePal();
     });
     cmd.addEventListener("blur", () => setTimeout(closePal, 150));
