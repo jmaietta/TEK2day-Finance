@@ -12,6 +12,8 @@ on:
       - "terminal.py"
       - "fetchers.py"
       - "config.py"
+      - "auth.py"
+      - "watchlist.py"
       - "storage.py"
       - "static/**"
   workflow_dispatch:

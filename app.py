@@ -25,8 +25,10 @@ from pydantic import BaseModel, Field
 import requests
 from rich.console import Console
 
+import auth
 import storage
 import terminal
+import watchlist
 from config import CEORATER_API_KEY
 from seo_pages import BASE_URL, router as seo_router
 
@@ -53,6 +55,8 @@ class SafeJSONResponse(JSONResponse):
 
 app = FastAPI(title="TEK2day Finance", default_response_class=SafeJSONResponse)
 app.include_router(seo_router)
+app.include_router(auth.router)
+app.include_router(watchlist.router)
 
 
 @app.middleware("http")
@@ -84,11 +88,12 @@ SECURITY_HEADERS = {
     "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
     "Content-Security-Policy": (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com; "
+        "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.gstatic.com https://apis.google.com; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src https://fonts.gstatic.com; "
-        "img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; "
-        "connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; "
+        "img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com https://*.googleusercontent.com; "
+        "connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com; "
+        "frame-src 'self' https://yfinance-cli.firebaseapp.com https://accounts.google.com; "
         "object-src 'none'; "
         "frame-ancestors 'none'; "
         "base-uri 'self'; "

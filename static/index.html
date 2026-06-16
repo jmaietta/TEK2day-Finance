@@ -829,23 +829,8 @@
         <strong>TEK2day&nbsp;Finance</strong>
       </div>
 
-      <div class="sidebar-body">
-        <div class="section-title">Commands</div>
-        <div class="fn-list">
-          <button class="fn-item" type="button" data-template="/{symbol}"><span class="fn-code">/ticker</span><span class="fn-desc">Summary</span></button>
-          <button class="fn-item" type="button" data-template="/{symbol} inc"><span class="fn-code">/ticker inc</span><span class="fn-desc">Income statement</span></button>
-          <button class="fn-item" type="button" data-template="/{symbol} bal"><span class="fn-code">/ticker bal</span><span class="fn-desc">Balance sheet</span></button>
-          <button class="fn-item" type="button" data-template="/{symbol} cf"><span class="fn-code">/ticker cf</span><span class="fn-desc">Cash flow</span></button>
-          <button class="fn-item" type="button" data-template="/{symbol} mgmt"><span class="fn-code">/ticker mgmt</span><span class="fn-desc">Management / CEO</span></button>
-          <button class="fn-item" type="button" data-template="/{symbol} filings"><span class="fn-code">/ticker filings</span><span class="fn-desc">SEC filings</span></button>
-          <button class="fn-item" type="button" data-template="/{symbol} news"><span class="fn-code">/ticker news</span><span class="fn-desc">Recent news</span></button>
-          <button class="fn-item" type="button" data-command="/comp AAPL MSFT"><span class="fn-code">/comp T1 T2</span><span class="fn-desc">Comp table</span></button>
-          <button class="fn-item" type="button" data-command="/help"><span class="fn-code">/help</span><span class="fn-desc">Show commands</span></button>
-        </div>
-
-        <div class="section-title">Recent</div>
-        <div class="fn-list" id="history"></div>
-      </div>
+      <div class="sidebar-body" id="wl-sidebar"></div>
+      <div id="history" hidden></div>
 
       <div class="sidebar-foot">
         <span class="dot" id="status-dot"></span><span id="status-text">Ready</span>
@@ -864,6 +849,7 @@
           <button class="go-btn" id="run-btn" type="submit" aria-label="Run command">&lt;GO&gt;</button>
         </form>
         <div class="command-label" id="terminal-command">Idle</div>
+        <span id="auth-slot" class="auth-slot"></span>
       </header>
 
       <div class="content" id="content">
@@ -899,6 +885,10 @@
   </div>
 
   <script src="/static/lightweight-charts.standalone.production.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="/static/auth.js" defer></script>
+  <script src="/static/watchlist.js" defer></script>
   <script>
     const shell = document.getElementById("shell");
     const mobileMenuBtn = document.getElementById("mobile-menu-btn");
@@ -925,6 +915,10 @@
     });
 
     document.querySelectorAll("[data-command], [data-template]").forEach(bindCommandButton);
+
+    // Hooks for the command-palette + watchlist module (static/watchlist.js)
+    window.runTerminalCommand = (cmd) => runCommand(cmd);
+    window.getCurrentSymbol = () => currentSymbol;
 
     function bindCommandButton(button) {
       button.addEventListener("click", () => {
