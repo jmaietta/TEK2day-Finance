@@ -94,7 +94,7 @@
   // ---------- state ----------
   let me = { uid: null };
   let lists = [], activeId = null, quotes = {}, monitorOpen = false;
-  let sortKey = "chg", sortDir = -1;
+  let sortKey = "sym", sortDir = 1;   // Monitor defaults to A→Z
 
   async function api(path, opts) {
     const r = await fetch(path, Object.assign({ headers: { "Content-Type": "application/json" } }, opts || {}));
@@ -154,7 +154,7 @@
     let rows = "";
     if (!l) rows = `<div class="wl-empty">Create your first watchlist →</div>`;
     else if (!l.tickers.length) rows = `<div class="wl-empty">Empty. Type a ticker in the bar and ★ it, or use ▤ Watchlist to add.</div>`;
-    else rows = l.tickers.map((s) => {
+    else rows = [...l.tickers].sort().map((s) => {
       const q = quotes[s] || {};
       return `<div class="wl-item" data-load="${esc(s)}"><span class="wl-sym">${esc(s)}</span><span class="wl-px">${fmtPx(q.price)}</span><span class="wl-chg ${chgCls(q.chg)}">${fmtChg(q.chg)}</span><span class="wl-wx" data-rm="${esc(s)}" title="Remove">✕</span></div>`;
     }).join("");
@@ -166,13 +166,13 @@
       <div class="wl-list">${rows}</div>
       <div class="wl-foot">
         <div class="wl-btn" data-manage>▤ WATCHLIST</div>
-        <div class="wl-btn amber" data-monitor>⤢ MONITOR</div>
+        <div class="wl-btn amber" data-monitor>${monitorOpen ? "▢ CLOSE" : "⤢ MONITOR"}</div>
       </div>`;
     wlSidebar.querySelectorAll("[data-tab]").forEach((t) => (t.onclick = () => { activeId = t.dataset.tab; loadQuotes().then(() => { renderSidebar(); if (monitorOpen) renderMonitor(); }); }));
     wlSidebar.querySelector("[data-newlist]").onclick = newList;
-    wlSidebar.querySelectorAll("[data-load]").forEach((r) => (r.onclick = (e) => { if (e.target.dataset.rm) { e.stopPropagation(); removeTicker(e.target.dataset.rm); } else window.runTerminalCommand("/" + r.dataset.load); }));
+    wlSidebar.querySelectorAll("[data-load]").forEach((r) => (r.onclick = (e) => { if (e.target.dataset.rm) { e.stopPropagation(); removeTicker(e.target.dataset.rm); } else { monitorOpen = false; window.runTerminalCommand("/" + r.dataset.load); renderSidebar(); } }));
     const mb = wlSidebar.querySelector("[data-manage]"); if (mb) mb.onclick = openManage;
-    const mo = wlSidebar.querySelector("[data-monitor]"); if (mo) mo.onclick = openMonitor;
+    const mo = wlSidebar.querySelector("[data-monitor]"); if (mo) mo.onclick = toggleMonitor;
   }
 
   async function newList() {
@@ -246,7 +246,11 @@
   }
 
   // ---------- monitor ----------
-  function openMonitor() { monitorOpen = true; renderMonitor(); }
+  function openMonitor() { monitorOpen = true; renderMonitor(); renderSidebar(); }
+  function toggleMonitor() {
+    if (monitorOpen) { monitorOpen = false; renderSidebar(); window.runTerminalCommand("/" + ((window.getCurrentSymbol && window.getCurrentSymbol()) || "AAPL")); }
+    else openMonitor();
+  }
   function renderMonitor() {
     const l = activeList(); if (!l) { monitorOpen = false; return; }
     const cols = [["sym", "TICKER", "l"], ["name", "COMPANY", "l"], ["price", "LAST"], ["chg", "CHG %"], ["sector", "SECTOR", "l"]];
@@ -260,7 +264,7 @@
       <div style="overflow:auto"><table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>
       <div style="padding:9px 16px;color:var(--muted);font-size:10px;letter-spacing:.06em">${l.tickers.length} NAMES · click a row to load · ✕ to remove · click a column to sort</div></div>`;
     content.querySelectorAll("thead th[data-k]").forEach((h) => (h.onclick = () => { const k = h.dataset.k; if (k === sortKey) sortDir *= -1; else { sortKey = k; sortDir = (k === "sym" || k === "name" || k === "sector") ? 1 : -1; } renderMonitor(); }));
-    content.querySelectorAll("tbody tr[data-sym]").forEach((r) => (r.onclick = (e) => { if (e.target.dataset.rm) { removeTicker(e.target.dataset.rm); } else { monitorOpen = false; window.runTerminalCommand("/" + r.dataset.sym); } }));
+    content.querySelectorAll("tbody tr[data-sym]").forEach((r) => (r.onclick = (e) => { if (e.target.dataset.rm) { removeTicker(e.target.dataset.rm); } else { monitorOpen = false; renderSidebar(); window.runTerminalCommand("/" + r.dataset.sym); } }));
     $("m-add").onclick = () => { if (cmd) cmd.focus(); };
     $("m-manage").onclick = openManage;
     $("m-export").onclick = exportMenu;
