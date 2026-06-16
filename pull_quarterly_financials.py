@@ -11,6 +11,7 @@ Designed to run as a Cloud Run Job triggered by Cloud Scheduler.
 Run weekly or biweekly to catch new filings as they appear.
 """
 import logging
+import os
 import random
 import time
 from datetime import datetime, timezone
@@ -66,6 +67,13 @@ def main():
     logger.info("Quarterly financial pull starting")
 
     tickers = storage.list_active_tickers()
+    # Daily tranche: process 1/N of the universe per weekday so one run finishes
+    # within the task timeout. Schedulers fire Mon–Sat, so every ticker refreshes
+    # across the week. Override the slice for manual runs with TRANCHE_INDEX.
+    _tcount = int(os.getenv("TRANCHE_COUNT", "6"))
+    _tidx = (int(os.getenv("TRANCHE_INDEX")) if os.getenv("TRANCHE_INDEX") else datetime.now(timezone.utc).weekday()) % _tcount
+    tickers = [t for i, t in enumerate(sorted(tickers)) if i % _tcount == _tidx]
+    logger.info("Tranche %d of %d: %d tickers this run", _tidx, _tcount, len(tickers))
     total = len(tickers)
     logger.info("%d active tickers", total)
 
