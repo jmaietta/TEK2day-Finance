@@ -745,6 +745,14 @@ def index():
     return (STATIC_DIR / "index.html").read_text(encoding="utf-8")
 
 
+@app.get("/auth/action", response_class=HTMLResponse, include_in_schema=False)
+def auth_action():
+    # Branded Firebase email-action handler (password reset, email verify/recover).
+    # Set as the "custom action URL" in Firebase Console so links + this page are
+    # TEK2day-branded (finance.tek2dayholdings.com) instead of *.firebaseapp.com.
+    return (STATIC_DIR / "auth-action.html").read_text(encoding="utf-8")
+
+
 @app.get("/favicon.ico", include_in_schema=False)
 def favicon():
     return FileResponse(STATIC_DIR / "favicon.ico", media_type="image/x-icon")

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#000000">
+  <meta name="robots" content="noindex,nofollow">
+  <title>TEK2day Finance — Account</title>
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="512x512" href="/static/icon-512.png">
+  <link rel="shortcut icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Archivo:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#000; --panel:#070705; --panel-2:#0c0c09; --line:#1c1b14; --line-2:#2a2a20;
+      --text:#e8e6df; --muted:#8a8878; --amber:#ff9f1c; --amber-dim:#b97a14;
+      --amber-glow:rgba(255,159,28,.14); --red:#ff4d42; --green:#39d353;
+      --mono:'IBM Plex Mono',ui-monospace,monospace; --sans:'Archivo',system-ui,sans-serif;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;width:100%;min-height:100%;background:var(--bg);color:var(--text);font-family:var(--mono)}
+    body{display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{width:380px;max-width:94vw;background:var(--panel);border:1px solid var(--line-2);
+      border-radius:5px;padding:26px 24px;box-shadow:0 0 0 1px var(--amber-glow),inset 0 0 22px rgba(255,159,28,.03)}
+    .brand{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+    .brand img{width:30px;height:30px;border-radius:5px}
+    .brand .name{font-family:var(--sans);font-weight:800;font-size:15px;letter-spacing:.02em}
+    .brand .name span{color:var(--amber)}
+    h1{font-family:var(--sans);font-size:17px;font-weight:700;margin:0 0 6px}
+    p.sub{color:var(--muted);font-size:12px;line-height:1.55;margin:0 0 18px}
+    label{display:block;color:var(--muted);font-size:10px;letter-spacing:.06em;text-transform:uppercase;margin:0 0 6px}
+    input{width:100%;background:var(--panel-2);border:1px solid var(--line-2);border-radius:3px;color:var(--text);
+      font-family:var(--mono);font-size:14px;padding:10px;outline:none;margin-bottom:12px}
+    input:focus{border-color:var(--amber-dim)}
+    button.primary{width:100%;padding:11px;border:1px solid var(--amber-dim);border-radius:3px;background:var(--amber);
+      color:#000;font-weight:700;font-size:13px;letter-spacing:.04em;cursor:pointer;font-family:var(--mono)}
+    button.primary:disabled{opacity:.5;cursor:default}
+    .msg{font-size:12px;line-height:1.55;min-height:16px;margin-top:4px}
+    .msg.err{color:var(--red)} .msg.ok{color:var(--green)}
+    .foot{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+    a.cta{display:inline-block;color:var(--amber);font-size:12px;text-decoration:none}
+    a.cta:hover{text-decoration:underline}
+    .hide{display:none}
+    .spin{color:var(--muted);font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">
+      <img src="/static/tek2day-icon.png" alt="TEK2day" onerror="this.style.display='none'">
+      <div class="name">TEK2day&nbsp;<span>Finance</span></div>
+    </div>
+
+    <div id="loading" class="spin">Loading…</div>
+
+    <div id="reset" class="hide">
+      <h1>Choose a new password</h1>
+      <p class="sub">Resetting the password for <strong id="reset-email">your account</strong>.</p>
+      <label for="np">New password</label>
+      <input id="np" type="password" placeholder="At least 6 characters" autocomplete="new-password">
+      <label for="np2">Confirm password</label>
+      <input id="np2" type="password" placeholder="Re-enter password" autocomplete="new-password">
+      <button class="primary" id="reset-go">Update password</button>
+      <div class="msg" id="reset-msg"></div>
+    </div>
+
+    <div id="info" class="hide">
+      <h1 id="info-title">Account</h1>
+      <p class="sub" id="info-sub"></p>
+    </div>
+
+    <div id="foot" class="foot hide">
+      <a class="cta" href="/">← Continue to TEK2day Finance</a>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script>
+  (function () {
+    const $ = (id) => document.getElementById(id);
+    const params = new URLSearchParams(location.search);
+    const mode = params.get("mode");
+    const oobCode = params.get("oobCode");
+    const show = (id) => { $(id).classList.remove("hide"); };
+    const hide = (id) => { $(id).classList.add("hide"); };
+
+    function humanize(e) {
+      const m = (e && e.code) || (e && e.message) || "Something went wrong.";
+      const s = String(m).replace("auth/", "").replace(/[-_]/g, " ");
+      if (s.includes("expired") || s.includes("invalid action code"))
+        return "This link has expired or already been used. Request a new one from the sign-in screen.";
+      return s.charAt(0).toUpperCase() + s.slice(1) + ".";
+    }
+    function info(title, sub, isErr) {
+      hide("loading"); hide("reset");
+      $("info-title").textContent = title;
+      $("info-sub").textContent = sub;
+      $("info-sub").className = "sub" + (isErr ? " " : "");
+      show("info"); show("foot");
+    }
+
+    async function init() {
+      let cfg = null;
+      try {
+        const c = await (await fetch("/firebase/config")).json();
+        if (c && c.configured && c.firebaseConfig) cfg = c.firebaseConfig;
+      } catch (e) {}
+      if (!cfg) { info("Unavailable", "Account actions aren't configured right now. Please try again later.", true); return; }
+      if (!window.firebase.apps.length) firebase.initializeApp(cfg);
+      const auth = firebase.auth();
+
+      if (!mode || !oobCode) { info("Invalid link", "This link is missing required information. Request a new email from the sign-in screen.", true); return; }
+
+      if (mode === "resetPassword") {
+        try {
+          const email = await auth.verifyPasswordResetCode(oobCode);
+          hide("loading");
+          $("reset-email").textContent = email;
+          show("reset");
+          $("np").focus();
+          $("reset-go").onclick = async () => {
+            const a = $("np").value, b = $("np2").value, msg = $("reset-msg");
+            msg.className = "msg";
+            if (a.length < 6) { msg.textContent = "Password must be at least 6 characters."; msg.className = "msg err"; return; }
+            if (a !== b) { msg.textContent = "Passwords don't match."; msg.className = "msg err"; return; }
+            $("reset-go").disabled = true; msg.textContent = "Updating…";
+            try {
+              await auth.confirmPasswordReset(oobCode, a);
+              info("Password updated", "Your password has been changed. You can now sign in with your new password.", false);
+            } catch (e) { msg.textContent = humanize(e); msg.className = "msg err"; $("reset-go").disabled = false; }
+          };
+          $("np2").addEventListener("keydown", (e) => { if (e.key === "Enter") $("reset-go").click(); });
+        } catch (e) { info("Reset link expired", humanize(e), true); }
+        return;
+      }
+
+      if (mode === "verifyEmail") {
+        try { await auth.applyActionCode(oobCode); info("Email verified", "Your email address is confirmed. You're all set.", false); }
+        catch (e) { info("Verification failed", humanize(e), true); }
+        return;
+      }
+      if (mode === "recoverEmail") {
+        try { await auth.applyActionCode(oobCode); info("Email change reverted", "Your account email has been restored. Consider resetting your password as a precaution.", false); }
+        catch (e) { info("Couldn't recover email", humanize(e), true); }
+        return;
+      }
+      info("TEK2day Finance", "This account link isn't recognized.", true);
+    }
+
+    if (document.readyState !== "loading") init();
+    else document.addEventListener("DOMContentLoaded", init);
+  })();
+  </script>
+</body>
+</html>
