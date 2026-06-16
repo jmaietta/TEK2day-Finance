@@ -69,6 +69,14 @@ def main():
     logger.info("Daily price pull starting (period=%s)", PERIOD)
 
     tickers = storage.list_active_tickers()
+    # Cloud Run TASK PARALLELISM: each task processes its slice so the FULL universe
+    # still refreshes EVERY run (prices must be daily, unlike estimates/financials
+    # which use weekday tranches). Driven by the job's --tasks/--parallelism; single
+    # task locally. Cloud Run injects CLOUD_RUN_TASK_INDEX / CLOUD_RUN_TASK_COUNT.
+    task_index = int(os.getenv("CLOUD_RUN_TASK_INDEX", "0"))
+    task_count = int(os.getenv("CLOUD_RUN_TASK_COUNT", "1"))
+    tickers = [t for i, t in enumerate(sorted(tickers)) if i % task_count == task_index]
+    logger.info("Task %d of %d: %d tickers this task", task_index, task_count, len(tickers))
     total = len(tickers)
     logger.info("%d active tickers", total)
 
