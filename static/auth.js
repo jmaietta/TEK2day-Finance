@@ -6,6 +6,7 @@
 (function () {
   let cfg = null, configured = false, fbReady = false;
   let _me = { uid: null }, _onChange = null;
+  let authMode = "signin";   // "signin" | "create"
   const slot = () => document.getElementById("auth-slot");
 
   const css = document.createElement("style");
@@ -97,14 +98,14 @@
     scrim.innerHTML = `
       <div class="auth-modal">
         <button class="auth-close" data-x>&#10005;</button>
-        <h3>Sign in to TEK2day&nbsp;Finance</h3>
+        <h3 data-title>Sign in to TEK2day&nbsp;Finance</h3>
         <button class="auth-google" data-google>Sign in with Google</button>
         <div class="auth-or">or</div>
-        <input type="email" placeholder="Email" data-email autocomplete="username">
+        <input type="email" placeholder="Email" data-email autocomplete="email">
         <input type="password" placeholder="Password" data-pass autocomplete="current-password">
-        <button class="auth-primary" data-signin>Sign in</button>
+        <button class="auth-primary" data-primary>Sign in</button>
         <div class="auth-rowx">
-          <button class="auth-link" data-create>Create account</button>
+          <button class="auth-link" data-switch>Create account</button>
           <button class="auth-link" data-reset>Forgot password?</button>
         </div>
         <div class="auth-err" data-err></div>
@@ -115,13 +116,31 @@
     scrim.addEventListener("click", (e) => { if (e.target === scrim) closeModal(); });
     q("[data-x]").onclick = closeModal;
     q("[data-google]").onclick = () => doGoogle(err);
-    q("[data-signin]").onclick = () => doEmail("signin", q, err);
-    q("[data-create]").onclick = () => doEmail("create", q, err);
+    q("[data-primary]").onclick = () => doEmail(authMode, q, err);
+    q("[data-switch]").onclick = () => { setMode(authMode === "signin" ? "create" : "signin"); err.textContent = ""; };
     q("[data-reset]").onclick = () => doReset(q, err);
+    setMode("signin");
+  }
+
+  function setMode(mode) {
+    authMode = mode;
+    if (!scrim) return;
+    const q = (s) => scrim.querySelector(s);
+    const signin = mode === "signin";
+    q("[data-title]").innerHTML = signin ? "Sign in to TEK2day&nbsp;Finance" : "Create your TEK2day&nbsp;Finance account";
+    q("[data-google]").textContent = signin ? "Sign in with Google" : "Sign up with Google";
+    q("[data-primary]").textContent = signin ? "Sign in" : "Create account";
+    q("[data-pass]").setAttribute("autocomplete", signin ? "current-password" : "new-password");
+    q("[data-pass]").setAttribute("placeholder", signin ? "Password" : "Password (6+ characters)");
+    q("[data-switch]").textContent = signin ? "Create account" : "Have an account? Sign in";
+    q("[data-reset]").style.display = signin ? "" : "none";   // forgot-password is sign-in only
   }
 
   async function openModal() {
     if (!scrim) buildModal();
+    setMode("signin");
+    scrim.querySelector("[data-email]").value = "";
+    scrim.querySelector("[data-pass]").value = "";
     const err = scrim.querySelector("[data-err]"); err.textContent = "";
     const ok = await ensureFirebase();
     if (!ok) err.textContent = "Sign-in isn't configured yet (add Firebase config to .env).";
