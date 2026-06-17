@@ -889,6 +889,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="/static/auth.js" defer></script>
   <script src="/static/watchlist.js" defer></script>
+  <script src="/static/html2canvas.min.js" defer></script>
+  <script src="/static/table-export.js" defer></script>
   <script>
     const shell = document.getElementById("shell");
     const mobileMenuBtn = document.getElementById("mobile-menu-btn");
@@ -1207,6 +1209,10 @@
         ${estimates.sections.length > 1 ? `<div class="sub-title">${escapeHtml(section.title || `Section ${index + 1}`)}</div>` : ""}
         ${matrixTableHtml(section)}
       `).join("") + sourceLineHtml(`As of ${estimates.asOf || "unknown"} | Source: ${estimates.source || "Yahoo Finance, TEK2day"}`);
+      if (window.TableExport) {
+        const sym = (result.command || "").replace(/^\//, "").split(/\s+/)[0] || (window.getCurrentSymbol && window.getCurrentSymbol()) || "estimates";
+        window.TableExport.attach(panel, { name: sym + "_estimates" });
+      }
     }
 
     function fillShortInterest(panel, result) {
@@ -1229,6 +1235,10 @@
         ${data.sections.length > 1 ? `<div class="sub-title">${escapeHtml(section.title || `Section ${index + 1}`)}</div>` : ""}
         ${matrixTableHtml(section)}
       `).join("") + sourceLineHtml(`Source: ${data.source || "Yahoo Finance, TEK2day"}`);
+      if (window.TableExport) {
+        const sym = data.symbol || (result.command || "").replace(/^\//, "").split(/\s+/)[0] || "";
+        window.TableExport.attach(panel, { name: (sym ? sym + "_" : "") + (data.title || "financials") });
+      }
     }
 
     function fillManagement(panel, result) {
@@ -1325,6 +1335,7 @@
       setPanelTitle(panel, data.title || "Comp Table", symbols.join(" vs ") || result.command);
       panel.body.innerHTML = matrixTableHtml({ periods: symbols, rows: data.rows })
         + sourceLineHtml(`Source: ${data.source || "Yahoo Finance, TEK2day"}`);
+      if (window.TableExport) window.TableExport.attach(panel, { name: (symbols.join("_") || "comparison") + "_comparison" });
     }
 
     function fillPlainOutput(panel, result) {
