@@ -1460,8 +1460,8 @@ def cmd_compare(symbols):
         ("P/S (TTM)", lambda i: _ratio(i.get("ps_ttm"))),
         ("EV/Rev (TTM)", lambda i: _ratio(i.get("ev_revenue"))),
         ("EV/EBITDA (TTM)", lambda i: _ratio(i.get("ev_ebitda"))),
-        ("EV/OpCF", lambda i: _ratio(i.get("ev_opcf"))),
-        ("EV/FCF", lambda i: _ratio(i.get("ev_fcf"))),
+        ("EV/OpCF (TTM)", lambda i: _ratio(i.get("ev_opcf"))),
+        ("EV/FCF (TTM)", lambda i: _ratio(i.get("ev_fcf"))),
     ]
 
     for idx, (label, fn) in enumerate(metrics):
