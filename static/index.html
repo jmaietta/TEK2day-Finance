@@ -390,9 +390,11 @@
     .panel-head .crumb {
       margin-left: auto;
       overflow: hidden;
-      color: var(--muted);
+      color: var(--amber);
+      font-weight: 600;
       font-size: 10px;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
@@ -1111,7 +1113,7 @@
       root.className = "panel";
       const head = document.createElement("div");
       head.className = "panel-head";
-      head.innerHTML = `<h2>${escapeHtml(title)}</h2><span class="crumb">${escapeHtml(crumb || "")}</span>`;
+      head.innerHTML = `<h2>${escapeHtml(title)}</h2><span class="crumb">${escapeHtml((crumb || "").replace(/^\//, ""))}</span>`;
       const body = document.createElement("div");
       body.innerHTML = `<div class="panel-loading">Loading…</div>`;
       root.appendChild(head);
@@ -1121,7 +1123,7 @@
     }
 
     function setPanelTitle(panel, title, crumb) {
-      panel.head.innerHTML = `<h2>${escapeHtml(title)}</h2><span class="crumb">${escapeHtml(crumb || "")}</span>`;
+      panel.head.innerHTML = `<h2>${escapeHtml(title)}</h2><span class="crumb">${escapeHtml((crumb || "").replace(/^\//, ""))}</span>`;
     }
 
     function panelError(panel, err) {
