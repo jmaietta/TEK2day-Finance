@@ -1108,12 +1108,19 @@
 
     /* ───── panel helpers ───── */
 
+    // Crumb shows just the ticker: "/MSFT inc" -> "MSFT". Multi-ticker comp
+    // crumbs (e.g. "AAPL vs MSFT") have no leading slash, so leave them intact.
+    function crumbText(crumb) {
+      const c = (crumb || "").trim();
+      return c[0] === "/" ? c.slice(1).split(/\s+/)[0] : c;
+    }
+
     function makePanel(parent, title, crumb) {
       const root = document.createElement("section");
       root.className = "panel";
       const head = document.createElement("div");
       head.className = "panel-head";
-      head.innerHTML = `<h2>${escapeHtml(title)}</h2><span class="crumb">${escapeHtml((crumb || "").replace(/^\//, ""))}</span>`;
+      head.innerHTML = `<h2>${escapeHtml(title)}</h2><span class="crumb">${escapeHtml(crumbText(crumb))}</span>`;
       const body = document.createElement("div");
       body.innerHTML = `<div class="panel-loading">Loading…</div>`;
       root.appendChild(head);
@@ -1123,7 +1130,7 @@
     }
 
     function setPanelTitle(panel, title, crumb) {
-      panel.head.innerHTML = `<h2>${escapeHtml(title)}</h2><span class="crumb">${escapeHtml((crumb || "").replace(/^\//, ""))}</span>`;
+      panel.head.innerHTML = `<h2>${escapeHtml(title)}</h2><span class="crumb">${escapeHtml(crumbText(crumb))}</span>`;
     }
 
     function panelError(panel, err) {
