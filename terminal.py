@@ -1462,8 +1462,6 @@ def cmd_compare(symbols):
         ("EV/EBITDA (TTM)", lambda i: _ratio(i.get("ev_ebitda"))),
         ("EV/OpCF", lambda i: _ratio(i.get("ev_opcf"))),
         ("EV/FCF", lambda i: _ratio(i.get("ev_fcf"))),
-        ("Div Yield", lambda i: _pct(i.get("dividend_yield"))),
-        ("Beta", lambda i: _num(i.get("beta"))),
     ]
 
     for idx, (label, fn) in enumerate(metrics):

@@ -628,8 +628,6 @@ def _compare_payload(symbols: list[str]) -> dict | None:
         ("EV/EBITDA (TTM)", lambda item: terminal._ratio(item.get("ev_ebitda"))),
         ("EV/OpCF", lambda item: terminal._ratio(item.get("ev_opcf"))),
         ("EV/FCF", lambda item: terminal._ratio(item.get("ev_fcf"))),
-        ("Div Yield", lambda item: terminal._pct(item.get("dividend_yield"))),
-        ("Beta", lambda item: terminal._num(item.get("beta"))),
     ]
     ordered_symbols = list(snapshots.keys())
     return {
