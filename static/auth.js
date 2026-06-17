@@ -143,18 +143,41 @@
     scrim.querySelector("[data-pass]").value = "";
     const err = scrim.querySelector("[data-err]"); err.textContent = "";
     const ok = await ensureFirebase();
-    if (!ok) err.textContent = "Sign-in isn't configured yet (add Firebase config to .env).";
+    if (!ok) err.textContent = "Couldn't load sign-in — a VPN, ad-blocker, or network filter may be blocking it.";
     scrim.classList.add("open");
   }
   function closeModal() { if (scrim) scrim.classList.remove("open"); }
 
+  // Error codes that mean "this environment can't show a popup" -> use a redirect instead.
+  // Chiefly the installed PWA, where the OS blocks window.open regardless. Normal browsers
+  // (desktop + mobile web) keep the popup once the handler is same-origin (Phase 5 flip).
+  const POPUP_FALLBACK = new Set([
+    "auth/popup-blocked",
+    "auth/operation-not-supported-in-this-environment",
+    "auth/internal-error",
+  ]);
   async function doGoogle(err) {
     if (!(await ensureFirebase())) return;
+    const provider = new window.firebase.auth.GoogleAuthProvider();
     try {
-      const provider = new window.firebase.auth.GoogleAuthProvider();
       const res = await window.firebase.auth().signInWithPopup(provider);
       if (await postToken(res.user, err)) { closeModal(); refreshState(); }
-    } catch (e) { err.textContent = humanize(e); }
+    } catch (e) {
+      if (POPUP_FALLBACK.has(e && e.code)) {
+        // Popup can't run here — hand off to a full-page redirect; completeRedirect() finishes it.
+        try { await window.firebase.auth().signInWithRedirect(provider); return; }
+        catch (e2) { err.textContent = humanize(e2); return; }
+      }
+      err.textContent = humanize(e);
+    }
+  }
+  // Completes a redirect-based Google sign-in after the page reloads (the rare fallback above).
+  async function completeRedirect() {
+    if (!(await ensureFirebase())) return;
+    try {
+      const res = await window.firebase.auth().getRedirectResult();
+      if (res && res.user) { await postToken(res.user); refreshState(); }
+    } catch (e) { /* no pending redirect, or it failed -> stay signed out */ }
   }
   async function doEmail(mode, q, err) {
     if (!(await ensureFirebase())) return;
@@ -185,6 +208,7 @@
     return String(m).replace("auth/", "").replace(/[-_]/g, " ");
   }
 
-  if (document.readyState !== "loading") refreshState();
-  else document.addEventListener("DOMContentLoaded", refreshState);
+  function startup() { refreshState(); completeRedirect(); }
+  if (document.readyState !== "loading") startup();
+  else document.addEventListener("DOMContentLoaded", startup);
 })();
