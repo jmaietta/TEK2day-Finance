@@ -31,6 +31,14 @@
     .auth-rowx{display:flex;justify-content:space-between;margin-top:10px}
     .auth-err{color:var(--red,#ff4d42);font-size:11px;min-height:14px;margin-top:8px}
     .auth-close{float:right;color:var(--muted);cursor:pointer;border:0;background:none;font-size:13px}
+    .auth-acct{position:relative;display:inline-flex}
+    .auth-avatar{width:28px;height:28px;border-radius:50%;border:1px solid var(--amber-dim);background:var(--amber-glow);color:var(--amber);font-family:var(--mono);font-size:12px;font-weight:700;cursor:pointer;display:grid;place-items:center;padding:0}
+    .auth-avatar:hover{background:var(--amber);color:#000}
+    .auth-menu{position:absolute;top:36px;right:0;min-width:180px;max-width:78vw;background:var(--panel,#070705);border:1px solid var(--line-2,#2a2a20);border-radius:4px;padding:6px;display:none;z-index:1100;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+    .auth-acct.open .auth-menu{display:block}
+    .auth-menu-email{color:var(--muted,#8a8878);font-size:11px;font-family:var(--mono);padding:6px 8px;word-break:break-all;border-bottom:1px solid var(--line,#1c1b14);margin-bottom:4px}
+    .auth-menu-item{width:100%;text-align:left;background:none;border:0;color:var(--text,#e8e6df);font-family:var(--mono);font-size:12px;padding:7px 8px;border-radius:3px;cursor:pointer}
+    .auth-menu-item:hover{background:var(--amber-glow);color:var(--amber)}
   `;
   document.head.appendChild(css);
 
@@ -55,15 +63,45 @@
     onChange: (cb) => { _onChange = cb; if (_me) { try { cb(_me); } catch (e) {} } },
   };
 
+  function closeMenu() {
+    const w = document.querySelector(".auth-acct.open");
+    if (w) {
+      w.classList.remove("open");
+      const a = w.querySelector(".auth-avatar"); if (a) a.setAttribute("aria-expanded", "false");
+    }
+  }
+  // Close the account menu on an outside click or Escape.
+  document.addEventListener("click", closeMenu);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMenu(); });
+
   function renderSlot(me) {
     const el = slot(); if (!el) return;
     el.innerHTML = "";
     if (me && me.uid) {
-      const email = document.createElement("span");
-      email.className = "auth-email"; email.textContent = me.email || "Signed in";
+      // Compact account badge: first letter of the email; tap to reveal full email + Sign out.
+      const initial = ((me.email || "?").trim().charAt(0) || "?").toUpperCase();
+      const wrap = document.createElement("div"); wrap.className = "auth-acct";
+      const av = document.createElement("button");
+      av.className = "auth-avatar"; av.type = "button"; av.textContent = initial;
+      av.setAttribute("aria-label", "Account menu");
+      av.setAttribute("aria-haspopup", "true");
+      av.setAttribute("aria-expanded", "false");
+      const menu = document.createElement("div"); menu.className = "auth-menu";
+      menu.addEventListener("click", (e) => e.stopPropagation());
+      const em = document.createElement("div");
+      em.className = "auth-menu-email"; em.textContent = me.email || "Signed in";
       const out = document.createElement("button");
-      out.className = "auth-link"; out.textContent = "Sign out"; out.onclick = signOut;
-      el.append(email, out);
+      out.className = "auth-menu-item"; out.type = "button"; out.textContent = "Sign out";
+      out.onclick = () => { closeMenu(); signOut(); };
+      menu.append(em, out);
+      av.onclick = (e) => {
+        e.stopPropagation();
+        const open = wrap.classList.contains("open");
+        closeMenu();
+        if (!open) { wrap.classList.add("open"); av.setAttribute("aria-expanded", "true"); }
+      };
+      wrap.append(av, menu);
+      el.append(wrap);
     } else {
       const inb = document.createElement("button");
       inb.className = "auth-btn"; inb.textContent = "Sign in"; inb.onclick = openModal;
