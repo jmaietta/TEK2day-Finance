@@ -16,8 +16,14 @@ from datetime import datetime
 from html import escape
 from typing import Callable
 
-from fastapi import FastAPI, Query
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi import FastAPI, Query, Request
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    RedirectResponse,
+    Response,
+)
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
@@ -133,8 +139,12 @@ async def security_middleware(request, call_next):
             headers={"Retry-After": "1", **SECURITY_HEADERS},
         )
     response = await call_next(request)
-    for header, value in SECURITY_HEADERS.items():
-        response.headers.setdefault(header, value)
+    # The Firebase OAuth-handler proxy (/__/auth/*, /__/firebase/*) must carry its own
+    # headers — our strict CSP + X-Frame-Options: DENY would break the handler's iframe.
+    p = request.url.path
+    if not (p.startswith("/__/auth/") or p.startswith("/__/firebase/")):
+        for header, value in SECURITY_HEADERS.items():
+            response.headers.setdefault(header, value)
     if request.headers.get("x-forwarded-proto") == "https":
         response.headers.setdefault(
             "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
@@ -769,6 +779,47 @@ def manifest():
 @app.get("/sw.js", include_in_schema=False)
 def service_worker():
     return FileResponse(STATIC_DIR / "sw.js", media_type="text/javascript")
+
+
+# --- Same-origin proxy for Firebase's OAuth handler (Google sign-in on mobile/PWA) ---
+# Serves Firebase's reserved auth-helper paths from THIS origin so the browser treats the
+# handler's storage as first-party instead of cross-site (*.firebaseapp.com). Additive and
+# inert until FIREBASE_AUTH_DOMAIN is pointed at this host. See STATUS.md (reverse-proxy plan).
+_FB_HANDLER_ORIGIN = "https://yfinance-cli.firebaseapp.com"
+_FB_PASS_RESP_HEADERS = ("location", "cache-control", "etag", "last-modified", "expires", "vary")
+_FB_FWD_REQ_HEADERS = ("cookie", "user-agent", "accept", "accept-language", "referer")
+
+
+@app.api_route("/__/auth/{_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
+@app.api_route("/__/firebase/{_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
+def firebase_auth_proxy(_path: str, request: Request):
+    upstream = _FB_HANDLER_ORIGIN + request.url.path
+    if request.url.query:
+        upstream += "?" + request.url.query
+    fwd = {h: request.headers[h] for h in _FB_FWD_REQ_HEADERS if h in request.headers}
+    try:
+        up = requests.request(
+            request.method, upstream, headers=fwd, allow_redirects=False, timeout=15
+        )
+    except requests.RequestException:
+        return Response(status_code=502)
+    resp = Response(
+        content=up.content,
+        status_code=up.status_code,
+        media_type=up.headers.get("content-type"),
+    )
+    for h in _FB_PASS_RESP_HEADERS:
+        if h in up.headers:
+            resp.headers[h] = up.headers[h]
+    # Re-scope any handler cookies to this host (strip the cross-site Domain attribute).
+    try:
+        raw_cookies = up.raw.headers.getlist("Set-Cookie")
+    except Exception:
+        sc = up.headers.get("Set-Cookie")
+        raw_cookies = [sc] if sc else []
+    for sc in raw_cookies:
+        resp.headers.append("set-cookie", re.sub(r";\s*[Dd]omain=[^;]+", "", sc))
+    return resp
 
 
 @app.get("/api/search")
