@@ -294,16 +294,26 @@
   function place() { const r = cmd.getBoundingClientRect(); const p = palEl(); p.style.left = r.left + "px"; p.style.top = r.bottom + 6 + "px"; p.style.width = Math.max(r.width, 360) + "px"; }
   function closePal() { if (pal) pal.classList.remove("open"); palItems = []; palNavigated = false; }
   function buildPal(raw) {
+    clearTimeout(searchT);   // cancel any pending ticker search so a stale result can't repopulate
     const q = raw.trim(); palNavigated = false; if (!q) { closePal(); return; }
     const body = (q[0] === "/" ? q.slice(1) : q).trim();
     const words = body.split(/\s+/);
+    const firstTok = (words[0] || "").toUpperCase();
     const lastTok = (words[words.length - 1] || "").toUpperCase();  // the word being typed
     const RESERVED = ["COMP", "HELP", "INC", "BAL", "CF", "MGMT", "FILINGS", "NEWS"];
-    const searchTok = RESERVED.includes(lastTok) ? "" : lastTok;    // don't ticker-search a command word
+    // Ticker autocomplete applies ONLY while typing a ticker:
+    //  - /comp T1 T2 …  -> every word after "comp" is a ticker, so search the one being typed
+    //  - single-ticker commands -> only the first/only word (so "/AAPL inc" won't list tickers for "inc")
+    let searchTok = "";
+    if (firstTok === "COMP") {
+      if (words.length > 1 && lastTok && !RESERVED.includes(lastTok)) searchTok = lastTok;
+    } else if (words.length === 1 && lastTok && !RESERVED.includes(lastTok)) {
+      searchTok = lastTok;
+    }
     let cmds = (q === "/") ? CMDS.slice() : CMDS.filter((c) => c.label.toLowerCase().includes(body.toLowerCase()) || c.code.toLowerCase().includes(body.toLowerCase()) || (c.sub && c.sub.startsWith(body.toLowerCase())));
     palItems = cmds.map((c) => ({ type: "cmd", c }));
     renderPal();
-    if (searchTok && q !== "/") { clearTimeout(searchT); searchT = setTimeout(async () => { let tk = []; try { tk = await jget("/api/search?q=" + encodeURIComponent(searchTok)); } catch (e) {} palItems = tk.slice(0, 6).map((t) => ({ type: "tk", t })).concat(cmds.map((c) => ({ type: "cmd", c }))); palSel = 0; renderPal(); }, 140); }
+    if (searchTok && q !== "/") { searchT = setTimeout(async () => { let tk = []; try { tk = await jget("/api/search?q=" + encodeURIComponent(searchTok)); } catch (e) {} if (cmd.value !== raw) return; palItems = tk.slice(0, 6).map((t) => ({ type: "tk", t })).concat(cmds.map((c) => ({ type: "cmd", c }))); palSel = 0; renderPal(); }, 140); }
   }
   function renderPal() {
     const p = palEl(); if (!palItems.length) { closePal(); return; }

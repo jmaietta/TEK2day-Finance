@@ -1450,9 +1450,9 @@ def cmd_compare(symbols):
         ("Price", lambda i: _price(i.get("price"))),
         ("Market Cap", lambda i: _dollar(i.get("market_cap"))),
         ("EV", lambda i: _dollar(i.get("enterprise_value"))),
-        ("Revenue", lambda i: _dollar(i.get("revenue"))),
-        ("EBITDA", lambda i: _dollar(i.get("ebitda"))),
-        ("Net Income", lambda i: _dollar(i.get("net_income"))),
+        ("Revenue (TTM)", lambda i: _dollar(i.get("revenue"))),
+        ("EBITDA (TTM)", lambda i: _dollar(i.get("ebitda"))),
+        ("Net Income (TTM)", lambda i: _dollar(i.get("net_income"))),
         ("EPS (TTM)", lambda i: _num(i.get("eps_ttm"))),
         ("EPS (Fwd)", lambda i: _num(i.get("forward_eps"))),
         ("P/E TTM (GAAP)", lambda i: _ratio(i.get("pe_ttm"))),
@@ -1460,10 +1460,8 @@ def cmd_compare(symbols):
         ("P/S (TTM)", lambda i: _ratio(i.get("ps_ttm"))),
         ("EV/Rev (TTM)", lambda i: _ratio(i.get("ev_revenue"))),
         ("EV/EBITDA (TTM)", lambda i: _ratio(i.get("ev_ebitda"))),
-        ("EV/OpCF", lambda i: _ratio(i.get("ev_opcf"))),
-        ("EV/FCF", lambda i: _ratio(i.get("ev_fcf"))),
-        ("Div Yield", lambda i: _pct(i.get("dividend_yield"))),
-        ("Beta", lambda i: _num(i.get("beta"))),
+        ("EV/OpCF (TTM)", lambda i: _ratio(i.get("ev_opcf"))),
+        ("EV/FCF (TTM)", lambda i: _ratio(i.get("ev_fcf"))),
     ]
 
     for idx, (label, fn) in enumerate(metrics):
