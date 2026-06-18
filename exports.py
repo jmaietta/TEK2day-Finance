@@ -14,6 +14,8 @@ import terminal
 router = APIRouter()
 
 _XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+# One source line for EVERY export, so they can't drift apart.
+_SOURCE = "Source: Yahoo Finance and TEK2day Finance"
 
 
 def _xlsx_response(data: bytes, filename: str) -> Response:
@@ -41,11 +43,11 @@ def _us_date(s) -> str:
 # Big-dollar magnitudes shown in $ billions (his call); ratios as Nx; price as $.
 _COMP_ROWS = [
     ("Price", "price", "price"),
-    ("Market Cap", "market_cap", "dollar_b"),
-    ("EV", "enterprise_value", "dollar_b"),
-    ("Revenue (TTM)", "revenue", "dollar_b"),
-    ("EBITDA (TTM)", "ebitda", "dollar_b"),
-    ("Net Income (TTM)", "net_income", "dollar_b"),
+    ("Market Cap", "market_cap", "millions"),
+    ("EV", "enterprise_value", "millions"),
+    ("Revenue (TTM)", "revenue", "millions"),
+    ("EBITDA (TTM)", "ebitda", "millions"),
+    ("Net Income (TTM)", "net_income", "millions"),
     ("EPS (TTM)", "eps_ttm", "num2"),
     ("EPS (Fwd)", "forward_eps", "num2"),
     ("P/E TTM (GAAP)", "pe_ttm", "ratio"),
@@ -74,8 +76,8 @@ def export_compare(request: Request, symbols: str = Query(...), fmt: str = Query
     for label, key, fmtkey in _COMP_ROWS:
         rows.append({"label": label, "values": [s.get(key) for s in snaps], "fmt": fmtkey})
     data = excel_export.build_workbook(
-        "",  # no title text — logo only
-        "Source: Yahoo Finance, TEK2day",  # rendered BELOW the table
+        "$ in millions (price & EPS in $)",  # units note below the logo
+        _SOURCE,
         [{"corner": "Metric", "columns": cols, "rows": rows}],
         sheet_name="Comparison",
     )
@@ -144,7 +146,7 @@ def export_financials(request: Request, symbol: str = Query(...),
 
     data = excel_export.build_workbook(
         f"{symbol} — {title}  |  $ in millions (EPS in $)",
-        "Source: TEK2day",
+        _SOURCE,
         out_sections, sheet_name=title[:31])
     return _xlsx_response(data, _safe(f"{symbol}_{title}") + ".xlsx")
 
@@ -172,14 +174,16 @@ def export_estimates(request: Request, symbol: str = Query(...), fmt: str = Quer
             if mk not in metric_map:
                 continue
             vals = [terminal._to_float(metric_map[mk].get(p)) for p in periods]
+            # Match the income-statement convention: revenue in plain $ millions,
+            # EPS as plain decimals (header notes the units).
             if mk == "growth":
                 fk = "pct"
             elif mk == "numberofanalysts":
                 fk = "int"
             elif prefix == "rev" and mk in ("avg", "high", "low", "yearagorevenue"):
-                fk = "dollar_m"
+                fk = "millions"
             elif prefix == "eps" and mk in ("avg", "high", "low", "yearagoeps"):
-                fk = "price"
+                fk = "num2"
             else:
                 fk = "num2"
             rows.append({"label": terminal.METRIC_LABELS.get(mk, mk), "values": vals, "fmt": fk})
@@ -192,7 +196,7 @@ def export_estimates(request: Request, symbol: str = Query(...), fmt: str = Quer
         raise HTTPException(status_code=404, detail="No estimate data.")
 
     data = excel_export.build_workbook(
-        f"{symbol} — Estimates  |  as of {_us_date(d.get('date'))}",
-        "Source: Yahoo Finance, TEK2day",
+        f"{symbol} — Estimates  |  as of {_us_date(d.get('date'))}  |  $ in millions (EPS in $)",
+        _SOURCE,
         out_sections, sheet_name="Estimates")
     return _xlsx_response(data, _safe(f"{symbol}_estimates") + ".xlsx")
