@@ -48,6 +48,23 @@
     opts = opts || {};
     if (!panel || !panel.head || !panel.root) return;
     if (panel.head.querySelector(".img-export-btn")) return;  // already added
+    // Excel button (server-side .xlsx download), shown left of the image button.
+    if (opts.excelUrl) {
+      const xb = document.createElement("button");
+      xb.className = "img-export-btn no-export";
+      xb.type = "button";
+      xb.textContent = "↓ Excel";
+      xb.title = "Download this table as an Excel file (free account required)";
+      xb.addEventListener("click", (e) => {
+        e.preventDefault(); e.stopPropagation();
+        if (!signedIn()) {
+          if (window.TEK2Auth && window.TEK2Auth.open) window.TEK2Auth.open();
+          return;
+        }
+        window.open(opts.excelUrl, "_blank");
+      });
+      panel.head.appendChild(xb);
+    }
     const btn = document.createElement("button");
     btn.className = "img-export-btn no-export";
     btn.type = "button";
