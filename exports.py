@@ -65,8 +65,8 @@ def export_compare(request: Request, symbols: str = Query(...), fmt: str = Query
     for label, key, fmtkey in _COMP_ROWS:
         rows.append({"label": label, "values": [s.get(key) for s in snaps], "fmt": fmtkey})
     data = excel_export.build_workbook(
-        "TEK2day Finance — Comparison",
-        "  ·  ".join(cols) + "      |      Source: Yahoo Finance, TEK2day",
+        "",  # no title text — logo only
+        "Source: Yahoo Finance, TEK2day",  # rendered BELOW the table
         [{"corner": "Metric", "columns": cols, "rows": rows}],
         sheet_name="Comparison",
     )
