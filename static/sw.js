@@ -1,4 +1,4 @@
-const CACHE_NAME = "tek2day-finance-v9";
+const CACHE_NAME = "tek2day-finance-v12";
 const APP_SHELL = [
   "/",
   "/static/favicon.ico",
@@ -26,6 +26,12 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  const url = new URL(event.request.url);
+  // Only handle our own app/static requests. Let the browser handle everything else
+  // directly: cross-origin (Google Fonts/gstatic), the Firebase auth proxy (/__/*),
+  // and the dynamic API (/api/*) must NOT be intercepted or cached by the SW.
+  if (url.origin !== self.location.origin) return;
+  if (url.pathname.startsWith("/__/") || url.pathname.startsWith("/api/")) return;
   if (event.request.mode === "navigate") {
     event.respondWith(
       fetch(event.request)

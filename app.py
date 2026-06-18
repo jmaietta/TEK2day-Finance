@@ -92,13 +92,16 @@ SECURITY_HEADERS = {
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    # Let the app interact with the Firebase sign-in popup (clears the COOP
+    # window.closed/window.close warnings; hardens Google popup auth).
+    "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
     "Content-Security-Policy": (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.gstatic.com https://apis.google.com; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src https://fonts.gstatic.com; "
         "img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com https://*.googleusercontent.com; "
-        "connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com; "
+        "connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://www.gstatic.com https://apis.google.com; "
         "frame-src 'self' https://yfinance-cli.firebaseapp.com https://accounts.google.com; "
         "object-src 'none'; "
         "frame-ancestors 'none'; "
