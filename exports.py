@@ -133,8 +133,9 @@ def export_financials(request: Request, symbol: str = Query(...),
             vals = [terminal._to_float(p.get(section, {}).get(key)) for p in periods]
             if not any(v is not None for v in vals):
                 continue
-            # Statement line items in $ millions; EPS rows are plain decimals.
-            fk = "num2" if "EPS" in label else "dollar_m"
+            # Statement line items as plain millions (header says "$ in millions");
+            # EPS rows are plain decimals.
+            fk = "num2" if "EPS" in label else "millions"
             rows.append({"label": label, "values": vals, "fmt": fk})
         if rows:
             out_sections.append({"title": gtitle, "corner": "Line Item", "columns": cols, "rows": rows})
@@ -142,7 +143,7 @@ def export_financials(request: Request, symbol: str = Query(...),
         raise HTTPException(status_code=404, detail="No financial data.")
 
     data = excel_export.build_workbook(
-        f"{symbol} — {title}  |  figures in $ millions (EPS in $)",
+        f"{symbol} — {title}  |  $ in millions (EPS in $)",
         "Source: TEK2day",
         out_sections, sheet_name=title[:31])
     return _xlsx_response(data, _safe(f"{symbol}_{title}") + ".xlsx")

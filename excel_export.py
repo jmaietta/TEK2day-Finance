@@ -29,6 +29,7 @@ NUM_FORMATS = {
     "price":    '"$"#,##0.00',          # $254.50
     "dollar_b": '"$"#,##0.0,,,"B"',     # raw dollars shown in billions: $3,200.5B
     "dollar_m": '"$"#,##0,,"M"',        # raw dollars shown in millions: $391,035M
+    "millions": '#,##0,,',              # raw dollars shown as plain millions: 391,035 (header says "$ in millions")
     "ratio":    '0.0"x"',               # 41.5x
     "pct":      '0.00%',                # fraction 0.0235 -> 2.35%
     "num2":     '#,##0.00',             # 6.13
