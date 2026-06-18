@@ -85,18 +85,14 @@ def build_workbook(report_title, subtitle, sections, *, sheet_name="Export", lan
 
     ncols = max((1 + len(s.get("columns", [])) for s in sections), default=2)
 
-    # --- branded header: logo in A1 + title/subtitle ---
-    title_fmt = wb.add_format({"bold": True, "font_size": 15, "font_color": "#111111", "valign": "vcenter"})
+    # --- header: full-width title + subtitle (logo omitted for now; re-add cleanly
+    #     once the data/format is approved — it was overlapping the title) ---
+    title_fmt = wb.add_format({"bold": True, "font_size": 15, "font_color": "#B97A14", "valign": "vcenter"})
     sub_fmt = wb.add_format({"font_size": 9, "font_color": "#666666", "valign": "vcenter"})
-    ws.set_row(0, 38)
-    if os.path.exists(LOGO_PATH):
-        # object_position 3 = don't move or size with cells (logo stays put).
-        ws.insert_image(0, 0, LOGO_PATH,
-                        {"x_scale": 0.07, "y_scale": 0.07, "x_offset": 4, "y_offset": 4, "object_position": 3})
-    ws.merge_range(0, 1, 0, ncols - 1, report_title, title_fmt)
-    ws.merge_range(1, 1, 1, ncols - 1, subtitle, sub_fmt)
-    ws.set_column(0, 0, 28)
-    ws.set_column(1, ncols - 1, 15)
+    ws.merge_range(0, 0, 0, ncols - 1, report_title, title_fmt)
+    ws.merge_range(1, 0, 1, ncols - 1, subtitle, sub_fmt)
+    ws.set_column(0, 0, 30)
+    ws.set_column(1, ncols - 1, 16)
 
     row = 3
     first_header_row = None
@@ -136,7 +132,6 @@ def build_workbook(report_title, subtitle, sections, *, sheet_name="Export", lan
     ws.center_horizontally()
     if first_header_row is not None:
         ws.repeat_rows(first_header_row)
-        ws.freeze_panes(first_header_row + 1, 1)
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     ws.set_footer(f"&LTEK2day Finance&R{stamp}   Page &P of &N")
 
@@ -182,13 +177,14 @@ def _write_sample():
             {"label": "Diluted EPS", "values": [6.08, 6.13, 6.11], "fmt": "num2"},
          ]},
     ]
-    out1 = os.path.join(_HERE, "sample_comp.xlsx")
+    _DESK = os.path.dirname(_HERE)
+    out1 = os.path.join(_DESK, "comp_format_test.xlsx")
     with open(out1, "wb") as f:
         f.write(build_workbook(
             "TEK2day Finance — Comparison",
             "AAPL  ·  MSFT  ·  NVDA      |      as of 2026-06-17      |      Source: Yahoo Finance, TEK2day",
             comp, sheet_name="Comparison"))
-    out2 = os.path.join(_HERE, "sample_financials.xlsx")
+    out2 = os.path.join(_DESK, "financials_format_test.xlsx")
     with open(out2, "wb") as f:
         f.write(build_workbook(
             "TEK2day Finance — Income Statement (AAPL)",

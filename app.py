@@ -32,6 +32,7 @@ import requests
 from rich.console import Console
 
 import auth
+import exports
 import storage
 import terminal
 import watchlist
@@ -63,6 +64,7 @@ app = FastAPI(title="TEK2day Finance", default_response_class=SafeJSONResponse)
 app.include_router(seo_router)
 app.include_router(auth.router)
 app.include_router(watchlist.router)
+app.include_router(exports.router)
 
 
 @app.middleware("http")

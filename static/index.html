@@ -1344,7 +1344,10 @@
       setPanelTitle(panel, data.title || "Comp Table", symbols.join(" vs ") || result.command);
       panel.body.innerHTML = matrixTableHtml({ periods: symbols, rows: data.rows })
         + sourceLineHtml(`Source: ${data.source || "Yahoo Finance, TEK2day"}`);
-      if (window.TableExport) window.TableExport.attach(panel, { name: (symbols.join("_") || "comparison") + "_comparison" });
+      if (window.TableExport) window.TableExport.attach(panel, {
+        name: (symbols.join("_") || "comparison") + "_comparison",
+        excelUrl: "/api/export/compare?symbols=" + encodeURIComponent(symbols.join(",")) + "&fmt=xlsx",
+      });
     }
 
     function fillPlainOutput(panel, result) {

@@ -27,7 +27,7 @@ Homepage = "https://github.com/jmaietta/TEK2day-Finance"
 Repository = "https://github.com/jmaietta/TEK2day-Finance"
 
 [tool.setuptools]
-py-modules = ["terminal", "cli", "config", "storage", "fetchers", "universe", "app", "seo_pages", "auth", "watchlist"]
+py-modules = ["terminal", "cli", "config", "storage", "fetchers", "universe", "app", "seo_pages", "auth", "watchlist", "excel_export", "exports"]
 
 [project.scripts]
 tek2day = "terminal:main"
