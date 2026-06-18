@@ -28,6 +28,15 @@ def _safe(s: str) -> str:
     return "".join(c if (c.isalnum() or c == "-") else "_" for c in (s or "")).strip("_") or "export"
 
 
+def _us_date(s) -> str:
+    """YYYY-MM-DD -> MM-DD-YYYY (leave anything else as-is)."""
+    try:
+        y, m, d = str(s).split("-")[:3]
+        return f"{m}-{d}-{y}"
+    except Exception:
+        return str(s or "")
+
+
 # Comp rows mirror the live comp table: (label, snapshot key, number-format key).
 # Big-dollar magnitudes shown in $ billions (his call); ratios as Nx; price as $.
 _COMP_ROWS = [
@@ -133,7 +142,8 @@ def export_financials(request: Request, symbol: str = Query(...),
         raise HTTPException(status_code=404, detail="No financial data.")
 
     data = excel_export.build_workbook(
-        "", f"{symbol} — {title}  |  figures in $ millions (EPS in $)  |  Source: TEK2day",
+        f"{symbol} — {title}  |  figures in $ millions (EPS in $)",
+        "Source: TEK2day",
         out_sections, sheet_name=title[:31])
     return _xlsx_response(data, _safe(f"{symbol}_{title}") + ".xlsx")
 
@@ -181,6 +191,7 @@ def export_estimates(request: Request, symbol: str = Query(...), fmt: str = Quer
         raise HTTPException(status_code=404, detail="No estimate data.")
 
     data = excel_export.build_workbook(
-        "", f"{symbol} — Estimates  |  as of {d.get('date', 'unknown')}  |  Source: Yahoo Finance, TEK2day",
+        f"{symbol} — Estimates  |  as of {_us_date(d.get('date'))}",
+        "Source: Yahoo Finance, TEK2day",
         out_sections, sheet_name="Estimates")
     return _xlsx_response(data, _safe(f"{symbol}_estimates") + ".xlsx")

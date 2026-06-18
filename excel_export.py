@@ -66,9 +66,12 @@ def _is_blank(v):
     return v is None or (isinstance(v, float) and math.isnan(v))
 
 
-def build_workbook(report_title, subtitle, sections, *, sheet_name="Export", landscape=True):
+def build_workbook(heading, source, sections, *, sheet_name="Export", landscape=True):
     """Build an .xlsx and return its bytes.
 
+    heading: optional title line shown just BELOW the logo (e.g. "AAPL — Estimates
+             | as of 06-18-2026"). Pass "" for none (e.g. comp = logo only).
+    source:  line shown at the BOTTOM, below the table (e.g. "Source: ...").
     sections: list of dicts, each rendered as a labelled matrix block:
       {
         "title":   optional section heading (str),
@@ -85,17 +88,23 @@ def build_workbook(report_title, subtitle, sections, *, sheet_name="Export", lan
 
     ncols = max((1 + len(s.get("columns", [])) for s in sections), default=2)
 
-    # --- header: logo only, top-left, NO title text (the table speaks for itself) ---
+    # --- header: logo (row 0) + optional heading line just below it (row 1) ---
     sub_fmt = wb.add_format({"font_size": 9, "font_color": "#666666", "valign": "vcenter"})
+    head_fmt = wb.add_format({"bold": True, "font_size": 12, "font_color": "#B97A14", "valign": "vcenter"})
     ws.set_column(0, 0, 30)
     ws.set_column(1, ncols - 1, 16)
     ws.set_row(0, 40)
     if os.path.exists(LOGO_PATH):
-        # object_position 3 = don't move/size with cells; no title text now -> no overlap.
+        # object_position 3 = don't move/size with cells.
         ws.insert_image(0, 0, LOGO_PATH,
                         {"x_scale": 0.075, "y_scale": 0.075, "x_offset": 4, "y_offset": 4, "object_position": 3})
+    if heading:
+        if ncols - 1 > 0:
+            ws.merge_range(1, 0, 1, ncols - 1, heading, head_fmt)
+        else:
+            ws.write(1, 0, heading, head_fmt)
 
-    row = 2  # row 0 = logo, row 1 = spacer; the table starts here
+    row = 2  # row 0 = logo, row 1 = heading/spacer; the table starts here
     first_header_row = None
     for s in sections:
         if s.get("title"):
@@ -125,11 +134,11 @@ def build_workbook(report_title, subtitle, sections, *, sheet_name="Export", lan
         row += 1  # gap between sections
 
     # --- source line BELOW the table ---
-    if subtitle:
+    if source:
         if ncols - 1 > 0:
-            ws.merge_range(row, 0, row, ncols - 1, subtitle, sub_fmt)
+            ws.merge_range(row, 0, row, ncols - 1, source, sub_fmt)
         else:
-            ws.write(row, 0, subtitle, sub_fmt)
+            ws.write(row, 0, source, sub_fmt)
 
     # --- print setup ---
     if landscape:
