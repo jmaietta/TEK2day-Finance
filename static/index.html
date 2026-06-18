@@ -1220,7 +1220,10 @@
       `).join("") + sourceLineHtml(`As of ${estimates.asOf || "unknown"} | Source: ${estimates.source || "Yahoo Finance, TEK2day"}`);
       if (window.TableExport) {
         const sym = (result.command || "").replace(/^\//, "").split(/\s+/)[0] || (window.getCurrentSymbol && window.getCurrentSymbol()) || "estimates";
-        window.TableExport.attach(panel, { name: sym + "_estimates" });
+        window.TableExport.attach(panel, {
+          name: sym + "_estimates",
+          excelUrl: "/api/export/estimates?symbol=" + encodeURIComponent(sym) + "&fmt=xlsx",
+        });
       }
     }
 
@@ -1246,7 +1249,12 @@
       `).join("") + sourceLineHtml(`Source: ${data.source || "Yahoo Finance, TEK2day"}`);
       if (window.TableExport) {
         const sym = data.symbol || (result.command || "").replace(/^\//, "").split(/\s+/)[0] || "";
-        window.TableExport.attach(panel, { name: (sym ? sym + "_" : "") + (data.title || "financials") });
+        const t = (data.title || "").toLowerCase();
+        const stmt = t.indexOf("balance") >= 0 ? "balance" : (t.indexOf("cash") >= 0 ? "cashflow" : "income");
+        window.TableExport.attach(panel, {
+          name: (sym ? sym + "_" : "") + (data.title || "financials"),
+          excelUrl: sym ? "/api/export/financials?symbol=" + encodeURIComponent(sym) + "&statement=" + stmt + "&fmt=xlsx" : "",
+        });
       }
     }
 
