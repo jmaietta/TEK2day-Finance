@@ -101,7 +101,7 @@ SECURITY_HEADERS = {
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src https://fonts.gstatic.com; "
         "img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com https://*.googleusercontent.com; "
-        "connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://www.gstatic.com; "
+        "connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://www.gstatic.com https://apis.google.com; "
         "frame-src 'self' https://yfinance-cli.firebaseapp.com https://accounts.google.com; "
         "object-src 'none'; "
         "frame-ancestors 'none'; "
