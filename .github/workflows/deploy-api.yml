@@ -15,9 +15,11 @@ on:
       - "auth.py"
       - "watchlist.py"
       - "storage.py"
+      - "seo_pages.py"
       - "excel_export.py"
       - "exports.py"
       - "static/**"
+      - "templates/**"
   workflow_dispatch:
 
 permissions:

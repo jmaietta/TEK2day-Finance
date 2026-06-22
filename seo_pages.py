@@ -4,7 +4,6 @@ Server-rendered, crawlable pages for TEK2day Finance.
 Routes:
     GET /stock/{symbol}  - indexable stock page rendered from Firestore only
     GET /stocks          - A-Z directory of all active tickers (crawl hub)
-    GET /about           - crawlable product/entity page for TEK2day Finance
     GET /sitemap.xml     - all active tickers
     GET /robots.txt
 
@@ -259,15 +258,6 @@ def _build_page(symbol: str) -> str | None:
         short_interest=short_interest,
         year=date.today().year,
     )
-
-
-@router.get("/about", response_class=HTMLResponse)
-def about_page():
-    html = _env.get_template("about.html").render(
-        base_url=BASE_URL,
-        year=date.today().year,
-    )
-    return HTMLResponse(html, headers={"Cache-Control": "public, max-age=3600"})
 
 
 @router.get("/stock/{symbol}", response_class=HTMLResponse)

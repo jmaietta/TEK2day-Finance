@@ -1154,6 +1154,11 @@ def index():
     return (STATIC_DIR / "index.html").read_text(encoding="utf-8")
 
 
+@app.get("/about", response_class=HTMLResponse, include_in_schema=False)
+def about():
+    return (STATIC_DIR / "about.html").read_text(encoding="utf-8")
+
+
 @app.get("/auth/action", response_class=HTMLResponse, include_in_schema=False)
 def auth_action():
     # Branded Firebase email-action handler (password reset, email verify/recover).
