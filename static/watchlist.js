@@ -287,6 +287,7 @@
     { code: "/ticker bal", label: "Balance sheet", sub: "bal" }, { code: "/ticker cf", label: "Cash flow", sub: "cf" },
     { code: "/ticker mgmt", label: "Management / CEO", sub: "mgmt" }, { code: "/ticker filings", label: "SEC filings", sub: "filings" },
     { code: "/ticker news", label: "Recent news", sub: "news" }, { code: "/comp T1 T2", label: "Comparison table", comp: true },
+    { code: "/macro", label: "Macro dashboard", macro: true },
     { code: "/help", label: "Show all commands", help: true },
   ];
   let pal = null, palItems = [], palSel = 0, searchT = null, palNavigated = false;
@@ -300,7 +301,7 @@
     const words = body.split(/\s+/);
     const firstTok = (words[0] || "").toUpperCase();
     const lastTok = (words[words.length - 1] || "").toUpperCase();  // the word being typed
-    const RESERVED = ["COMP", "HELP", "INC", "BAL", "CF", "MGMT", "FILINGS", "NEWS"];
+    const RESERVED = ["COMP", "HELP", "MACRO", "INC", "BAL", "CF", "MGMT", "FILINGS", "NEWS"];
     // Ticker autocomplete applies ONLY while typing a ticker:
     //  - /comp T1 T2 …  -> every word after "comp" is a ticker, so search the one being typed
     //  - single-ticker commands -> only the first/only word (so "/AAPL inc" won't list tickers for "inc")
@@ -327,6 +328,7 @@
     if (it.type === "tk") { window.runTerminalCommand("/" + it.t.symbol); return; }
     const c = it.c;
     if (c.help) return window.runTerminalCommand("/help");
+    if (c.macro) return window.runTerminalCommand("/macro");
     if (c.comp) { cmd.value = "/comp "; cmd.focus(); return; }
     const sym = (window.getCurrentSymbol && window.getCurrentSymbol()) || "AAPL";
     window.runTerminalCommand("/" + sym + (c.sub ? " " + c.sub : ""));

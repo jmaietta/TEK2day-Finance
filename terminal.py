@@ -234,6 +234,7 @@ HELP_TEXT = """\
   /TICKER filings           SEC filings
   /TICKER news              Recent news
   /comp TICKER1 TICKER2 ... Comp table (up to 6)
+  /macro                    Macro dashboard
   /help                     Show this menu
   /exit                     Quit[/white]"""
 
