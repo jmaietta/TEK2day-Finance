@@ -8,14 +8,15 @@ Usage:
     # or: uvicorn app:app --reload --port 8050
 """
 import io
+import calendar
+import copy
 import json
 import math
 import os
 import re
-import copy
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from html import escape
 from typing import Callable
 from urllib.parse import quote as url_quote
@@ -754,12 +755,172 @@ def _macro_live_yahoo_quote(symbol: str) -> dict:
     return _macro_direct_yahoo_quote(symbol)
 
 
+def _macro_float_or_none(value) -> float | None:
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return None
+    return None if math.isnan(result) or math.isinf(result) else result
+
+
+def _macro_parse_date(value) -> date | None:
+    try:
+        return date.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _macro_add_months(source_date: date, months: int) -> date:
+    month_index = source_date.month - 1 + months
+    year = source_date.year + month_index // 12
+    month = month_index % 12 + 1
+    day = min(source_date.day, calendar.monthrange(year, month)[1])
+    return date(year, month, day)
+
+
+def _macro_add_years(source_date: date, years: int) -> date:
+    try:
+        return source_date.replace(year=source_date.year + years)
+    except ValueError:
+        return source_date.replace(year=source_date.year + years, day=28)
+
+
+@terminal._ttl_cache(60, should_cache=lambda rows: bool(rows))
+def _macro_direct_yahoo_history(symbol: str) -> list[dict]:
+    yahoo_symbol = symbol.replace(".", "-")
+    try:
+        response = requests.get(
+            f"https://query1.finance.yahoo.com/v8/finance/chart/{url_quote(yahoo_symbol, safe='^')}",
+            params={"range": "2y", "interval": "1d", "includePrePost": "false"},
+            headers={"User-Agent": "TEK2day Finance support@tek2day.com"},
+            timeout=6,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        result = ((payload.get("chart") or {}).get("result") or [None])[0] or {}
+        meta = result.get("meta") or {}
+        offset = int(meta.get("gmtoffset") or 0)
+        timestamps = result.get("timestamp") or []
+        quote_data = (((result.get("indicators") or {}).get("quote") or [{}])[0]) or {}
+        closes = quote_data.get("close") or []
+    except Exception:
+        return []
+
+    by_date: dict[date, dict] = {}
+    for timestamp, close in zip(timestamps, closes):
+        value = _macro_float_or_none(close)
+        if value is None:
+            continue
+        try:
+            source_date = datetime.fromtimestamp(
+                int(timestamp) + offset, tz=timezone.utc
+            ).date()
+        except (TypeError, ValueError, OSError):
+            continue
+        by_date[source_date] = {
+            "date": source_date,
+            "value": value,
+            "raw_source_value": str(close),
+        }
+    return [by_date[source_date] for source_date in sorted(by_date)]
+
+
+def _macro_yahoo_history_with_live(symbol: str, quote: dict) -> list[dict]:
+    rows = list(_macro_direct_yahoo_history(symbol))
+    live_date = _macro_parse_date(quote.get("date"))
+    live_price = _macro_float_or_none(quote.get("price"))
+    if live_date and live_price is not None:
+        rows_by_date = {row["date"]: dict(row) for row in rows}
+        rows_by_date[live_date] = {
+            "date": live_date,
+            "value": live_price,
+            "raw_source_value": str(quote.get("price")),
+        }
+        rows = [rows_by_date[source_date] for source_date in sorted(rows_by_date)]
+    return rows
+
+
+def _macro_nearest_on_or_before(rows: list[dict], target_date: date) -> dict | None:
+    for row in reversed(rows):
+        source_date = row.get("date")
+        if isinstance(source_date, date) and source_date <= target_date:
+            return row
+    return None
+
+
+def _macro_overlay_yahoo_cell(
+    cell: dict,
+    *,
+    column_key: str,
+    column_label: str,
+    symbol: str,
+    value: float,
+    raw_source_value: str,
+    source_date: date,
+    target_date: date,
+    live_latest_date: date,
+    formatter: str,
+    overlay_source: str,
+    source_path: str,
+    method: str,
+    period: str,
+    interval: str,
+) -> None:
+    formatted = formatter.format(float(value))
+    previous_params = cell.get("request_params") if isinstance(cell.get("request_params"), dict) else {}
+    request_params = {
+        **previous_params,
+        "overlay": "live_yahoo_latest" if column_key == "latest" else "live_yahoo_rebased_comparison",
+        "overlay_source": overlay_source,
+        "source_path": source_path,
+        "method": method,
+        "period": period,
+        "interval": interval,
+        "live_latest_source_date": live_latest_date.isoformat(),
+        "target_date": target_date.isoformat(),
+        "selection_rule": "nearest available Yahoo observation on or before target_date",
+        "snapshot_source_date": cell.get("source_date"),
+        "snapshot_formatted": cell.get("formatted") or cell.get("formatted_value"),
+        "snapshot_raw_source_value": cell.get("raw_source_value"),
+    }
+    method_notes = (
+        "Latest Yahoo Finance value is overlaid at request time from chart metadata "
+        "regularMarketPrice via the TEK2day Finance live quote path or direct Yahoo "
+        "chart API fallback. Prior Month and Prior Year are rebased from that live "
+        "Latest source date using Yahoo daily chart history and the nearest available "
+        "observation on or before each target date."
+        if column_key == "latest"
+        else (
+            f"{column_label} is recalculated at request time from the live Yahoo Latest "
+            f"source date {live_latest_date.isoformat()}. Target date "
+            f"{target_date.isoformat()}; selected nearest available Yahoo daily chart "
+            f"observation on or before target date."
+        )
+    )
+    cell.update(
+        {
+            "formatted": formatted,
+            "formatted_value": formatted,
+            "numeric_value": round(float(value), 4),
+            "value": round(float(value), 4),
+            "source_date": source_date.isoformat(),
+            "target_date": target_date.isoformat(),
+            "source_provider": "Yahoo Finance",
+            "source_code": symbol,
+            "source_symbol": symbol,
+            "raw_source_value": raw_source_value,
+            "request_params": request_params,
+            "method_notes": method_notes,
+        }
+    )
+
+
 def _overlay_live_macro_yahoo_latest(snapshot: dict) -> dict:
-    """Overlay intraday Yahoo quotes for Market/Rates latest cells only.
+    """Overlay intraday Yahoo quotes for Market/Rates latest rows.
 
     The Firestore snapshot remains the audited base. This request-time overlay
-    keeps market-traded indicators current after the market opens, before the
-    next scheduled macro refresh or Yahoo daily bar publication.
+    keeps market-traded indicators current and rebases the row's comparison
+    columns to the live latest source date.
     """
     result = copy.deepcopy(snapshot)
     sections = result.get("sections")
@@ -792,52 +953,72 @@ def _overlay_live_macro_yahoo_latest(snapshot: dict) -> dict:
 
             quote = _macro_live_yahoo_quote(symbol)
             price = quote.get("price")
-            source_date = quote.get("date")
-            if price is None or not source_date:
+            live_date = _macro_parse_date(quote.get("date"))
+            live_price = _macro_float_or_none(price)
+            if live_price is None or live_date is None:
                 continue
             existing_date = str(latest.get("source_date") or "")
-            if existing_date and str(source_date) < existing_date:
+            if existing_date and live_date.isoformat() < existing_date:
                 continue
 
-            formatted = formatter.format(float(price))
-            previous_params = latest.get("request_params") if isinstance(latest.get("request_params"), dict) else {}
-            request_params = {
-                **previous_params,
-                "overlay": "live_yahoo_latest",
-                "overlay_source": quote.get("overlay_source") or "Yahoo Finance live quote",
-                "source_path": quote.get("source_path") or "Yahoo Finance regularMarketPrice",
-                "method": quote.get("method") or "live_quote",
-                "period": "1d",
-                "auto_adjust": True,
-                "snapshot_source_date": latest.get("source_date"),
-                "snapshot_formatted": latest.get("formatted") or latest.get("formatted_value"),
-                "snapshot_raw_source_value": latest.get("raw_source_value"),
+            history = _macro_yahoo_history_with_live(symbol, quote)
+            targets = {
+                "prior_month": _macro_add_months(live_date, -1),
+                "prior_year": _macro_add_years(live_date, -1),
             }
+            selections: dict[str, tuple[date, dict]] = {}
+            for key, target_date in targets.items():
+                if key not in cells:
+                    continue
+                selected = _macro_nearest_on_or_before(history, target_date)
+                if selected is None:
+                    selections = {}
+                    break
+                selections[key] = (target_date, selected)
+            if any(key in cells for key in targets) and not selections:
+                continue
+
+            _macro_overlay_yahoo_cell(
+                latest,
+                column_key="latest",
+                column_label="Latest",
+                symbol=symbol,
+                value=live_price,
+                raw_source_value=str(price),
+                source_date=live_date,
+                target_date=live_date,
+                live_latest_date=live_date,
+                formatter=formatter,
+                overlay_source=quote.get("overlay_source") or "Yahoo Finance live quote",
+                source_path=quote.get("source_path") or "Yahoo Finance regularMarketPrice",
+                method=quote.get("method") or "live_quote",
+                period="1d",
+                interval="1m" if quote.get("method") == "v8/finance/chart" else "1d",
+            )
             if quote.get("regularMarketTime") is not None:
-                request_params["regular_market_time"] = quote.get("regularMarketTime")
-            method_notes = (
-                "Latest Yahoo Finance value is overlaid at request time from chart metadata "
-                "regularMarketPrice via the TEK2day Finance live quote path or direct Yahoo "
-                "chart API fallback. Prior Month and Prior Year remain from the audited "
-                "Firestore macro snapshot. The snapshot latest value is preserved in "
-                "request_params for audit."
-            )
-            latest.update(
-                {
-                    "formatted": formatted,
-                    "formatted_value": formatted,
-                    "numeric_value": round(float(price), 4),
-                    "value": round(float(price), 4),
-                    "source_date": str(source_date),
-                    "target_date": str(source_date),
-                    "source_provider": "Yahoo Finance",
-                    "source_code": symbol,
-                    "source_symbol": symbol,
-                    "raw_source_value": str(price),
-                    "request_params": request_params,
-                    "method_notes": method_notes,
-                }
-            )
+                latest["request_params"]["regular_market_time"] = quote.get("regularMarketTime")
+            for key, (target_date, selected) in selections.items():
+                prior_cell = cells.get(key)
+                if not isinstance(prior_cell, dict):
+                    continue
+                _macro_overlay_yahoo_cell(
+                    prior_cell,
+                    column_key=key,
+                    column_label=str(prior_cell.get("label") or key),
+                    symbol=symbol,
+                    value=float(selected["value"]),
+                    raw_source_value=str(selected.get("raw_source_value")),
+                    source_date=selected["date"],
+                    target_date=target_date,
+                    live_latest_date=live_date,
+                    formatter=formatter,
+                    overlay_source="Yahoo Finance chart API",
+                    source_path="chart.result[0].indicators.quote[0].close",
+                    method="v8/finance/chart",
+                    period="2y",
+                    interval="1d",
+                )
+                row[key] = prior_cell
             row["latest"] = latest
     return result
 
