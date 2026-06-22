@@ -12,11 +12,13 @@ import json
 import math
 import os
 import re
+import copy
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from html import escape
 from typing import Callable
+from urllib.parse import quote as url_quote
 
 from fastapi import FastAPI, Query, Request
 from fastapi.responses import (
@@ -170,6 +172,15 @@ except ValueError:
     MACRO_SNAPSHOT_TTL_SECONDS = 120
 _MACRO_CACHE_LOCK = threading.Lock()
 _MACRO_CACHE: dict[str, object] = {"expires": 0.0, "data": None}
+MACRO_LIVE_YAHOO_FORMATS = {
+    "sp500": "{:,.2f}",
+    "nasdaq_composite": "{:,.2f}",
+    "vix": "{:,.1f}",
+    "t_bill_13w": "{:,.2f}%",
+    "treasury_10y": "{:,.2f}%",
+    "treasury_30y": "{:,.2f}%",
+}
+MACRO_LIVE_YAHOO_SECTIONS = {"Market", "Rates"}
 SYMBOL_RE = re.compile(r"^[A-Z][A-Z0-9.\-]{0,12}$")
 MENU_SUBCMDS = {
     "inc": terminal.cmd_income,
@@ -696,10 +707,146 @@ def _macro_payload() -> dict | None:
     return data
 
 
+def _macro_direct_yahoo_quote(symbol: str) -> dict:
+    quote = {
+        "price": None,
+        "date": None,
+        "overlay_source": "Yahoo Finance chart API",
+        "source_path": "chart.result[0].meta.regularMarketPrice",
+        "method": "v8/finance/chart",
+    }
+    yahoo_symbol = symbol.replace(".", "-")
+    try:
+        response = requests.get(
+            f"https://query1.finance.yahoo.com/v8/finance/chart/{url_quote(yahoo_symbol, safe='^')}",
+            params={"range": "1d", "interval": "1m", "includePrePost": "false"},
+            headers={"User-Agent": "TEK2day Finance support@tek2day.com"},
+            timeout=4,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        result = ((payload.get("chart") or {}).get("result") or [None])[0] or {}
+        meta = result.get("meta") or {}
+        price = meta.get("regularMarketPrice")
+        timestamp = meta.get("regularMarketTime")
+        if price is None or not timestamp:
+            return quote
+        offset = meta.get("gmtoffset") or 0
+        quote["price"] = float(price)
+        quote["date"] = datetime.fromtimestamp(
+            int(timestamp) + int(offset), tz=timezone.utc
+        ).strftime("%Y-%m-%d")
+        quote["regularMarketTime"] = timestamp
+    except Exception:
+        pass
+    return quote
+
+
+def _macro_live_yahoo_quote(symbol: str) -> dict:
+    quote = terminal._live_quote(symbol)
+    if quote.get("price") is not None and quote.get("date"):
+        return {
+            **quote,
+            "overlay_source": "TEK2day Finance terminal._live_quote",
+            "source_path": "yfinance.Ticker.history_metadata.regularMarketPrice",
+            "method": "Ticker.history_metadata",
+        }
+    return _macro_direct_yahoo_quote(symbol)
+
+
+def _overlay_live_macro_yahoo_latest(snapshot: dict) -> dict:
+    """Overlay intraday Yahoo quotes for Market/Rates latest cells only.
+
+    The Firestore snapshot remains the audited base. This request-time overlay
+    keeps market-traded indicators current after the market opens, before the
+    next scheduled macro refresh or Yahoo daily bar publication.
+    """
+    result = copy.deepcopy(snapshot)
+    sections = result.get("sections")
+    if not isinstance(sections, list):
+        return result
+
+    for section in sections:
+        section_title = section.get("title") if isinstance(section, dict) else None
+        if section_title not in MACRO_LIVE_YAHOO_SECTIONS:
+            continue
+        items = section.get("items")
+        if not isinstance(items, list):
+            continue
+        for row in items:
+            if not isinstance(row, dict):
+                continue
+            item_id = str(row.get("item_id") or "")
+            formatter = MACRO_LIVE_YAHOO_FORMATS.get(item_id)
+            if not formatter:
+                continue
+            cells = row.get("cells")
+            if not isinstance(cells, dict):
+                continue
+            latest = cells.get("latest")
+            if not isinstance(latest, dict) or latest.get("source_provider") != "Yahoo Finance":
+                continue
+            symbol = str(latest.get("source_code") or row.get("source_code") or "").strip()
+            if not symbol:
+                continue
+
+            quote = _macro_live_yahoo_quote(symbol)
+            price = quote.get("price")
+            source_date = quote.get("date")
+            if price is None or not source_date:
+                continue
+            existing_date = str(latest.get("source_date") or "")
+            if existing_date and str(source_date) < existing_date:
+                continue
+
+            formatted = formatter.format(float(price))
+            previous_params = latest.get("request_params") if isinstance(latest.get("request_params"), dict) else {}
+            request_params = {
+                **previous_params,
+                "overlay": "live_yahoo_latest",
+                "overlay_source": quote.get("overlay_source") or "Yahoo Finance live quote",
+                "source_path": quote.get("source_path") or "Yahoo Finance regularMarketPrice",
+                "method": quote.get("method") or "live_quote",
+                "period": "1d",
+                "auto_adjust": True,
+                "snapshot_source_date": latest.get("source_date"),
+                "snapshot_formatted": latest.get("formatted") or latest.get("formatted_value"),
+                "snapshot_raw_source_value": latest.get("raw_source_value"),
+            }
+            if quote.get("regularMarketTime") is not None:
+                request_params["regular_market_time"] = quote.get("regularMarketTime")
+            method_notes = (
+                "Latest Yahoo Finance value is overlaid at request time from chart metadata "
+                "regularMarketPrice via the TEK2day Finance live quote path or direct Yahoo "
+                "chart API fallback. Prior Month and Prior Year remain from the audited "
+                "Firestore macro snapshot. The snapshot latest value is preserved in "
+                "request_params for audit."
+            )
+            latest.update(
+                {
+                    "formatted": formatted,
+                    "formatted_value": formatted,
+                    "numeric_value": round(float(price), 4),
+                    "value": round(float(price), 4),
+                    "source_date": str(source_date),
+                    "target_date": str(source_date),
+                    "source_provider": "Yahoo Finance",
+                    "source_code": symbol,
+                    "source_symbol": symbol,
+                    "raw_source_value": str(price),
+                    "request_params": request_params,
+                    "method_notes": method_notes,
+                }
+            )
+            row["latest"] = latest
+    return result
+
+
 def _web_payload(kind: str, symbol: str | None = None, symbols: list[str] | None = None) -> dict | None:
     try:
         if kind == "macro":
-            return _macro_payload()
+            snapshot = _macro_payload()
+            return _overlay_live_macro_yahoo_latest(snapshot) if snapshot is not None else None
         if kind == "summary" and symbol:
             return _summary_payload(symbol)
         if kind == "inc" and symbol:
