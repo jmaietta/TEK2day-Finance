@@ -12,22 +12,26 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#000000">
-  <title>About TEK2day Finance | TEK2day Holdings Market Data Platform</title>
-  <meta name="description" content="TEK2day Finance from TEK2day Holdings is a market data, fundamentals, macro dashboard and alternative data platform for institutional and retail investors.">
+  <title>About TEK2day Finance | TEK2day Holdings</title>
+  <meta name="description" content="TEK2day Finance, from TEK2day Holdings, is a market data, fundamentals, macro and alternative data platform for institutional and retail investors.">
   <link rel="canonical" href="{{ base_url }}/about">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="TEK2day Finance">
   <meta property="og:title" content="About TEK2day Finance | TEK2day Holdings">
-  <meta property="og:description" content="TEK2day Finance from TEK2day Holdings is a market data, fundamentals, macro dashboard and alternative data platform.">
+  <meta property="og:description" content="TEK2day Finance, from TEK2day Holdings, is a market data, fundamentals, macro and alternative data platform for institutional and retail investors.">
   <meta property="og:url" content="{{ base_url }}/about">
   <meta property="og:image" content="{{ base_url }}/static/icon-512.png">
   <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="About TEK2day Finance | TEK2day Holdings">
+  <meta name="twitter:description" content="TEK2day Finance, from TEK2day Holdings, is a market data, fundamentals, macro and alternative data platform for institutional and retail investors.">
+  <meta name="twitter:image" content="{{ base_url }}/static/icon-512.png">
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/png" sizes="512x512" href="/static/icon-512.png">
+  <link rel="shortcut icon" href="/favicon.ico">
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Archivo:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Archivo:wght@500;600;700;800&display=swap" rel="stylesheet">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -47,6 +51,7 @@
         "name": "TEK2day Finance",
         "alternateName": ["TEK2day Holdings Finance", "Finance TEK2day Holdings"],
         "url": "{{ base_url }}/",
+        "description": "TEK2day Finance, from TEK2day Holdings, is a market data, fundamentals, macro and alternative data platform for institutional and retail investors.",
         "publisher": { "@id": "https://tek2dayholdings.com/#org" }
       },
       {
@@ -57,7 +62,7 @@
         "applicationCategory": "FinanceApplication",
         "operatingSystem": "Web",
         "url": "{{ base_url }}/",
-        "description": "TEK2day Finance from TEK2day Holdings is a market data, fundamentals, macro dashboard and alternative data platform for institutional and retail investors.",
+        "description": "TEK2day Finance, from TEK2day Holdings, is a market data, fundamentals, macro and alternative data platform for institutional and retail investors.",
         "publisher": { "@id": "https://tek2dayholdings.com/#org" }
       },
       {
@@ -80,93 +85,205 @@
   <style>
     :root {
       color-scheme: dark;
-      --bg: #000; --panel: #070705; --line: #1c1b14; --line-2: #2b2a1e;
-      --text: #e8e6df; --muted: #8a8878; --amber: #ff9f1c; --cyan: #38c8d8;
-      --mono: "IBM Plex Mono", Consolas, monospace; --sans: "Archivo", system-ui, sans-serif;
+      --bg: #000;
+      --panel: #070705;
+      --panel-2: #0c0c09;
+      --line: #1c1b14;
+      --line-2: #2b2a1e;
+      --text: #e8e6df;
+      --muted: #8a8878;
+      --amber: #ff9f1c;
+      --amber-dim: #b97a14;
+      --amber-glow: rgba(255, 159, 28, 0.14);
+      --cyan: #38c8d8;
+      --mono: "IBM Plex Mono", Consolas, monospace;
+      --sans: "Archivo", system-ui, sans-serif;
     }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 14px; line-height: 1.6; }
-    a { color: var(--cyan); text-decoration: none; }
+    html, body { width: 100%; min-height: 100%; background: var(--bg); }
+    body { color: var(--text); font-family: var(--mono); font-size: 12px; }
+    a { color: var(--amber); text-decoration: none; }
     a:hover { text-decoration: underline; }
-    .wrap { max-width: 980px; margin: 0 auto; padding: 0 18px 48px; }
-    header.site { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 14px 0; border-bottom: 1px solid var(--line); margin-bottom: 34px; }
-    .brand { display: inline-flex; align-items: center; gap: 10px; font-family: var(--sans); font-weight: 800; color: var(--amber); font-size: 16px; letter-spacing: .02em; }
-    .brand img { width: 28px; height: 28px; background: #fff; border-radius: 3px; }
-    nav { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; }
-    main { display: grid; gap: 30px; }
-    .hero { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 28px; align-items: start; }
-    h1 { font-family: var(--sans); font-size: clamp(30px, 4vw, 52px); line-height: 1.02; letter-spacing: 0; color: #fff; margin-bottom: 14px; }
-    .lead { color: var(--text); font-family: var(--sans); font-size: 18px; line-height: 1.55; max-width: 720px; }
-    .terminal { border: 1px solid var(--line-2); background: var(--panel); padding: 14px; font-size: 12px; min-height: 170px; }
-    .terminal b { color: var(--amber); }
-    .terminal p + p { margin-top: 8px; color: var(--muted); }
-    h2 { font-family: var(--sans); font-size: 18px; color: var(--amber); margin-bottom: 10px; }
-    .features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-    .feature { border-top: 1px solid var(--line); padding-top: 12px; }
-    .feature p { color: var(--muted); }
-    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
-    .cta { display: inline-block; border: 1px solid var(--amber); background: var(--amber); color: #000; font-weight: 700; padding: 9px 14px; border-radius: 4px; font-size: 13px; }
-    .cta.secondary { color: var(--amber); background: transparent; }
-    footer { margin-top: 40px; border-top: 1px solid var(--line); padding-top: 16px; color: var(--muted); font-size: 11.5px; }
+
+    .shell { min-height: 100dvh; background: #000; }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 50px;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: .06em;
+      color: #fff;
+      text-transform: uppercase;
+    }
+    .brand img { width: 24px; height: 24px; border-radius: 2px; background: #fff; object-fit: contain; }
+    .command-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 50px;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--line);
+      background: #040403;
+    }
+    .command-form {
+      display: flex;
+      align-items: center;
+      flex: 1;
+      min-width: 0;
+      max-width: 880px;
+      height: 34px;
+      border: 1px solid var(--line-2);
+      background: #0a0a07;
+    }
+    .command-caret { padding: 0 4px 0 12px; color: var(--amber-dim); font-weight: 600; }
+    .command-input { color: var(--amber); font-weight: 500; letter-spacing: .03em; }
+    .command-label { margin-left: auto; color: var(--muted); font-size: 11px; white-space: nowrap; }
+
+    .content { width: min(980px, calc(100% - 28px)); margin: 0 auto; padding: 22px 0 42px; }
+    .panel {
+      border: 1px solid var(--line);
+      background: var(--panel);
+    }
+    .panel + .panel { margin-top: 14px; }
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 44px;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--line);
+      background: #090907;
+    }
+    .panel-head h1,
+    .panel-head h2 {
+      font-family: var(--sans);
+      color: var(--amber);
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .panel-head span { color: var(--muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+    .panel-body { padding: 16px 14px; }
+    .lead {
+      max-width: 760px;
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.55;
+    }
+    .copy {
+      max-width: 820px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.75;
+    }
+    .copy strong { color: var(--text); font-weight: 600; }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .cell { border-top: 1px solid var(--line-2); padding-top: 10px; }
+    .cell b { display: block; color: var(--amber); font-family: var(--sans); font-size: 13px; margin-bottom: 4px; }
+    .cell span { color: var(--muted); line-height: 1.6; }
+    .links { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      display: inline-block;
+      padding: 6px 12px;
+      border: 1px solid var(--line-2);
+      background: #0a0a07;
+      color: var(--amber);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .02em;
+    }
+    .footer { margin-top: 18px; color: var(--muted); font-size: 11px; line-height: 1.6; }
     @media (max-width: 760px) {
-      .hero, .features { grid-template-columns: 1fr; }
-      header.site { align-items: flex-start; flex-direction: column; }
+      .brand { font-size: 13px; }
+      .command-label { display: none; }
+      .grid { grid-template-columns: 1fr; }
+      .lead { font-size: 14px; }
     }
   </style>
 </head>
 <body>
-<div class="wrap">
-  <header class="site">
-    <a class="brand" href="/"><img src="/static/tek2day-icon.png" alt="">TEK2day Finance</a>
-    <nav aria-label="Primary">
-      <a href="/">Terminal</a>
-      <a href="/stocks">All tickers</a>
-      <a href="https://tek2dayholdings.com/">TEK2day Holdings</a>
-    </nav>
+<div class="shell">
+  <header class="brand">
+    <img src="/static/tek2day-icon.png" alt="">
+    <span>TEK2DAY FINANCE</span>
   </header>
 
-  <main>
-    <section class="hero">
-      <div>
+  <div class="command-bar">
+    <div class="command-form" aria-label="Command">
+      <span class="command-caret">&gt;</span>
+      <span class="command-input">/about</span>
+    </div>
+    <div class="command-label">TEK2DAY HOLDINGS</div>
+  </div>
+
+  <main class="content">
+    <section class="panel">
+      <div class="panel-head">
         <h1>TEK2day Finance</h1>
-        <p class="lead">TEK2day Finance is the TEK2day Holdings market data platform for stock prices, fundamentals, macro data, comparison tables, SEC filings, news and watchlists.</p>
+        <span>About</span>
       </div>
-      <aside class="terminal" aria-label="TEK2day Finance commands">
-        <p><b>&gt; /macro</b></p>
-        <p>Macro dashboard with market, rates, money supply, inflation, growth and labor data.</p>
-        <p><b>&gt; /AAPL</b></p>
-        <p>Stock summary, valuation, fundamentals, filings and news.</p>
-      </aside>
-    </section>
-
-    <section>
-      <h2>Market Data Platform</h2>
-      <div class="features">
-        <div class="feature">
-          <h3>Stocks</h3>
-          <p>Browse US-listed stock pages with price history, valuation ratios, financial statements and short interest.</p>
-        </div>
-        <div class="feature">
-          <h3>Macro</h3>
-          <p>View a curated macro dashboard built from auditable FRED and Yahoo Finance source data.</p>
-        </div>
-        <div class="feature">
-          <h3>Terminal</h3>
-          <p>Use ticker commands, comparison commands and watchlists from a fast browser-based finance terminal.</p>
-        </div>
+      <div class="panel-body">
+        <p class="lead">TEK2day Finance, from TEK2day Holdings, is a market data, fundamentals, macro and alternative data platform for institutional and retail investors.</p>
       </div>
     </section>
 
-    <section class="actions" aria-label="Actions">
-      <a class="cta" href="/">Open TEK2day Finance</a>
-      <a class="cta secondary" href="/stocks">Browse all tickers</a>
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Coverage</h2>
+        <span>Data</span>
+      </div>
+      <div class="panel-body">
+        <div class="grid">
+          <div class="cell">
+            <b>Market Data</b>
+            <span>Stock prices, valuation ratios, comparison tables, watchlists and ticker pages.</span>
+          </div>
+          <div class="cell">
+            <b>Fundamentals</b>
+            <span>Financial statements, estimates, SEC filings, short interest and CEO analytics.</span>
+          </div>
+          <div class="cell">
+            <b>Macro</b>
+            <span>Market, rates, money supply, inflation, growth and labor data.</span>
+          </div>
+        </div>
+        <p class="footer">Sources include Yahoo Finance, SEC EDGAR, FRED and CEORater. TEK2day Finance is not providing investment advice.</p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Founder</h2>
+        <span>TEK2day Holdings</span>
+      </div>
+      <div class="panel-body">
+        <p class="copy"><strong>Jon Maietta</strong> founded and leads TEK2day Holdings. Before TEK2day, Jon led Solera's global Corporate Development organization and previously covered Enterprise Software, FinTech and Tech-Enabled Services as an equity research analyst with Needham &amp; Company.</p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Navigation</h2>
+        <span>Links</span>
+      </div>
+      <div class="panel-body">
+        <div class="links">
+          <a class="chip" href="/">/terminal</a>
+          <a class="chip" href="/stocks">/stocks</a>
+          <a class="chip" href="https://tek2dayholdings.com/">TEK2day Holdings</a>
+        </div>
+      </div>
     </section>
   </main>
-
-  <footer>
-    <p>TEK2day Finance is operated by TEK2day Holdings. Data sources include Yahoo Finance, SEC EDGAR and FRED. Nothing on this page is investment advice.</p>
-    <p style="margin-top: 6px;">&copy; {{ year }} TEK2day Holdings</p>
-  </footer>
 </div>
 </body>
 </html>
