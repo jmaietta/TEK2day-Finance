@@ -4,6 +4,7 @@ Server-rendered, crawlable pages for TEK2day Finance.
 Routes:
     GET /stock/{symbol}  - indexable stock page rendered from Firestore only
     GET /stocks          - A-Z directory of all active tickers (crawl hub)
+    GET /about           - crawlable product/entity page for TEK2day Finance
     GET /sitemap.xml     - all active tickers
     GET /robots.txt
 
@@ -260,6 +261,15 @@ def _build_page(symbol: str) -> str | None:
     )
 
 
+@router.get("/about", response_class=HTMLResponse)
+def about_page():
+    html = _env.get_template("about.html").render(
+        base_url=BASE_URL,
+        year=date.today().year,
+    )
+    return HTMLResponse(html, headers={"Cache-Control": "public, max-age=3600"})
+
+
 @router.get("/stock/{symbol}", response_class=HTMLResponse)
 def stock_page(symbol: str):
     upper = symbol.upper()
@@ -342,13 +352,14 @@ def sitemap():
     lines = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-        f"<url><loc>{BASE_URL}/</loc><changefreq>daily</changefreq></url>",
-        f"<url><loc>{BASE_URL}/stocks</loc><lastmod>{today}</lastmod><changefreq>daily</changefreq></url>",
+        f"<url><loc>{BASE_URL}/</loc><lastmod>{today}</lastmod><changefreq>daily</changefreq><priority>1.0</priority></url>",
+        f"<url><loc>{BASE_URL}/about</loc><lastmod>{today}</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>",
+        f"<url><loc>{BASE_URL}/stocks</loc><lastmod>{today}</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>",
     ]
     for doc in sorted(docs, key=lambda d: d.id):
         lines.append(
             f"<url><loc>{BASE_URL}/stock/{doc.id}</loc>"
-            f"<lastmod>{today}</lastmod><changefreq>daily</changefreq></url>"
+            f"<lastmod>{today}</lastmod><changefreq>daily</changefreq><priority>0.5</priority></url>"
         )
     lines.append("</urlset>")
     xml = "\n".join(lines)
