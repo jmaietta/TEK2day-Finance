@@ -12,18 +12,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#000000">
-  <title>About TEK2day Finance | TEK2day Holdings</title>
-  <meta name="description" content="TEK2day Finance, from TEK2day Holdings, is a market data, fundamentals, macro and alternative data platform for institutional and retail investors.">
+  <title>About TEK2day Finance</title>
+  <meta name="description" content="TEK2day Finance is a market data, fundamentals and alternative data platform for institutional and retail investors.">
   <link rel="canonical" href="{{ base_url }}/about">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="TEK2day Finance">
-  <meta property="og:title" content="About TEK2day Finance | TEK2day Holdings">
-  <meta property="og:description" content="TEK2day Finance, from TEK2day Holdings, is a market data, fundamentals, macro and alternative data platform for institutional and retail investors.">
+  <meta property="og:title" content="About TEK2day Finance">
+  <meta property="og:description" content="TEK2day Finance is a market data, fundamentals and alternative data platform for institutional and retail investors.">
   <meta property="og:url" content="{{ base_url }}/about">
   <meta property="og:image" content="{{ base_url }}/static/icon-512.png">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="About TEK2day Finance | TEK2day Holdings">
-  <meta name="twitter:description" content="TEK2day Finance, from TEK2day Holdings, is a market data, fundamentals, macro and alternative data platform for institutional and retail investors.">
+  <meta name="twitter:title" content="About TEK2day Finance">
+  <meta name="twitter:description" content="TEK2day Finance is a market data, fundamentals and alternative data platform for institutional and retail investors.">
   <meta name="twitter:image" content="{{ base_url }}/static/icon-512.png">
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/png" sizes="512x512" href="/static/icon-512.png">
@@ -49,20 +49,19 @@
         "@type": "WebSite",
         "@id": "{{ base_url }}/#website",
         "name": "TEK2day Finance",
-        "alternateName": ["TEK2day Holdings Finance", "Finance TEK2day Holdings"],
+        "alternateName": "TEK2day Finance",
         "url": "{{ base_url }}/",
-        "description": "TEK2day Finance, from TEK2day Holdings, is a market data, fundamentals, macro and alternative data platform for institutional and retail investors.",
+        "description": "TEK2day Finance is a market data, fundamentals and alternative data platform for institutional and retail investors.",
         "publisher": { "@id": "https://tek2dayholdings.com/#org" }
       },
       {
         "@type": "WebApplication",
         "@id": "{{ base_url }}/#app",
         "name": "TEK2day Finance",
-        "alternateName": "TEK2day Holdings Finance",
         "applicationCategory": "FinanceApplication",
         "operatingSystem": "Web",
         "url": "{{ base_url }}/",
-        "description": "TEK2day Finance, from TEK2day Holdings, is a market data, fundamentals, macro and alternative data platform for institutional and retail investors.",
+        "description": "TEK2day Finance is a market data, fundamentals and alternative data platform for institutional and retail investors.",
         "publisher": { "@id": "https://tek2dayholdings.com/#org" }
       },
       {
@@ -70,14 +69,16 @@
         "@id": "https://tek2dayholdings.com/#org",
         "name": "TEK2day Holdings",
         "url": "https://tek2dayholdings.com/",
-        "logo": "{{ base_url }}/static/icon-512.png"
+        "logo": "{{ base_url }}/static/icon-512.png",
+        "founder": { "@id": "https://tek2dayholdings.com/#founder" }
       },
       {
-        "@type": "BreadcrumbList",
-        "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "TEK2day Finance", "item": "{{ base_url }}/" },
-          { "@type": "ListItem", "position": 2, "name": "About", "item": "{{ base_url }}/about" }
-        ]
+        "@type": "Person",
+        "@id": "https://tek2dayholdings.com/#founder",
+        "name": "Jon Maietta",
+        "jobTitle": "Founder & CEO",
+        "url": "https://www.linkedin.com/in/jonathanmaietta/",
+        "image": "{{ base_url }}/static/jon-maietta.jpg"
       }
     ]
   }
@@ -86,204 +87,188 @@
     :root {
       color-scheme: dark;
       --bg: #000;
-      --panel: #070705;
-      --panel-2: #0c0c09;
-      --line: #1c1b14;
-      --line-2: #2b2a1e;
-      --text: #e8e6df;
-      --muted: #8a8878;
+      --panel: #050504;
+      --line: #242318;
+      --line-2: #343323;
+      --text: #f3f1ea;
+      --muted: #8b8a78;
       --amber: #ff9f1c;
       --amber-dim: #b97a14;
-      --amber-glow: rgba(255, 159, 28, 0.14);
-      --cyan: #38c8d8;
       --mono: "IBM Plex Mono", Consolas, monospace;
       --sans: "Archivo", system-ui, sans-serif;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { width: 100%; min-height: 100%; background: var(--bg); }
-    body { color: var(--text); font-family: var(--mono); font-size: 12px; }
-    a { color: var(--amber); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-
-    .shell { min-height: 100dvh; background: #000; }
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-height: 50px;
-      padding: 0 14px;
-      border-bottom: 1px solid var(--line);
-      background: var(--panel);
-      font-family: var(--sans);
+    html, body { min-height: 100%; background: var(--bg); }
+    body {
+      color: var(--text);
+      font-family: var(--mono);
       font-size: 14px;
+      overflow-x: hidden;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    a:hover { color: var(--amber); }
+
+    .page {
+      min-height: 100dvh;
+      padding: 24px 8.3vw 9vh;
+      background: #000;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+      min-height: 56px;
+      padding: 10px 14px;
+      background: #050504;
+      font-family: var(--sans);
+      font-size: 21px;
       font-weight: 800;
-      letter-spacing: .06em;
+      letter-spacing: .03em;
       color: #fff;
       text-transform: uppercase;
     }
-    .brand img { width: 24px; height: 24px; border-radius: 2px; background: #fff; object-fit: contain; }
-    .command-bar {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-height: 50px;
-      padding: 8px 14px;
-      border-bottom: 1px solid var(--line);
-      background: #040403;
-    }
-    .command-form {
-      display: flex;
-      align-items: center;
-      flex: 1;
-      min-width: 0;
-      max-width: 880px;
-      height: 34px;
-      border: 1px solid var(--line-2);
-      background: #0a0a07;
-    }
-    .command-caret { padding: 0 4px 0 12px; color: var(--amber-dim); font-weight: 600; }
-    .command-input { color: var(--amber); font-weight: 500; letter-spacing: .03em; }
-    .command-label { margin-left: auto; color: var(--muted); font-size: 11px; white-space: nowrap; }
 
-    .content { width: min(980px, calc(100% - 28px)); margin: 0 auto; padding: 22px 0 42px; }
-    .panel {
+    .brand img {
+      width: 39px;
+      height: 39px;
+      background: #fff;
+      object-fit: contain;
+    }
+
+    .intro {
+      display: flex;
+      justify-content: center;
+      padding: 27vh 0 5.2vh;
+    }
+
+    .intro p {
+      max-width: 850px;
+      color: var(--amber);
+      font-family: var(--mono);
+      font-size: clamp(27px, 1.78vw, 34px);
+      line-height: 1.22;
+    }
+
+    .intro strong {
+      color: var(--amber);
+      font-weight: 800;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      margin-bottom: 30px;
+      color: var(--amber-dim);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: .34em;
+      text-transform: uppercase;
+    }
+
+    .section-head::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--line);
+    }
+
+    .founder-card {
+      display: grid;
+      grid-template-columns: 252px minmax(0, 1fr);
+      gap: 40px;
+      align-items: start;
+      min-height: 398px;
+      padding: 40px;
       border: 1px solid var(--line);
       background: var(--panel);
     }
-    .panel + .panel { margin-top: 14px; }
-    .panel-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      min-height: 44px;
-      padding: 0 12px;
-      border-bottom: 1px solid var(--line);
-      background: #090907;
+
+    .founder-card img {
+      width: 254px;
+      aspect-ratio: 1;
+      object-fit: cover;
+      border: 1px solid var(--line-2);
     }
-    .panel-head h1,
-    .panel-head h2 {
-      font-family: var(--sans);
+
+    .founder-copy {
+      padding-top: 2px;
+      max-width: 1190px;
+    }
+
+    .founder-copy h1 {
+      font-family: var(--mono);
+      font-size: 29px;
+      line-height: 1;
+      color: #fff;
+      letter-spacing: 0;
+      text-shadow: 2px 2px 0 #1267a4, -1px -1px 0 #ef4023;
+    }
+
+    .role {
+      margin: 10px 0 22px;
       color: var(--amber);
-      font-size: 15px;
-      font-weight: 800;
-      letter-spacing: .04em;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: .34em;
       text-transform: uppercase;
     }
-    .panel-head span { color: var(--muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
-    .panel-body { padding: 16px 14px; }
-    .lead {
-      max-width: 760px;
-      color: var(--text);
-      font-family: var(--sans);
-      font-size: 16px;
-      line-height: 1.55;
-    }
-    .copy {
-      max-width: 820px;
+
+    .founder-copy p {
       color: var(--muted);
-      font-size: 12px;
-      line-height: 1.75;
+      font-size: 20px;
+      line-height: 1.78;
     }
-    .copy strong { color: var(--text); font-weight: 600; }
-    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-    .cell { border-top: 1px solid var(--line-2); padding-top: 10px; }
-    .cell b { display: block; color: var(--amber); font-family: var(--sans); font-size: 13px; margin-bottom: 4px; }
-    .cell span { color: var(--muted); line-height: 1.6; }
-    .links { display: flex; flex-wrap: wrap; gap: 8px; }
-    .chip {
-      display: inline-block;
-      padding: 6px 12px;
-      border: 1px solid var(--line-2);
-      background: #0a0a07;
-      color: var(--amber);
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: .02em;
+
+    .founder-copy p + p { margin-top: 20px; }
+    .founder-copy strong { color: var(--amber); font-weight: 500; }
+
+    @media (max-width: 980px) {
+      .page { padding: 18px 22px 44px; }
+      .intro { justify-content: flex-start; padding: 18vh 0 44px; }
+      .founder-card { grid-template-columns: 1fr; gap: 24px; padding: 26px; }
+      .founder-card img { width: min(254px, 100%); }
+      .founder-copy p { font-size: 16px; }
     }
-    .footer { margin-top: 18px; color: var(--muted); font-size: 11px; line-height: 1.6; }
-    @media (max-width: 760px) {
-      .brand { font-size: 13px; }
-      .command-label { display: none; }
-      .grid { grid-template-columns: 1fr; }
-      .lead { font-size: 14px; }
+
+    @media (max-width: 560px) {
+      .brand { font-size: 16px; }
+      .brand img { width: 34px; height: 34px; }
+      .intro { padding-top: 13vh; }
+      .intro p { font-size: 24px; }
+      .section-head { font-size: 12px; letter-spacing: .24em; }
+      .founder-card { padding: 18px; }
+      .founder-copy h1 { font-size: 24px; }
+      .role { font-size: 12px; letter-spacing: .26em; }
     }
   </style>
 </head>
 <body>
-<div class="shell">
-  <header class="brand">
-    <img src="/static/tek2day-icon.png" alt="">
-    <span>TEK2DAY FINANCE</span>
-  </header>
+  <main class="page">
+    <a class="brand" href="/">
+      <img src="/static/tek2day-icon.png" alt="">
+      <span>TEK2DAY FINANCE</span>
+    </a>
 
-  <div class="command-bar">
-    <div class="command-form" aria-label="Command">
-      <span class="command-caret">&gt;</span>
-      <span class="command-input">/about</span>
-    </div>
-    <div class="command-label">TEK2DAY HOLDINGS</div>
-  </div>
-
-  <main class="content">
-    <section class="panel">
-      <div class="panel-head">
-        <h1>TEK2day Finance</h1>
-        <span>About</span>
-      </div>
-      <div class="panel-body">
-        <p class="lead">TEK2day Finance, from TEK2day Holdings, is a market data, fundamentals, macro and alternative data platform for institutional and retail investors.</p>
-      </div>
+    <section class="intro" aria-label="TEK2day Finance description">
+      <p><strong>TEK2day Finance</strong> is a market data, fundamentals, and alternative data platform for institutional and retail investors.</p>
     </section>
 
-    <section class="panel">
-      <div class="panel-head">
-        <h2>Coverage</h2>
-        <span>Data</span>
-      </div>
-      <div class="panel-body">
-        <div class="grid">
-          <div class="cell">
-            <b>Market Data</b>
-            <span>Stock prices, valuation ratios, comparison tables, watchlists and ticker pages.</span>
-          </div>
-          <div class="cell">
-            <b>Fundamentals</b>
-            <span>Financial statements, estimates, SEC filings, short interest and CEO analytics.</span>
-          </div>
-          <div class="cell">
-            <b>Macro</b>
-            <span>Market, rates, money supply, inflation, growth and labor data.</span>
-          </div>
-        </div>
-        <p class="footer">Sources include Yahoo Finance, SEC EDGAR, FRED and CEORater. TEK2day Finance is not providing investment advice.</p>
-      </div>
-    </section>
-
-    <section class="panel">
-      <div class="panel-head">
-        <h2>Founder</h2>
-        <span>TEK2day Holdings</span>
-      </div>
-      <div class="panel-body">
-        <p class="copy"><strong>Jon Maietta</strong> founded and leads TEK2day Holdings. Before TEK2day, Jon led Solera's global Corporate Development organization and previously covered Enterprise Software, FinTech and Tech-Enabled Services as an equity research analyst with Needham &amp; Company.</p>
-      </div>
-    </section>
-
-    <section class="panel">
-      <div class="panel-head">
-        <h2>Navigation</h2>
-        <span>Links</span>
-      </div>
-      <div class="panel-body">
-        <div class="links">
-          <a class="chip" href="/">/terminal</a>
-          <a class="chip" href="/stocks">/stocks</a>
-          <a class="chip" href="https://tek2dayholdings.com/">TEK2day Holdings</a>
+    <section aria-labelledby="founder-heading">
+      <div class="section-head" id="founder-heading">Founder</div>
+      <div class="founder-card">
+        <img src="/static/jon-maietta.jpg" alt="Jon Maietta">
+        <div class="founder-copy">
+          <h1>Jon Maietta</h1>
+          <div class="role">Founder &amp; CEO</div>
+          <p><strong>Jon Maietta</strong> is TEK2day Holdings' founder &amp; CEO. TEK2day owns and operates FinTech platforms, products and content properties, including TEK2day Finance, Kilby, CEORater, TEK2day Pulse and the TEK2day Newsletter.</p>
+          <p>Prior to TEK2day, Jon led Solera's (the leading InsurTech company) global Corporate Development organization. Prior to Solera, Jon covered Enterprise Software, FinTech and Tech-Enabled Services as an Equity Research Analyst with technology investment bank Needham &amp; Company, LLC.</p>
         </div>
       </div>
     </section>
   </main>
-</div>
 </body>
 </html>
