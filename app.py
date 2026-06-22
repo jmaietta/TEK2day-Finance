@@ -8,7 +8,9 @@ Usage:
     # or: uvicorn app:app --reload --port 8050
 """
 import io
+import json
 import math
+import os
 import re
 import threading
 import time
@@ -160,6 +162,14 @@ STATIC_DIR = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 COMMAND_LOCK = threading.Lock()
+MACRO_FIRESTORE_PROJECT = os.getenv("MACRO_FIRESTORE_PROJECT", "macro-data-222cd").strip() or "macro-data-222cd"
+MACRO_SNAPSHOT_PATH = os.getenv("MACRO_SNAPSHOT_PATH", "").strip()
+try:
+    MACRO_SNAPSHOT_TTL_SECONDS = max(0, int(os.getenv("MACRO_SNAPSHOT_TTL_SECONDS", "120")))
+except ValueError:
+    MACRO_SNAPSHOT_TTL_SECONDS = 120
+_MACRO_CACHE_LOCK = threading.Lock()
+_MACRO_CACHE: dict[str, object] = {"expires": 0.0, "data": None}
 SYMBOL_RE = re.compile(r"^[A-Z][A-Z0-9.\-]{0,12}$")
 MENU_SUBCMDS = {
     "inc": terminal.cmd_income,
@@ -653,8 +663,43 @@ def _compare_payload(symbols: list[str]) -> dict | None:
     }
 
 
+def _macro_payload() -> dict | None:
+    now = time.monotonic()
+    with _MACRO_CACHE_LOCK:
+        cached = _MACRO_CACHE.get("data")
+        expires = float(_MACRO_CACHE.get("expires") or 0.0)
+        if cached is not None and now < expires:
+            return cached
+
+    try:
+        if MACRO_SNAPSHOT_PATH:
+            with Path(MACRO_SNAPSHOT_PATH).expanduser().open("r", encoding="utf-8") as fh:
+                data = json.load(fh)
+        else:
+            from google.cloud import firestore
+
+            client = firestore.Client(project=MACRO_FIRESTORE_PROJECT)
+            doc = client.collection("macro_snapshots").document("current").get()
+            if not doc.exists:
+                return None
+            data = doc.to_dict() or {}
+    except Exception:
+        return None
+
+    if not isinstance(data, dict):
+        return None
+    data.setdefault("type", "macro")
+
+    with _MACRO_CACHE_LOCK:
+        _MACRO_CACHE["data"] = data
+        _MACRO_CACHE["expires"] = now + MACRO_SNAPSHOT_TTL_SECONDS
+    return data
+
+
 def _web_payload(kind: str, symbol: str | None = None, symbols: list[str] | None = None) -> dict | None:
     try:
+        if kind == "macro":
+            return _macro_payload()
         if kind == "summary" and symbol:
             return _summary_payload(symbol)
         if kind == "inc" and symbol:
@@ -696,6 +741,19 @@ def _run_terminal_command(line: str, width: int) -> dict:
             "command": "/exit",
             "kind": "system",
             **_plain_output("This is the web wrapper. Close the browser tab to exit."),
+        }
+
+    if first == "macro":
+        if len(parts) != 1:
+            raise ValueError("Usage: /macro")
+        data = _web_payload("macro")
+        if data is None:
+            raise ValueError("Macro snapshot unavailable.")
+        return {
+            "command": "/macro",
+            "kind": "macro",
+            "data": data,
+            **_plain_output(""),
         }
 
     if first == "comp":

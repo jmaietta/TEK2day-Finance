@@ -29,6 +29,7 @@ env:
   REGION: us-central1
   SERVICE: tek2day-api
   IMAGE: us-central1-docker.pkg.dev/yfinance-cli/tek2day/api
+  RUNTIME_SERVICE_ACCOUNT: tek2day-api@yfinance-cli.iam.gserviceaccount.com
 
 jobs:
   deploy:
@@ -69,4 +70,6 @@ jobs:
             --project=$PROJECT_ID \
             --region=$REGION \
             --image=$IMAGE:${{ github.sha }} \
+            --service-account=$RUNTIME_SERVICE_ACCOUNT \
+            --update-env-vars=MACRO_FIRESTORE_PROJECT=macro-data-222cd \
             --quiet

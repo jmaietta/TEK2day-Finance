@@ -522,6 +522,211 @@
       overflow-wrap: anywhere;
     }
 
+    /* macro dashboard */
+    .macro-shell {
+      display: grid;
+      gap: 12px;
+      max-width: 1480px;
+      margin: 0 auto;
+    }
+
+    .macro-top {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      padding: 14px 12px 12px;
+    }
+
+    .macro-title-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: start;
+      gap: 16px;
+    }
+
+    .macro-title h1 {
+      font-family: var(--sans);
+      font-size: 20px;
+      line-height: 1.15;
+      color: #fff;
+      letter-spacing: 0.01em;
+    }
+
+    .macro-title span {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.04em;
+    }
+
+    .macro-meta {
+      display: grid;
+      gap: 4px;
+      text-align: right;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.35;
+      text-transform: uppercase;
+    }
+
+    .macro-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      align-items: start;
+    }
+
+    .macro-col {
+      display: grid;
+      gap: 12px;
+      min-width: 0;
+      align-content: start;
+    }
+
+    .macro-panel { overflow: hidden; }
+    .macro-panel .panel-head { min-height: 44px; }
+
+    .macro-panel .panel-head h2 {
+      font-family: var(--sans);
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .macro-table-head {
+      display: grid;
+      grid-template-columns: minmax(170px, 1fr) repeat(3, 112px);
+      gap: 12px;
+      align-items: center;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--line-2);
+      background: #050504;
+      color: var(--amber-dim);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .macro-table-head span:not(:first-child) { text-align: right; }
+    .macro-table { display: grid; }
+
+    .macro-row {
+      display: grid;
+      grid-template-columns: minmax(170px, 1fr) repeat(3, 112px);
+      grid-template-rows: auto auto;
+      align-items: center;
+      gap: 4px 12px;
+      min-height: 92px;
+      padding: 12px;
+      border-bottom: 1px solid rgba(43, 42, 30, 0.62);
+    }
+
+    .macro-row:last-child { border-bottom: 0; }
+
+    .row-label {
+      grid-column: 1;
+      grid-row: 1 / 3;
+      align-self: center;
+      min-width: 0;
+      color: #f2f0e8;
+      font-size: 17px;
+      font-weight: 600;
+      line-height: 1.25;
+    }
+
+    .indicator-name {
+      display: block;
+      overflow-wrap: anywhere;
+    }
+
+    .row-code {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 400;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+
+    .macro-value-cell {
+      display: grid;
+      grid-row: 1 / 3;
+      align-self: center;
+      justify-items: end;
+      gap: 3px;
+      min-width: 0;
+      text-align: right;
+      cursor: help;
+    }
+
+    .macro-value-cell.col-0 { grid-column: 2; }
+    .macro-value-cell.col-1 { grid-column: 3; }
+    .macro-value-cell.col-2 { grid-column: 4; }
+
+    .macro-value-main {
+      color: #f2f0e8;
+      font-size: 18px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .macro-value-date {
+      color: var(--muted);
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .macro-value-cell.is-empty .macro-value-main,
+    .macro-value-cell.is-empty .macro-value-date { color: var(--muted); }
+
+    .macro-audit-note {
+      padding: 7px 12px;
+      border-top: 1px solid var(--line);
+      color: #6b6655;
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      overflow-wrap: anywhere;
+      text-transform: uppercase;
+    }
+
+    @media (max-width: 1180px) {
+      .macro-grid { grid-template-columns: 1fr; }
+      .macro-table-head { display: none; }
+      .macro-row {
+        grid-template-columns: minmax(190px, 1fr) repeat(3, minmax(96px, 120px));
+      }
+    }
+
+    @media (max-width: 760px) {
+      .macro-title-row { grid-template-columns: 1fr; }
+      .macro-meta { text-align: left; }
+      .macro-row {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        min-height: 0;
+        padding: 10px;
+      }
+      .row-label {
+        grid-column: 1 / -1;
+        grid-row: 1;
+        font-size: 15px;
+      }
+      .macro-value-cell {
+        grid-row: 2;
+        justify-items: start;
+        text-align: left;
+      }
+      .macro-value-cell.col-0 { grid-column: 1; }
+      .macro-value-cell.col-1 { grid-column: 2; }
+      .macro-value-cell.col-2 { grid-column: 3; }
+      .macro-value-main { font-size: 15px; }
+      .macro-value-date { font-size: 9px; }
+    }
+
     .sub-title {
       padding: 10px 12px 0;
       color: var(--muted);
@@ -937,11 +1142,12 @@
     async function runCommand(rawCommand) {
       if (!rawCommand) return;
       const command = normalizeCommand(rawCommand);
-      const symbol = symbolFromCommand(command);
+      const isMacroCommand = command.replace(/^\//, "").trim().toLowerCase() === "macro";
+      const symbol = isMacroCommand ? null : symbolFromCommand(command);
       if (symbol) currentSymbol = symbol;
 
       const parts = command.slice(1).trim().split(/\s+/);
-      const isBareTicker = Boolean(symbol) && parts.length === 1;
+      const isBareTicker = !isMacroCommand && Boolean(symbol) && parts.length === 1;
 
       commandInput.value = command;
       terminalCommand.textContent = command;
@@ -1077,6 +1283,10 @@
       const data = result.data;
       const type = data && data.type;
 
+      if (result.kind === "macro" || type === "macro") {
+        renderMacro(result);
+        return;
+      }
       if (result.kind === "summary" && data && data.overview) {
         fillSummary(panel, result);
         return;
@@ -1104,6 +1314,161 @@
         return;
       }
       fillPlainOutput(panel, result);
+    }
+
+    function renderMacro(result) {
+      const data = result.data || {};
+      const sections = Array.isArray(data.sections) ? data.sections : [];
+      const layout = macroSectionLayout(sections);
+      const rowCount = Number.isFinite(Number(data.row_count))
+        ? Number(data.row_count)
+        : sections.reduce((sum, section) => sum + (Array.isArray(section.items) ? section.items.length : 0), 0);
+      content.innerHTML = `
+        <div class="macro-shell">
+          <section class="macro-top">
+            <div class="macro-title-row">
+              <div class="macro-title">
+                <h1>${escapeHtml(data.title || "Macro Dashboard")}</h1>
+                <span>${escapeHtml(data.source || "TEK2day curated macro dataset")}</span>
+              </div>
+              <div class="macro-meta">
+                <div>AS OF ${escapeHtml(formatMacroDate(data.asOf) || "N/A")}</div>
+                <div>GENERATED ${escapeHtml(formatMacroTimestamp(data.generated_at) || "N/A")}</div>
+                <div>CONTRACT ${escapeHtml(data.contract_version || "N/A")} / ${rowCount} ROWS</div>
+              </div>
+            </div>
+          </section>
+          <div class="macro-grid">
+            <div class="macro-col">${layout.left.map(macroSectionHtml).join("")}</div>
+            <div class="macro-col">${layout.right.map(macroSectionHtml).join("")}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function macroSectionLayout(sections) {
+      const leftTitles = ["Market", "Money Supply & Liquidity", "Growth"];
+      const rightTitles = ["Rates", "Inflation", "Labor"];
+      const used = new Set();
+      const take = (title) => {
+        const index = sections.findIndex((section, i) => !used.has(i) && section && section.title === title);
+        if (index < 0) return null;
+        used.add(index);
+        return sections[index];
+      };
+      const left = leftTitles.map(take).filter(Boolean);
+      const right = rightTitles.map(take).filter(Boolean);
+      sections.forEach((section, index) => {
+        if (used.has(index)) return;
+        (left.length <= right.length ? left : right).push(section);
+      });
+      return { left, right };
+    }
+
+    function macroSectionHtml(section) {
+      const columns = Array.isArray(section.columns) ? section.columns : [];
+      const rows = Array.isArray(section.items) ? section.items : [];
+      return `
+        <section class="panel macro-panel">
+          <div class="panel-head">
+            <h2>${escapeHtml(section.title || "Macro")}</h2>
+          </div>
+          <div class="macro-table-head">
+            <span>Indicator</span>
+            ${columns.map((column) => `<span>${escapeHtml(column.label || column.key || "")}</span>`).join("")}
+          </div>
+          <div class="macro-table">
+            ${rows.length ? rows.map((row) => macroRowHtml(row, columns)).join("") : `<div class="panel-note">No rows returned.</div>`}
+          </div>
+          <div class="source-line">SOURCE: ${escapeHtml(section.source || "N/A")}</div>
+          <div class="macro-audit-note">CELL AUDIT: formatted value, numeric value, source date, source provider, source code, raw source value, request parameters, and method notes are attached to each displayed value.</div>
+        </section>
+      `;
+    }
+
+    function macroRowHtml(row, columns) {
+      const cells = row && row.cells && typeof row.cells === "object" ? row.cells : {};
+      const displayColumns = columns.slice(0, 3);
+      return `
+        <div class="macro-row">
+          <div class="row-label">
+            <span class="indicator-name">${escapeHtml(row && row.label ? row.label : "N/A")}</span>
+            <span class="row-code">${escapeHtml((row && (row.source_code || row.source_symbol)) || "N/A")}</span>
+          </div>
+          ${displayColumns.map((column, index) => macroCellHtml(cells[column.key], column, index)).join("")}
+        </div>
+      `;
+    }
+
+    function macroCellHtml(cell, column, index) {
+      const value = cell && (cell.formatted ?? cell.formatted_value ?? cell.numeric_value);
+      const display = value == null || value === "" ? "N/A" : String(value);
+      const sourceDate = cell && cell.source_date ? String(cell.source_date) : "";
+      const title = macroAuditTitle(cell, column);
+      const requestParams = cell && cell.request_params ? JSON.stringify(cell.request_params) : "";
+      const empty = !cell || display === "N/A";
+      return `
+        <div class="macro-value-cell col-${index}${empty ? " is-empty" : ""}"
+          title="${escapeHtml(title)}"
+          aria-label="${escapeHtml(title)}"
+          data-formatted-value="${escapeHtml(display)}"
+          data-numeric-value="${escapeHtml(cell && cell.numeric_value != null ? cell.numeric_value : "")}"
+          data-source-date="${escapeHtml(sourceDate)}"
+          data-source-provider="${escapeHtml(cell && cell.source_provider ? cell.source_provider : "")}"
+          data-source-code="${escapeHtml(cell && (cell.source_code || cell.source_symbol) ? (cell.source_code || cell.source_symbol) : "")}"
+          data-raw-source-value="${escapeHtml(cell && cell.raw_source_value != null ? cell.raw_source_value : "")}"
+          data-request-params="${escapeHtml(requestParams)}"
+          data-method-notes="${escapeHtml(cell && cell.method_notes ? cell.method_notes : "")}">
+          <span class="macro-value-main">${escapeHtml(display)}</span>
+          <span class="macro-value-date">${escapeHtml(sourceDate ? formatMacroDate(sourceDate) : "No date")}</span>
+        </div>
+      `;
+    }
+
+    function macroAuditTitle(cell, column) {
+      if (!cell) {
+        return `${column.label || column.key || "Cell"}\nMissing cell in macro snapshot.`;
+      }
+      const params = cell.request_params ? JSON.stringify(cell.request_params) : "{}";
+      return [
+        cell.label || column.label || column.key || "Cell",
+        `Formatted: ${cell.formatted ?? cell.formatted_value ?? "N/A"}`,
+        `Numeric: ${cell.numeric_value ?? "N/A"}`,
+        `Source date: ${cell.source_date || "N/A"}`,
+        `Source provider: ${cell.source_provider || "N/A"}`,
+        `Source code: ${cell.source_code || cell.source_symbol || "N/A"}`,
+        `Raw source value: ${cell.raw_source_value ?? "N/A"}`,
+        `Request parameters: ${params}`,
+        `Method notes: ${cell.method_notes || cell.audit_reason || "N/A"}`,
+      ].join("\n");
+    }
+
+    function formatMacroDate(value) {
+      if (!value) return "";
+      const text = String(value);
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+      let date;
+      if (match) {
+        date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+      } else {
+        date = new Date(text);
+      }
+      if (Number.isNaN(date.getTime())) return text;
+      return date.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+    }
+
+    function formatMacroTimestamp(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value);
+      return date.toLocaleString("en-US", {
+        month: "short",
+        day: "2-digit",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        timeZoneName: "short",
+      });
     }
 
     /* ───── panel helpers ───── */
@@ -1556,7 +1921,7 @@
 
     function symbolFromCommand(command) {
       const parts = command.replace(/^\//, "").trim().split(/\s+/);
-      if (!parts[0] || ["help", "exit", "quit", "q", "comp"].includes(parts[0].toLowerCase())) return null;
+      if (!parts[0] || ["help", "exit", "quit", "q", "comp", "macro"].includes(parts[0].toLowerCase())) return null;
       return parts[0].toUpperCase();
     }
 
@@ -1572,6 +1937,7 @@
         news: "Recent News",
       };
       if (parts[0] && parts[0].toLowerCase() === "comp") return "Comp Table";
+      if (parts[0] && parts[0].toLowerCase() === "macro") return "Macro Dashboard";
       return titles[sub] || "Output";
     }
 
