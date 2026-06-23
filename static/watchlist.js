@@ -97,6 +97,8 @@
   // ---------- state ----------
   let me = { uid: null };
   let lists = [], activeId = null, quotes = {}, monitorOpen = false;
+  let quoteMeta = { cacheSeconds: 30, liveEnabled: false, liveCount: 0, fallbackCount: 0 };
+  let quoteTimer = null, quoteLoadId = 0;
   let sortKey = "sym", sortDir = 1;   // Monitor defaults to A→Z
 
   async function api(path, opts) {
@@ -108,6 +110,21 @@
   const jget = async (p) => (await api(p)).json();
 
   function activeList() { return lists.find((l) => l.id === activeId) || null; }
+  function quoteStatusText() {
+    const l = activeList();
+    if (!l || !l.tickers.length) return "";
+    if (!quoteMeta.liveEnabled) return "EOD";
+    if (quoteMeta.liveCount >= l.tickers.length) return "LIVE " + (quoteMeta.cacheSeconds || 30) + "S";
+    if (quoteMeta.liveCount > 0) return "LIVE " + quoteMeta.liveCount + "/" + l.tickers.length;
+    return "EOD";
+  }
+  function scheduleQuoteRefresh() {
+    clearTimeout(quoteTimer);
+    const l = activeList();
+    if (!me.uid || !l || !l.tickers.length) return;
+    const seconds = Math.max(15, Number(quoteMeta.cacheSeconds || 30));
+    quoteTimer = setTimeout(() => loadQuotes({ refresh: true }), seconds * 1000);
+  }
 
   async function loadLists() {
     try {
@@ -119,12 +136,33 @@
       if (monitorOpen) renderMonitor();
     } catch (e) {}
   }
-  async function loadQuotes() {
-    const l = activeList(); if (!l || !l.tickers.length) return;
+  async function loadQuotes(opts) {
+    const l = activeList();
+    if (!l || !l.tickers.length) {
+      quoteMeta = { cacheSeconds: 30, liveEnabled: false, liveCount: 0, fallbackCount: 0 };
+      scheduleQuoteRefresh();
+      return;
+    }
+    const requestId = ++quoteLoadId;
+    const listId = l.id;
     try {
       const d = await jget("/api/watchlist/quotes?symbols=" + encodeURIComponent(l.tickers.join(",")));
+      if (requestId !== quoteLoadId || listId !== activeId) return;
+      quoteMeta = {
+        cacheSeconds: d.cache_seconds || 30,
+        liveEnabled: !!d.live_enabled,
+        liveCount: Number(d.live_count || 0),
+        fallbackCount: Number(d.fallback_count || 0),
+      };
       (d.quotes || []).forEach((q) => (quotes[q.symbol] = q));
-    } catch (e) {}
+      if (opts && opts.refresh) {
+        renderSidebar();
+        if (monitorOpen) renderMonitor();
+      }
+    } catch (e) {
+    } finally {
+      scheduleQuoteRefresh();
+    }
   }
   const createList = (name) => api("/api/watchlists", { method: "POST", body: JSON.stringify({ name }) }).then((r) => r.json());
   const patchList = (id, patch) => api("/api/watchlists/" + id, { method: "PATCH", body: JSON.stringify(patch) }).then((r) => r.json());
@@ -165,7 +203,7 @@
     wlSidebar.innerHTML = `
       <div class="wl-head">
         <div class="wl-tabs">${tabs}</div>
-        ${l ? `<div class="wl-headline"><b>${esc(l.name)}</b><span>${l.tickers.length} NAMES</span></div>` : ""}
+        ${l ? `<div class="wl-headline"><b>${esc(l.name)}</b><span>${l.tickers.length} NAMES</span>${quoteStatusText() ? `<span>${esc(quoteStatusText())}</span>` : ""}</div>` : ""}
         ${l ? "" : `<div class="wl-count"><span>WATCHLISTS</span><span></span></div>`}
       </div>
       <div class="wl-list">${rows}</div>
@@ -300,6 +338,7 @@
   }
   function renderMonitor() {
     const l = activeList(); if (!l) { monitorOpen = false; return; }
+    const status = quoteStatusText();
     const cols = [["sym", "TICKER", "l"], ["name", "COMPANY", "l"], ["price", "LAST"], ["chg", "CHG %"], ["sector", "SECTOR", "l"]];
     let rows = l.tickers.map((s) => Object.assign({ symbol: s }, quotes[s] || {}));
     rows.sort((a, b) => { const x = a[sortKey === "sym" ? "symbol" : sortKey], y = b[sortKey === "sym" ? "symbol" : sortKey]; if (x == null) return 1; if (y == null) return -1; return (typeof x === "string" ? String(x).localeCompare(y) : x - y) * sortDir; });
@@ -309,7 +348,7 @@
       <div class="mon-toolbar"><div class="mon-title">MONITOR · <b>${esc(l.name)}</b></div><span style="flex:1"></span>
         <button class="wl-btn amber" id="m-add" type="button">MANAGE</button><button class="wl-btn" id="m-export" type="button">EXPORT ▾</button></div>
       <div style="overflow:auto"><table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>
-      <div style="padding:9px 16px;color:var(--muted);font-size:10px;letter-spacing:.06em">${l.tickers.length} NAMES · click a row to load · Manage to add or remove names · click a column to sort</div></div>`;
+      <div style="padding:9px 16px;color:var(--muted);font-size:10px;letter-spacing:.06em">${status ? esc(status) + " · " : ""}${l.tickers.length} NAMES · click a row to load · Manage to add or remove names · click a column to sort</div></div>`;
     content.querySelectorAll("thead th[data-k]").forEach((h) => (h.onclick = () => { const k = h.dataset.k; if (k === sortKey) sortDir *= -1; else { sortKey = k; sortDir = (k === "sym" || k === "name" || k === "sector") ? 1 : -1; } renderMonitor(); }));
     content.querySelectorAll("tbody tr[data-sym]").forEach((r) => (r.onclick = () => { monitorOpen = false; renderSidebar(); window.runTerminalCommand("/" + r.dataset.sym); }));
     $("m-add").onclick = () => openManage();
@@ -401,7 +440,7 @@
   function onAuth(m) {
     const was = me.uid; me = m || { uid: null };
     if (me.uid && me.uid !== was) loadLists();
-    else if (!me.uid) { lists = []; activeId = null; monitorOpen = false; renderSidebar(); }
+    else if (!me.uid) { clearTimeout(quoteTimer); lists = []; activeId = null; monitorOpen = false; renderSidebar(); }
     else renderSidebar();
   }
   if (window.TEK2Auth) window.TEK2Auth.onChange(onAuth);

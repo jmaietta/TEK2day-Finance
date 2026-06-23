@@ -3,7 +3,9 @@
 lists. Quotes + export reuse the existing market-data storage. No Kilby code."""
 import csv
 import io
+import os
 import secrets
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -12,8 +14,29 @@ from pydantic import BaseModel, Field
 
 import auth
 import storage
+import terminal
 
 router = APIRouter()
+
+
+def _env_int(name: str, default: int, minimum: int, maximum: int) -> int:
+    try:
+        value = int(os.getenv(name, str(default)))
+    except ValueError:
+        value = default
+    return max(minimum, min(maximum, value))
+
+
+WATCHLIST_LIVE_QUOTES = os.getenv("WATCHLIST_LIVE_QUOTES", "1").strip().lower() not in {
+    "0",
+    "false",
+    "no",
+    "off",
+}
+WATCHLIST_LIVE_QUOTE_LIMIT = _env_int("WATCHLIST_LIVE_QUOTE_LIMIT", 100, 0, 500)
+WATCHLIST_LIVE_QUOTE_WORKERS = _env_int("WATCHLIST_LIVE_QUOTE_WORKERS", 6, 1, 12)
+WATCHLIST_LIVE_QUOTE_TTL_SECONDS = 30
+WATCHLIST_STORED_QUOTE_TTL_SECONDS = 300
 
 
 def _col(uid: str):
@@ -39,7 +62,16 @@ def _clean_symbols(tickers) -> list[str]:
     return out[:500]
 
 
-def _quote(sym: str) -> dict:
+def _float_or_none(value) -> float | None:
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return None
+    return None if result != result else result
+
+
+@terminal._ttl_cache(WATCHLIST_STORED_QUOTE_TTL_SECONDS, should_cache=lambda quote: bool(quote))
+def _stored_quote_cached(sym: str) -> dict:
     meta = storage.get_ticker_meta(sym) or {}
     rows = storage.get_prices_history(sym, 2) or []
     price = rows[-1]["close"] if rows else None
@@ -52,7 +84,70 @@ def _quote(sym: str) -> dict:
         "sector": meta.get("sector", ""),
         "price": price,
         "chg": chg,
+        "change": None,
+        "previous_close": rows[-2].get("close") if len(rows) >= 2 else None,
+        "volume": rows[-1].get("volume") if rows else None,
+        "as_of": rows[-1].get("date") if rows else None,
+        "source": "TEK2day EOD",
+        "is_live": False,
     }
+
+
+def _stored_quote(sym: str) -> dict:
+    return dict(_stored_quote_cached(sym))
+
+
+def _apply_live_quote(sym: str, quote: dict) -> dict:
+    try:
+        live_quote = terminal._live_quote(sym) or {}
+    except Exception:
+        return quote
+
+    price = _float_or_none(live_quote.get("price"))
+    if price is None:
+        return quote
+
+    previous_close = _float_or_none(live_quote.get("previous_close"))
+    change = _float_or_none(live_quote.get("change"))
+    change_pct = _float_or_none(live_quote.get("change_pct"))
+    quote.update(
+        {
+            "price": price,
+            "chg": change_pct if change_pct is not None else quote.get("chg"),
+            "change": change,
+            "previous_close": previous_close or quote.get("previous_close"),
+            "volume": _float_or_none(live_quote.get("volume")) or quote.get("volume"),
+            "as_of": live_quote.get("date") or quote.get("as_of"),
+            "source": "Yahoo Finance",
+            "is_live": True,
+        }
+    )
+    return quote
+
+
+def _quote(sym: str, *, live: bool = True) -> dict:
+    quote = _stored_quote(sym)
+    return _apply_live_quote(sym, quote) if live else quote
+
+
+def _quotes(syms: list[str], *, live: bool = True) -> tuple[list[dict], int]:
+    quotes = {sym: _stored_quote(sym) for sym in syms}
+    live_syms = syms[:WATCHLIST_LIVE_QUOTE_LIMIT] if live and WATCHLIST_LIVE_QUOTES else []
+    if live_syms:
+        workers = min(WATCHLIST_LIVE_QUOTE_WORKERS, len(live_syms))
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            future_map = {
+                executor.submit(_apply_live_quote, sym, quotes[sym]): sym
+                for sym in live_syms
+            }
+            for future in as_completed(future_map):
+                sym = future_map[future]
+                try:
+                    quotes[sym] = future.result()
+                except Exception:
+                    pass
+    live_count = sum(1 for quote in quotes.values() if quote.get("is_live"))
+    return [quotes[sym] for sym in syms], live_count
 
 
 @router.get("/api/watchlists")
@@ -106,10 +201,19 @@ def delete_watchlist(list_id: str, request: Request):
 
 
 @router.get("/api/watchlist/quotes")
-def watchlist_quotes(request: Request, symbols: str = Query("")):
+def watchlist_quotes(request: Request, symbols: str = Query(""), live: bool = Query(True)):
     auth.require_uid(request)
     syms = [s.upper().strip() for s in symbols.split(",") if s.strip()][:500]
-    return {"quotes": [_quote(s) for s in syms]}
+    quotes, live_count = _quotes(syms, live=live)
+    return {
+        "quotes": quotes,
+        "source": "Yahoo Finance live quote with TEK2day EOD fallback",
+        "cache_seconds": WATCHLIST_LIVE_QUOTE_TTL_SECONDS,
+        "live_enabled": bool(live and WATCHLIST_LIVE_QUOTES),
+        "live_limit": WATCHLIST_LIVE_QUOTE_LIMIT,
+        "live_count": live_count,
+        "fallback_count": max(0, len(quotes) - live_count),
+    }
 
 
 @router.get("/api/watchlists/{list_id}/export")
@@ -120,8 +224,8 @@ def export_watchlist(list_id: str, request: Request, fmt: str = Query("csv")):
         raise HTTPException(status_code=404, detail="Watchlist not found")
     d = snap.to_dict() or {}
     rows = [["Ticker", "Company", "Sector", "Last", "Day Chg %"]]
-    for s in d.get("tickers", []):
-        q = _quote(s)
+    quotes, _live_count = _quotes(_clean_symbols(d.get("tickers", [])), live=True)
+    for q in quotes:
         rows.append([
             q["symbol"], q["name"], q["sector"],
             "" if q["price"] is None else q["price"],
