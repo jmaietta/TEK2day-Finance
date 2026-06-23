@@ -98,7 +98,10 @@ def update_watchlist(list_id: str, body: UpdateBody, request: Request):
 @router.delete("/api/watchlists/{list_id}")
 def delete_watchlist(list_id: str, request: Request):
     uid = auth.require_uid(request)
-    _col(uid).document(list_id).delete()
+    ref = _col(uid).document(list_id)
+    if not ref.get().exists:
+        raise HTTPException(status_code=404, detail="Watchlist not found")
+    ref.delete()
     return {"ok": True}
 
 

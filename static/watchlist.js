@@ -29,21 +29,22 @@
     .wl-tab.on{color:#000;background:var(--amber);border-color:var(--amber);font-weight:700}
     .wl-tab.add{color:var(--amber-dim);border-style:dashed}
     .wl-count{display:flex;justify-content:space-between;color:var(--muted);font-size:9px;letter-spacing:.1em;padding:2px 4px 6px}
-    .wl-item{display:grid;grid-template-columns:50px 1fr 54px 14px;gap:8px;align-items:baseline;padding:6px 8px;border-left:2px solid transparent;cursor:pointer;font-size:11.5px}
+    .wl-headline{display:flex;align-items:center;gap:8px;padding:0 4px 7px;color:var(--muted);font-size:9px;letter-spacing:.1em}
+    .wl-headline b{color:var(--amber);font-size:10px;letter-spacing:.06em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .wl-item{display:grid;grid-template-columns:50px 1fr 54px;gap:8px;align-items:baseline;padding:6px 8px;border-left:2px solid transparent;cursor:pointer;font-size:11.5px}
     .wl-item:hover{background:rgba(255,255,255,.04)}
     .wl-item.active{background:var(--panel-2);border-left-color:var(--amber)}
     .wl-sym{color:var(--amber);font-weight:700}
     .wl-px{text-align:right;font-variant-numeric:tabular-nums}
     .wl-chg{text-align:right;font-variant-numeric:tabular-nums;font-size:10.5px}
     .up{color:var(--green)} .down{color:var(--red)}
-    .wl-wx{visibility:hidden;color:var(--muted);text-align:right;cursor:pointer;font-size:10px}
-    .wl-item:hover .wl-wx{visibility:visible}
-    .wl-wx:hover{color:var(--red)}
     .wl-empty{color:var(--muted);font-size:11px;padding:16px 10px;line-height:1.6}
-    .wl-foot{display:flex;gap:8px;padding:9px 8px;border-top:1px solid var(--line)}
-    .wl-btn{font-size:10px;letter-spacing:.05em;padding:5px 9px;border:1px solid var(--line-2);border-radius:3px;color:var(--text);background:var(--panel-2);cursor:pointer}
+    .wl-foot{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:9px 8px;border-top:1px solid var(--line)}
+    .wl-foot.single{grid-template-columns:1fr}
+    .wl-btn{display:inline-flex;align-items:center;justify-content:center;min-height:26px;font-family:var(--mono);font-size:10px;line-height:1.1;letter-spacing:.05em;padding:5px 9px;border:1px solid var(--line-2);border-radius:3px;color:var(--text);background:var(--panel-2);cursor:pointer;text-align:center;text-decoration:none}
     .wl-btn:hover{border-color:var(--amber-dim)}
     .wl-btn.amber{border-color:var(--amber-dim);color:var(--amber);background:var(--amber-glow);font-weight:700}
+    .wl-btn:disabled{opacity:.55;cursor:not-allowed}
     .mon-toolbar{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line)}
     .mon-title{font-family:var(--sans);font-weight:700;letter-spacing:.04em}
     .mon-title b{color:var(--amber)}
@@ -57,7 +58,6 @@
     .mon tbody tr:hover{background:rgba(255,255,255,.03)}
     .mon .t-sym{color:var(--amber);font-weight:700}
     .mon .t-sec{color:var(--muted)}
-    .mon .rm{color:var(--muted);cursor:pointer}.mon .rm:hover{color:var(--red)}
     .wlmenu{position:fixed;background:#0a0a07;border:1px solid var(--line-2);border-radius:3px;z-index:1600;box-shadow:0 12px 30px rgba(0,0,0,.6);font-size:11px}
     .wlmenu div{padding:7px 16px;border-bottom:1px solid var(--line);cursor:pointer}.wlmenu div:last-child{border-bottom:0}.wlmenu div:hover{background:var(--amber-glow);color:var(--amber)}
     .wl-scrim{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:1400}
@@ -71,7 +71,7 @@
     .wl-sec{margin-bottom:14px}
     .wl-chips{display:flex;flex-wrap:wrap;gap:6px;max-height:130px;overflow:auto}
     .wl-chip{display:inline-flex;align-items:center;gap:7px;padding:4px 8px;border:1px solid var(--line-2);border-radius:3px;font-size:11px}
-    .wl-chip b{color:var(--amber)} .wl-chip .cx{color:var(--muted);cursor:pointer}.wl-chip .cx:hover{color:var(--red)}
+    .wl-chip b{color:var(--amber)} .wl-chip .cx{color:var(--muted);cursor:pointer;font-size:9px;letter-spacing:.05em}.wl-chip .cx:hover{color:var(--red)}
     .wl-ta{position:absolute;left:0;right:0;background:#0a0a07;border:1px solid var(--line-2);border-radius:3px;z-index:1700;max-height:170px;overflow:auto;display:none}
     .wl-ta.open{display:block}
     .wl-ta div{padding:6px 9px;cursor:pointer;font-size:11px;border-top:1px solid var(--line)}
@@ -79,6 +79,9 @@
     .wl-row2{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
     .wl-danger{border-color:#5a2420;color:var(--red);background:rgba(255,77,66,.08)}
     .wl-x{float:right;color:var(--muted);cursor:pointer;border:0;background:none;font-size:13px}
+    .wl-delete-view{padding-top:4px}
+    .wl-delete-name{border:1px solid var(--line-2);background:var(--panel-2);padding:10px;border-radius:3px;color:var(--amber);font-weight:700;font-size:13px;margin:8px 0}
+    .wl-delete-meta{color:var(--muted);font-size:11px;line-height:1.5;margin-bottom:14px}
     .wl-toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#0a0a07;border:1px solid var(--amber-dim);color:var(--amber);padding:9px 16px;border-radius:3px;font-size:11px;z-index:2000;display:none}
     .wl-toast.show{display:block}
   `;
@@ -150,28 +153,32 @@
       return;
     }
     const l = activeList();
-    const tabs = lists.map((x) => `<div class="wl-tab ${x.id === activeId ? "on" : ""}" data-tab="${esc(x.id)}">${esc(x.name)}</div>`).join("") + `<div class="wl-tab add" data-newlist title="New watchlist">+</div>`;
+    const tabs = lists.map((x) => `<div class="wl-tab ${x.id === activeId ? "on" : ""}" data-tab="${esc(x.id)}">${esc(x.name)}</div>`).join("") + `<div class="wl-tab add" data-newlist title="New watchlist">+ NEW</div>`;
     let rows = "";
-    if (!l) rows = `<div class="wl-empty">Create your first watchlist →</div>`;
-    else if (!l.tickers.length) rows = `<div class="wl-empty">Empty. Type a ticker in the bar and ★ it, or use ▤ Watchlist to add.</div>`;
+    if (!l) rows = `<div class="wl-empty">No watchlists.</div>`;
+    else if (!l.tickers.length) rows = `<div class="wl-empty"><button class="wl-btn amber" data-addtickers type="button">+ ADD TICKERS</button></div>`;
     else rows = [...l.tickers].sort().map((s) => {
       const q = quotes[s] || {};
-      return `<div class="wl-item" data-load="${esc(s)}"><span class="wl-sym">${esc(s)}</span><span class="wl-px">${fmtPx(q.price)}</span><span class="wl-chg ${chgCls(q.chg)}">${fmtChg(q.chg)}</span><span class="wl-wx" data-rm="${esc(s)}" title="Remove">✕</span></div>`;
+      const cur = ((window.getCurrentSymbol && window.getCurrentSymbol()) || "").toUpperCase();
+      return `<div class="wl-item ${cur === s ? "active" : ""}" data-load="${esc(s)}"><span class="wl-sym">${esc(s)}</span><span class="wl-px">${fmtPx(q.price)}</span><span class="wl-chg ${chgCls(q.chg)}">${fmtChg(q.chg)}</span></div>`;
     }).join("");
     wlSidebar.innerHTML = `
       <div class="wl-head">
         <div class="wl-tabs">${tabs}</div>
-        <div class="wl-count"><span>${l ? esc(l.name.toUpperCase()) + " WATCHLIST" : "WATCHLISTS"}</span><span>${l ? l.tickers.length + " NAMES" : ""}</span></div>
+        ${l ? `<div class="wl-headline"><b>${esc(l.name)}</b><span>${l.tickers.length} NAMES</span></div>` : ""}
+        ${l ? "" : `<div class="wl-count"><span>WATCHLISTS</span><span></span></div>`}
       </div>
       <div class="wl-list">${rows}</div>
-      <div class="wl-foot">
-        <div class="wl-btn" data-manage>▤ WATCHLIST</div>
-        <div class="wl-btn amber" data-monitor>${monitorOpen ? "▢ CLOSE" : "⤢ MONITOR"}</div>
+      <div class="wl-foot ${l ? "" : "single"}">
+        ${l ? `
+        <button class="wl-btn amber" data-addtickers type="button">MANAGE</button>
+        <button class="wl-btn" data-monitor type="button">${monitorOpen ? "CLOSE" : "MONITOR"}</button>
+        ` : `<button class="wl-btn amber" data-newlist type="button">NEW WATCHLIST</button>`}
       </div>`;
     wlSidebar.querySelectorAll("[data-tab]").forEach((t) => (t.onclick = () => { activeId = t.dataset.tab; loadQuotes().then(() => { renderSidebar(); if (monitorOpen) renderMonitor(); }); }));
-    wlSidebar.querySelector("[data-newlist]").onclick = newList;
-    wlSidebar.querySelectorAll("[data-load]").forEach((r) => (r.onclick = (e) => { if (e.target.dataset.rm) { e.stopPropagation(); removeTicker(e.target.dataset.rm); } else { monitorOpen = false; window.runTerminalCommand("/" + r.dataset.load); renderSidebar(); } }));
-    const mb = wlSidebar.querySelector("[data-manage]"); if (mb) mb.onclick = openManage;
+    wlSidebar.querySelectorAll("[data-newlist]").forEach((b) => (b.onclick = newList));
+    wlSidebar.querySelectorAll("[data-load]").forEach((r) => (r.onclick = () => { monitorOpen = false; window.runTerminalCommand("/" + r.dataset.load); renderSidebar(); }));
+    wlSidebar.querySelectorAll("[data-addtickers]").forEach((b) => (b.onclick = () => openManage()));
     const mo = wlSidebar.querySelector("[data-monitor]"); if (mo) mo.onclick = toggleMonitor;
   }
 
@@ -185,34 +192,55 @@
   function openManage() {
     if (!activeList()) { newList(); return; }
     if (!scrim) buildModal();
+    hideDeleteConfirm();
     renderManage(); scrim.classList.add("open");
   }
-  function closeManage() { if (scrim) scrim.classList.remove("open"); }
+
+  function closeManage() {
+    if (scrim) {
+      hideDeleteConfirm();
+      scrim.classList.remove("open");
+    }
+  }
   function buildModal() {
     scrim = document.createElement("div"); scrim.className = "wl-scrim";
     scrim.innerHTML = `
       <div class="wl-modal">
         <button class="wl-x" data-x>✕</button>
-        <h3>Manage watchlist</h3>
-        <div class="wl-sec"><div class="wl-lbl">WATCHLIST NAME</div><input id="wl-name" maxlength="40"></div>
-        <div class="wl-sec" style="position:relative">
-          <div class="wl-lbl">ADD TICKERS</div>
-          <input id="wl-add" placeholder="Type a symbol… (e.g. NVDA)" autocomplete="off">
-          <div class="wl-ta" id="wl-ta"></div>
-          <textarea id="wl-csv" placeholder="…or paste symbols: AAPL, MSFT, NVDA"></textarea>
-          <div class="wl-row2"><input type="file" id="wl-file" accept=".csv,text/csv" style="font-size:11px;width:auto;border:0;padding:0;background:none;color:var(--muted)"><span class="wl-btn amber" id="wl-addbtn">ADD</span></div>
+        <div id="wl-edit-view">
+          <h3>Manage watchlist</h3>
+          <div class="wl-sec"><div class="wl-lbl">WATCHLIST NAME</div><input id="wl-name" maxlength="40"></div>
+          <div class="wl-sec" style="position:relative">
+            <div class="wl-lbl">ADD TICKERS</div>
+            <input id="wl-add" placeholder="Type a symbol… (e.g. NVDA)" autocomplete="off">
+            <div class="wl-ta" id="wl-ta"></div>
+            <textarea id="wl-csv" placeholder="…or paste symbols: AAPL, MSFT, NVDA"></textarea>
+            <div class="wl-row2"><input type="file" id="wl-file" accept=".csv,text/csv" style="font-size:11px;width:auto;border:0;padding:0;background:none;color:var(--muted)"><button class="wl-btn amber" id="wl-addbtn" type="button">ADD</button></div>
+          </div>
+          <div class="wl-sec"><div class="wl-lbl">CURRENT TICKERS · <span id="wl-cnt">0</span></div><div class="wl-chips" id="wl-chips"></div></div>
+          <div class="wl-row2" style="border-top:1px solid var(--line);padding-top:12px">
+            <button class="wl-btn wl-danger" data-del type="button">DELETE WATCHLIST</button>
+            <button class="wl-btn" data-done type="button">DONE</button>
+          </div>
         </div>
-        <div class="wl-sec"><div class="wl-lbl">CURRENT TICKERS · <span id="wl-cnt">0</span></div><div class="wl-chips" id="wl-chips"></div></div>
-        <div class="wl-row2" style="border-top:1px solid var(--line);padding-top:12px">
-          <span class="wl-btn wl-danger" data-del>🗑 DELETE THIS WATCHLIST</span>
-          <span class="wl-btn" data-done>DONE</span>
+        <div class="wl-delete-view" id="wl-delete-view" hidden>
+          <h3>Delete watchlist?</h3>
+          <div class="wl-lbl">WATCHLIST</div>
+          <div class="wl-delete-name" id="wl-delete-name"></div>
+          <div class="wl-delete-meta" id="wl-delete-meta"></div>
+          <div class="wl-row2" style="border-top:1px solid var(--line);padding-top:12px">
+            <button class="wl-btn" data-del-cancel type="button">CANCEL</button>
+            <button class="wl-btn wl-danger" data-del-confirm type="button">DELETE</button>
+          </div>
         </div>
       </div>`;
     document.body.appendChild(scrim);
     scrim.addEventListener("click", (e) => { if (e.target === scrim) closeManage(); });
     scrim.querySelector("[data-x]").onclick = closeManage;
     scrim.querySelector("[data-done]").onclick = closeManage;
-    scrim.querySelector("[data-del]").onclick = delActive;
+    scrim.querySelector("[data-del]").onclick = showDeleteConfirm;
+    scrim.querySelector("[data-del-cancel]").onclick = hideDeleteConfirm;
+    scrim.querySelector("[data-del-confirm]").onclick = delActive;
     $("wl-name").onchange = () => doRename($("wl-name").value);
     $("wl-addbtn").onclick = doCsvAdd;
     wireAddTypeahead();
@@ -222,13 +250,32 @@
     $("wl-name").value = l.name;
     $("wl-cnt").textContent = l.tickers.length;
     const box = $("wl-chips"); box.innerHTML = l.tickers.length ? "" : '<span style="color:var(--muted);font-size:11px">No tickers yet.</span>';
-    l.tickers.forEach((s) => { const c = document.createElement("span"); c.className = "wl-chip"; c.innerHTML = `<b>${esc(s)}</b><span class="cx" title="Remove">✕</span>`; c.querySelector(".cx").onclick = () => removeTicker(s); box.appendChild(c); });
+    l.tickers.forEach((s) => { const c = document.createElement("span"); c.className = "wl-chip"; c.innerHTML = `<b>${esc(s)}</b><span class="cx" title="Remove ${esc(s)}">REMOVE</span>`; c.querySelector(".cx").onclick = () => removeTicker(s); box.appendChild(c); });
+  }
+  function showDeleteConfirm() {
+    const l = activeList(); if (!l) return;
+    const edit = $("wl-edit-view"), del = $("wl-delete-view");
+    if (!edit || !del) return;
+    edit.hidden = true;
+    del.hidden = false;
+    $("wl-delete-name").textContent = l.name;
+    $("wl-delete-meta").textContent = `${l.tickers.length} ${l.tickers.length === 1 ? "ticker" : "tickers"} will be removed from this watchlist.`;
+    const btn = scrim.querySelector("[data-del-confirm]");
+    if (btn) { btn.disabled = false; btn.textContent = "DELETE"; }
+  }
+  function hideDeleteConfirm() {
+    const edit = $("wl-edit-view"), del = $("wl-delete-view");
+    if (!edit || !del) return;
+    del.hidden = true;
+    edit.hidden = false;
   }
   async function doRename(name) { name = (name || "").trim(); const l = activeList(); if (!l || !name || name === l.name) { renderManage(); return; } try { const u = await patchList(l.id, { name }); const i = lists.findIndex((x) => x.id === l.id); lists[i] = u; renderSidebar(); renderManage(); if (monitorOpen) renderMonitor(); } catch (e) {} }
   async function delActive() {
     const l = activeList(); if (!l) return;
-    if (!confirm(`Delete the "${l.name}" watchlist? This can't be undone.`)) return;
-    try { await api("/api/watchlists/" + l.id, { method: "DELETE" }); lists = lists.filter((x) => x.id !== l.id); activeId = lists.length ? lists[0].id : null; closeManage(); await loadQuotes(); renderSidebar(); if (monitorOpen) renderMonitor(); toast("Watchlist deleted"); } catch (e) {}
+    const btn = scrim && scrim.querySelector("[data-del-confirm]");
+    if (btn) { btn.disabled = true; btn.textContent = "DELETING"; }
+    try { await api("/api/watchlists/" + l.id, { method: "DELETE" }); lists = lists.filter((x) => x.id !== l.id); activeId = lists.length ? lists[0].id : null; closeManage(); await loadQuotes(); renderSidebar(); if (monitorOpen) renderMonitor(); toast("Watchlist deleted"); }
+    catch (e) { toast("Could not delete watchlist"); if (btn) { btn.disabled = false; btn.textContent = "DELETE"; } }
   }
   function doCsvAdd() {
     const f = $("wl-file").files[0];
@@ -256,17 +303,16 @@
     const cols = [["sym", "TICKER", "l"], ["name", "COMPANY", "l"], ["price", "LAST"], ["chg", "CHG %"], ["sector", "SECTOR", "l"]];
     let rows = l.tickers.map((s) => Object.assign({ symbol: s }, quotes[s] || {}));
     rows.sort((a, b) => { const x = a[sortKey === "sym" ? "symbol" : sortKey], y = b[sortKey === "sym" ? "symbol" : sortKey]; if (x == null) return 1; if (y == null) return -1; return (typeof x === "string" ? String(x).localeCompare(y) : x - y) * sortDir; });
-    const th = cols.map((c) => `<th class="${c[2] === "l" ? "l" : ""} ${c[0] === sortKey ? "on" : ""}" data-k="${c[0]}">${c[1]}${c[0] === sortKey ? (sortDir < 0 ? " ▼" : " ▲") : ""}</th>`).join("") + "<th></th>";
-    const body = rows.map((q) => `<tr data-sym="${esc(q.symbol)}"><td class="l t-sym">${esc(q.symbol)}</td><td class="l">${esc(q.name || q.symbol)}</td><td>${fmtPx(q.price)}</td><td class="${chgCls(q.chg)}">${fmtChg(q.chg)}</td><td class="l t-sec">${esc(q.sector || "")}</td><td class="rm" data-rm="${esc(q.symbol)}">✕</td></tr>`).join("") || '<tr><td class="l" colspan="6" style="color:var(--muted)">Empty list.</td></tr>';
+    const th = cols.map((c) => `<th class="${c[2] === "l" ? "l" : ""} ${c[0] === sortKey ? "on" : ""}" data-k="${c[0]}">${c[1]}${c[0] === sortKey ? (sortDir < 0 ? " ▼" : " ▲") : ""}</th>`).join("");
+    const body = rows.map((q) => `<tr data-sym="${esc(q.symbol)}"><td class="l t-sym">${esc(q.symbol)}</td><td class="l">${esc(q.name || q.symbol)}</td><td>${fmtPx(q.price)}</td><td class="${chgCls(q.chg)}">${fmtChg(q.chg)}</td><td class="l t-sec">${esc(q.sector || "")}</td></tr>`).join("") || '<tr><td class="l" colspan="5" style="color:var(--muted)">Empty list.</td></tr>';
     content.innerHTML = `<div class="mon">
       <div class="mon-toolbar"><div class="mon-title">MONITOR · <b>${esc(l.name)}</b></div><span style="flex:1"></span>
-        <span class="wl-btn amber" id="m-add">+ ADD</span><span class="wl-btn" id="m-manage">▤ WATCHLIST</span><span class="wl-btn" id="m-export">↓ EXPORT ▾</span></div>
+        <button class="wl-btn amber" id="m-add" type="button">MANAGE</button><button class="wl-btn" id="m-export" type="button">EXPORT ▾</button></div>
       <div style="overflow:auto"><table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>
-      <div style="padding:9px 16px;color:var(--muted);font-size:10px;letter-spacing:.06em">${l.tickers.length} NAMES · click a row to load · ✕ to remove · click a column to sort</div></div>`;
+      <div style="padding:9px 16px;color:var(--muted);font-size:10px;letter-spacing:.06em">${l.tickers.length} NAMES · click a row to load · Manage to add or remove names · click a column to sort</div></div>`;
     content.querySelectorAll("thead th[data-k]").forEach((h) => (h.onclick = () => { const k = h.dataset.k; if (k === sortKey) sortDir *= -1; else { sortKey = k; sortDir = (k === "sym" || k === "name" || k === "sector") ? 1 : -1; } renderMonitor(); }));
-    content.querySelectorAll("tbody tr[data-sym]").forEach((r) => (r.onclick = (e) => { if (e.target.dataset.rm) { removeTicker(e.target.dataset.rm); } else { monitorOpen = false; renderSidebar(); window.runTerminalCommand("/" + r.dataset.sym); } }));
-    $("m-add").onclick = () => { if (cmd) cmd.focus(); };
-    $("m-manage").onclick = openManage;
+    content.querySelectorAll("tbody tr[data-sym]").forEach((r) => (r.onclick = () => { monitorOpen = false; renderSidebar(); window.runTerminalCommand("/" + r.dataset.sym); }));
+    $("m-add").onclick = () => openManage();
     $("m-export").onclick = exportMenu;
   }
   function exportMenu(e) {
