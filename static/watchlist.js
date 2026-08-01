@@ -396,9 +396,24 @@
     place(); p.innerHTML = html; p.classList.add("open");
     p.querySelectorAll("[data-i]").forEach((r) => (r.onmousedown = (e) => { e.preventDefault(); palSel = +r.dataset.i; runPal(); }));
   }
+  function insertCompTicker(symbol) {
+    const raw = cmd.value.trim();
+    const hasSlash = raw.startsWith("/");
+    const words = (hasSlash ? raw.slice(1) : raw).trim().split(/\s+/);
+    if ((words[0] || "").toLowerCase() !== "comp") return false;
+    if (words.length === 1) words.push(symbol);
+    else words[words.length - 1] = symbol;
+    cmd.value = (hasSlash ? "/" : "") + "comp " + words.slice(1).join(" ") + " ";
+    cmd.focus();
+    cmd.setSelectionRange(cmd.value.length, cmd.value.length);
+    return true;
+  }
   function runPal() {
     const it = palItems[palSel]; closePal(); if (!it) return;
-    if (it.type === "tk") { window.runTerminalCommand("/" + it.t.symbol); return; }
+    if (it.type === "tk") {
+      if (insertCompTicker(it.t.symbol)) return;
+      window.runTerminalCommand("/" + it.t.symbol); return;
+    }
     const c = it.c;
     if (c.help) return window.runTerminalCommand("/help");
     if (c.macro) return window.runTerminalCommand("/macro");
