@@ -13,6 +13,7 @@ on:
       - "fetchers.py"
       - "config.py"
       - "auth.py"
+      - "partner_api.py"
       - "watchlist.py"
       - "storage.py"
       - "seo_pages.py"

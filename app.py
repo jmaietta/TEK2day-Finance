@@ -39,6 +39,7 @@ from rich.console import Console
 
 import auth
 import exports
+import partner_api
 import storage
 import terminal
 import watchlist
@@ -71,6 +72,15 @@ app.include_router(seo_router)
 app.include_router(auth.router)
 app.include_router(watchlist.router)
 app.include_router(exports.router)
+app.include_router(partner_api.router)
+
+
+# Preview revisions are deployed with --no-traffic --tag and are reached at their
+# own *.run.app URL. Without this escape hatch the canonical redirect below sends
+# every preview straight to production, so a preview can never be tested — which
+# defeats the point of deploying one. Set PREVIEW_REVISION=1 on preview revisions
+# only; production leaves it unset and the redirect behaves exactly as before.
+PREVIEW_REVISION = os.getenv("PREVIEW_REVISION", "").strip() == "1"
 
 
 @app.middleware("http")
@@ -78,7 +88,7 @@ async def canonical_host_redirect(request, call_next):
     """301 the default Cloud Run hostname to the canonical domain so search
     engines index exactly one copy of the site."""
     host = request.headers.get("host", "").split(":")[0]
-    if host.endswith(".run.app"):
+    if host.endswith(".run.app") and not PREVIEW_REVISION:
         url = f"{BASE_URL}{request.url.path}"
         if request.url.query:
             url += f"?{request.url.query}"
