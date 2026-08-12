@@ -2,7 +2,10 @@ FROM python:3.12-slim
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY config.py storage.py terminal.py app.py seo_pages.py fetchers.py auth.py watchlist.py excel_export.py exports.py ./
+# Copy every root Python file rather than naming them. Naming them has broken
+# the container twice: seo_pages.py (86ec675, Jun 2026) and partner_api.py
+# (Aug 2026). A missing name builds fine and dies on startup.
+COPY *.py ./
 COPY static/ ./static/
 COPY templates/ ./templates/
 EXPOSE 8080
