@@ -4,21 +4,14 @@ on:
   push:
     branches:
       - main
+    # Match Python files by pattern, not by name. Naming them meant a new file
+    # silently did not trigger a deploy (0ac8ce8), and the same habit in
+    # Dockerfile.api shipped a container that could not start (Aug 2026).
     paths:
+      - "*.py"
       - ".github/workflows/deploy-api.yml"
       - "Dockerfile.api"
       - "requirements.txt"
-      - "app.py"
-      - "terminal.py"
-      - "fetchers.py"
-      - "config.py"
-      - "auth.py"
-      - "partner_api.py"
-      - "watchlist.py"
-      - "storage.py"
-      - "seo_pages.py"
-      - "excel_export.py"
-      - "exports.py"
       - "static/**"
       - "templates/**"
   workflow_dispatch:
@@ -76,3 +69,28 @@ jobs:
             --service-account=$RUNTIME_SERVICE_ACCOUNT \
             --update-env-vars=MACRO_FIRESTORE_PROJECT=macro-data-222cd \
             --quiet
+
+      # Deploying is not the same as working. In Aug 2026 this workflow reported
+      # success while shipping a container that could not start, because nothing
+      # ever asked the live site whether it was alive. Now it does, and the job
+      # goes red if the site does not answer.
+      - name: Smoke test the live site
+        run: |
+          BASE="https://finance.tek2dayholdings.com"
+          for attempt in $(seq 1 6); do
+            home=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$BASE/" || echo 000)
+            health=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$BASE/partner/v1/health" || echo 000)
+            if [ "$home" = "200" ] && [ "$health" = "200" ]; then
+              echo "PASS  homepage=$home  health=$health"
+              curl -s --max-time 20 "$BASE/partner/v1/health"
+              exit 0
+            fi
+            echo "attempt $attempt/6: homepage=$home health=$health — retrying in 10s"
+            sleep 10
+          done
+          echo ""
+          echo "SMOKE TEST FAILED — the deploy completed but the live site is not responding."
+          echo "Roll back with:"
+          echo "  gcloud run revisions list --service=$SERVICE --project=$PROJECT_ID --region=$REGION"
+          echo "  gcloud run services update-traffic $SERVICE --to-revisions=<GOOD_REVISION>=100 --project=$PROJECT_ID --region=$REGION"
+          exit 1
