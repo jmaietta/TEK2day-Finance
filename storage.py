@@ -9,6 +9,8 @@ Schema (Option C — ticker-centric with collection group queries):
         prices/{date}       → daily OHLCV
         financials/{period} → quarterly financial statements
 """
+import copy
+import math
 from datetime import datetime, timezone
 
 from google.cloud import firestore
@@ -151,6 +153,99 @@ def write_financials(symbol: str, period: str, data: dict) -> None:
 
 
 # ── Financials (read) ────────────────────────────────────────────────────────
+
+STATEMENT_SECTIONS = ("income", "balance_sheet", "cash_flow")
+
+
+def _is_empty_value(value) -> bool:
+    """True when a stored field carries no usable number.
+
+    Yahoo publishes a skeleton record within hours of an earnings release and
+    fills it in over the following days. Because write_financials() is
+    write-once, whatever landed first is frozen — so those skeletons appear as
+    NaN-valued keys (Yahoo returned the key with no number) or as an entirely
+    empty statement section.
+    """
+    if value is None:
+        return True
+    if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
+        return True
+    return False
+
+
+def merge_financial_doc(existing: dict, incoming: dict) -> tuple[dict, list[str]]:
+    """Fill only the gaps in `existing` from `incoming`. Pure function — no I/O.
+
+    THE RULE: a populated value is never overwritten. Only fields that are
+    absent, None, NaN or Inf are filled.
+
+    This is not caution for its own sake. Yahoo's own history regresses: for
+    BRK.B 2024-12-31 Yahoo now returns 2 of 48 cash-flow fields, while our
+    stored copy holds a real operating cash flow of 4,621m captured at
+    ingestion. A refresh that overwrote would destroy good data and replace it
+    with nothing. Filling gaps only makes the operation safe to repeat.
+
+    Period identity (`period`, `period_end`, `symbol`, `freq`) is never touched
+    — this repairs the contents of a period, it does not redefine which period
+    a document represents.
+
+    Returns the merged document and the list of "section.field" paths filled.
+    An empty list means nothing needed repair.
+    """
+    merged = copy.deepcopy(existing)
+    filled: list[str] = []
+
+    for section in STATEMENT_SECTIONS:
+        new_block = incoming.get(section) or {}
+        if not new_block:
+            continue
+        old_block = merged.get(section)
+        if not isinstance(old_block, dict):
+            old_block = {}
+            merged[section] = old_block
+
+        for field, new_value in new_block.items():
+            if _is_empty_value(new_value):
+                continue  # incoming has nothing better to offer
+            if field in old_block and not _is_empty_value(old_block[field]):
+                continue  # existing value is real — leave it alone
+            old_block[field] = new_value
+            filled.append(f"{section}.{field}")
+
+    return merged, filled
+
+
+def backfill_financials(symbol: str, period: str, incoming: dict, db=None) -> list[str]:
+    """Fill gaps in one stored financial document. Returns the fields filled.
+
+    Deliberately separate from write_financials(), which keeps its write-once
+    guard. Routine ingestion therefore remains incapable of rewriting history —
+    only this function, invoked on purpose, can touch an existing document.
+
+    Writes nothing when there is nothing to fill.
+    """
+    db = db or get_db()
+    ref = (
+        db.collection(COLLECTION_ROOT)
+        .document(symbol)
+        .collection("financials")
+        .document(period)
+    )
+    snap = ref.get()
+    if not snap.exists:
+        return []  # nothing to repair; new periods are write_financials()'s job
+
+    merged, filled = merge_financial_doc(snap.to_dict() or {}, incoming)
+    if not filled:
+        return []
+
+    # Audit trail: what was repaired, and when. fetched_at is left as the
+    # original ingestion timestamp so provenance of the first write survives.
+    merged["backfilled_at"] = _now_iso()
+    merged["backfilled_fields"] = sorted(filled)
+    ref.set(merged)
+    return filled
+
 
 def get_all_financials(symbol: str) -> list[dict]:
     db = get_db()
