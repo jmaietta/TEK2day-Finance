@@ -1,7 +1,7 @@
 <!-- Admin data-repair review queue. READ-ONLY: renders a stored proposal and
      sends nothing back. Styles are the approved mockup verbatim, so the live
      page cannot drift from the design that was signed off. -->
-<title>Data Repair — TEK2day Finance</title>
+<title>TEK2day Finance Data Review</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -344,7 +344,7 @@
     </div>
     <div class="sidebar-body">
       <div class="side-label">Admin</div>
-      <div class="side-item active"><span>Data repair</span><span class="n" id="sideCount"></span></div>
+      <div class="side-item active"><span>Data Review</span><span class="n" id="sideCount"></span></div>
       <div class="side-label">Proposal</div>
       <div id="sideProposals"></div>
     </div>
@@ -355,7 +355,7 @@
 
   <div class="main">
     <header class="command-bar">
-      <h1>Data repair &mdash; review queue</h1>
+      <h1>TEK2day Finance Data Review</h1>
       <div class="meta" id="runmeta"></div>
     </header>
 
@@ -525,7 +525,7 @@
   (async function load() {
     const banner = document.getElementById('banner');
     try {
-      const list = await api('/admin/api/repair/proposals');
+      const list = await api('/admin/api/data-review/proposals');
       const side = document.getElementById('sideProposals');
       side.innerHTML = (list.proposals || []).map((x, i) =>
         '<div class="side-item' + (i === 0 ? ' active' : '') + '"><span>' + esc(x.id) + '</span></div>').join('')
@@ -535,7 +535,7 @@
         banner.innerHTML = 'No repair proposals yet. Run the repair job to generate one.';
         return;
       }
-      render(await api('/admin/api/repair/proposals/' + encodeURIComponent(list.proposals[0].id)));
+      render(await api('/admin/api/data-review/proposals/' + encodeURIComponent(list.proposals[0].id)));
     } catch (err) {
       banner.innerHTML = esc(err.message);
     }
