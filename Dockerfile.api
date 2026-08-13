@@ -2,9 +2,11 @@ FROM python:3.12-slim
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-# Copy every root Python file rather than naming them. Naming them has broken
-# the container twice: seo_pages.py (86ec675, Jun 2026) and partner_api.py
-# (Aug 2026). A missing name builds fine and dies on startup.
+# Copy every root Python file rather than naming them. A named list has
+# shipped a container missing a module three times: seo_pages.py (Jun 2026),
+# partner_api.py (Aug 2026), proposals.py (Aug 2026). Each built cleanly and
+# died at startup on the import. The extra files are inert - only the
+# entrypoint runs.
 COPY *.py ./
 COPY static/ ./static/
 COPY templates/ ./templates/

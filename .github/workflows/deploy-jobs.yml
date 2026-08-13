@@ -9,15 +9,13 @@ on:
   push:
     branches:
       - main
+    # Match Python files by pattern. Naming them meant a new module did not
+    # trigger a rebuild, the sibling of the bug that shipped containers
+    # missing a module three times.
     paths:
+      - "*.py"
       - ".github/workflows/deploy-jobs.yml"
       - "requirements.txt"
-      - "config.py"
-      - "storage.py"
-      - "fetchers.py"
-      - "pull_daily_prices.py"
-      - "pull_weekly_estimates.py"
-      - "pull_quarterly_financials.py"
       - "Dockerfile.daily-prices"
       - "Dockerfile.weekly-estimates"
       - "Dockerfile.quarterly-financials"
