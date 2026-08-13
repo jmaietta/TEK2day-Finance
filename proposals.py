@@ -195,6 +195,84 @@ def build_record(symbol: str, period: str, stored: dict, incoming: dict | None,
     return record
 
 
+def review_and_populate(symbol: str, period: str, incoming: dict, db=None) -> dict | None:
+    """Populate one stored record from data the pull already fetched.
+
+    Called from the quarterly pull AFTER its normal write, using the Yahoo data
+    already in hand — so this adds no Yahoo traffic at all.
+
+    Returns a record describing what happened, or None if there was nothing to
+    do. Populates only empty and NaN fields; a populated value is never
+    overwritten (storage.merge_financial_doc, 18 tests).
+
+    Records that fail a sanity check are still populated, with the warning
+    written onto the record so it travels with the data — to the site, to
+    exports, and to Kilby. A warning that only reaches an admin queue reaches
+    nobody at the moment the number is used.
+
+    RAISES NOTHING the caller must handle: the pull's job is ingestion, and a
+    problem here must never stop it. See safe_review_and_populate.
+    """
+    db = db or storage.get_db()
+    ref = (
+        db.collection(storage.COLLECTION_ROOT)
+        .document(symbol)
+        .collection("financials")
+        .document(period)
+    )
+    snap = ref.get()
+    if not snap.exists:
+        return None  # a new period; write_financials already handled it
+
+    stored = snap.to_dict() or {}
+    if not is_stub(stored):
+        return None  # complete record, nothing to review
+
+    merged, filled = storage.merge_financial_doc(stored, incoming)
+    if not filled:
+        # Yahoo has nothing to add. Still worth recording so the gap is visible.
+        record = build_record(symbol, period, stored, incoming, merged, [], [])
+        record["populated"] = False
+        return record
+
+    stored_all = {
+        d.id: (d.to_dict() or {})
+        for d in db.collection(storage.COLLECTION_ROOT).document(symbol).collection("financials").stream()
+    }
+    checks = run_checks(merged, stored_all, period)
+    warnings = [c for c in checks if not c["pass"]]
+
+    merged["backfilled_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    merged["backfilled_fields"] = sorted(filled)
+    if warnings:
+        # The warning lives ON the record, not in a queue.
+        merged["data_warnings"] = [
+            {"code": c["name"], "detail": c["detail"]} for c in warnings
+        ]
+    ref.set(merged)
+
+    record = build_record(symbol, period, stored, incoming, merged, filled, checks)
+    record["populated"] = True
+    record["populated_at"] = merged["backfilled_at"]
+    return record
+
+
+def safe_review_and_populate(symbol: str, period: str, incoming: dict, db=None,
+                             logger=None) -> dict | None:
+    """review_and_populate, but incapable of interrupting the caller.
+
+    The pull exists to ingest. If the review fails for one ticker — odd data, an
+    unexpected shape, a transient Firestore error — it must log and let the pull
+    continue, not take the run down with it.
+    """
+    try:
+        return review_and_populate(symbol, period, incoming, db=db)
+    except Exception as exc:  # noqa: BLE001 — deliberately catching everything
+        if logger:
+            logger.warning("data review skipped for %s %s: %s", symbol, period, exc)
+        return None
+
+
 def save(proposal_id: str, records: list[dict], target: str, source_read_at: str, db=None) -> str:
     """Store a proposal. Writes only to repair_proposals — never to financials."""
     db = db or storage.get_db()
