@@ -37,6 +37,7 @@ from pydantic import BaseModel, Field
 import requests
 from rich.console import Console
 
+import admin_api
 import auth
 import exports
 import partner_api
@@ -73,6 +74,7 @@ app.include_router(auth.router)
 app.include_router(watchlist.router)
 app.include_router(exports.router)
 app.include_router(partner_api.router)
+app.include_router(admin_api.router)
 
 
 # Preview revisions are deployed with --no-traffic --tag and are reached at their

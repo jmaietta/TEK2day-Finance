@@ -28,6 +28,23 @@ FIREBASE_STORAGE_BUCKET = os.getenv("FIREBASE_STORAGE_BUCKET", "").strip()
 COOKIE_NAME = os.getenv("COOKIE_NAME", "t2d_sid").strip()
 SESSION_TTL_DAYS = int(os.getenv("SESSION_TTL_DAYS", "14"))
 
+# ── Admin access ────────────────────────────────────────────────────────────
+# Addresses allowed into /admin/*. Everyone else gets 403, signed in or not.
+# Overridable by env var so a staging deployment can use a different list, but
+# the default is the real one — an empty or missing env var must never mean
+# "allow everybody".
+ADMIN_EMAILS = frozenset(
+    e.strip().lower()
+    for e in os.getenv(
+        "ADMIN_EMAILS",
+        "jonathanmaietta@gmail.com,"
+        "jmaietta@ceorater.com,"
+        "jon@cycadcap.com,"
+        "jmaietta@tek2day.com",
+    ).split(",")
+    if e.strip()
+)
+
 COLLECTION_ROOT = "tickers"
 
 # Rate limiting: delay between individual ticker fetches (seconds)

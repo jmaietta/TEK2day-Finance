@@ -1,0 +1,543 @@
+<!-- Admin data-repair review queue. READ-ONLY: renders a stored proposal and
+     sends nothing back. Styles are the approved mockup verbatim, so the live
+     page cannot drift from the design that was signed off. -->
+<title>Data Repair — TEK2day Finance</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Tokens lifted verbatim from static/index.html so this page is the same
+     product, not a lookalike. */
+  :root {
+    --bg: #000;
+    --panel: #070705;
+    --panel-2: #0c0c09;
+    --line: #1c1b14;
+    --line-2: #2b2a1e;
+    --text: #e8e6df;
+    --muted: #8a8878;
+    --amber: #ff9f1c;
+    --amber-dim: #b97a14;
+    --amber-glow: rgba(255, 159, 28, 0.14);
+    --cyan: #38c8d8;
+    --green: #2fd47f;
+    --red: #ff4d42;
+    --mono: "IBM Plex Mono", Consolas, monospace;
+    --sans: "Archivo", system-ui, sans-serif;
+    --sidebar-width: 264px;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    overflow: hidden;
+  }
+
+  .shell {
+    display: grid;
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+    width: 100%;
+    height: 100dvh;
+  }
+
+  /* ───── sidebar ───── */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    border-right: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 50px;
+    padding: 0 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand strong { font-family: var(--sans); font-size: 13px; letter-spacing: .01em; }
+  .brand .mark {
+    width: 18px; height: 18px; background: var(--text); flex: none;
+  }
+  .sidebar-body { flex: 1; overflow-y: auto; padding: 12px 0; }
+  .side-label {
+    padding: 10px 14px 6px; color: var(--muted);
+    font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+  }
+  .side-item {
+    display: flex; justify-content: space-between; gap: 8px;
+    padding: 7px 14px; color: var(--text); cursor: pointer;
+    border-left: 2px solid transparent;
+  }
+  .side-item:hover { background: var(--panel-2); }
+  .side-item.active { border-left-color: var(--amber); color: var(--amber); background: var(--panel-2); }
+  .side-item .n { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .side-item.active .n { color: var(--amber); }
+  .sidebar-foot {
+    border-top: 1px solid var(--line); padding: 10px 14px;
+    color: var(--muted); font-size: 11px;
+  }
+
+  /* ───── main ───── */
+  .main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .command-bar {
+    display: flex; align-items: center; gap: 10px;
+    min-height: 50px; padding: 0 14px;
+    border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  .command-bar h1 {
+    margin: 0; font-family: var(--sans); font-size: 13px; font-weight: 600;
+    color: var(--text);
+  }
+  .command-bar .meta { margin-left: auto; color: var(--muted); font-size: 11px; }
+  .command-bar .meta b { color: var(--text); font-weight: 500; }
+
+  .content { flex: 1; overflow-y: auto; padding: 14px; }
+
+  /* Cap the reading width. On a wide monitor an unconstrained panel pushes the
+     value columns to the far edge and stretches the fill bars across 700px,
+     which is unreadable. The app caps its own layouts the same way. */
+  .content > * { max-width: 1120px; }
+
+  .mocknote {
+    border: 1px solid var(--amber-dim); background: var(--amber-glow);
+    color: var(--amber); padding: 7px 12px; margin-bottom: 14px;
+    font-size: 11px; letter-spacing: .02em;
+  }
+
+  /* ───── stat row ───── */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .stat { border: 1px solid var(--line); background: var(--panel); padding: 10px 12px; }
+  .stat .n { font-size: 22px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .stat .l { color: var(--muted); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; margin-top: 4px; }
+  .stat.review .n { color: var(--red); }
+  .stat.clean .n { color: var(--green); }
+  .stat.fields .n { color: var(--amber); }
+
+  /* ───── queue: one line per record, detail on demand ─────────────────────
+     Six blocks of detail per record, four records deep, was unreadable. The
+     queue is now scannable and you open only what needs a closer look. */
+  .queue { border: 1px solid var(--line); background: var(--panel); }
+
+  /* Period is fixed so STATE starts immediately after it instead of being
+     pushed across an empty gap; the flexible space sits before FIELDS, which
+     keeps the count and the buttons together at the right. */
+  .qhead, .rmain {
+    display: grid;
+    grid-template-columns: 66px 268px minmax(0, 1fr) 52px 24px 190px 16px;
+    align-items: center; gap: 0; padding: 0 12px;
+  }
+  .qhead {
+    border-left: 2px solid transparent;
+    min-height: 28px; color: var(--muted);
+    font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, #11100a 0%, #0a0a07 100%);
+  }
+  .qhead.spaced { border-top: 1px solid var(--line); }
+  /* A section label, not a data row - it should not sit in the 7-column grid,
+     where "no action available" wrapped inside a 66px cell. */
+  .qhead.solo { display: block; padding: 7px 12px; }
+  .qhead .r, .rmain .r { text-align: right; }
+
+  /* Every row AND the header carry the same 2px left border, transparent by
+     default. Without it, only flagged rows had the border and their content
+     sat 2px right of the column headers. */
+  .row { border-bottom: 1px solid var(--line); border-left: 2px solid transparent; }
+  .row:last-child { border-bottom: 0; }
+  .rmain { min-height: 38px; cursor: pointer; }
+  .rmain:hover { background: var(--panel-2); }
+  .row.open .rmain { background: var(--panel-2); }
+  .row .sym { color: var(--cyan); font-weight: 600; }
+  /* Padding rather than grid gap: gap would apply to every column, while only
+     this one butts against its neighbour. Padding-right does not move the
+     cell's left edge, so header/row alignment is unaffected. */
+  .row .per { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 18px; }
+  .row .state { font-size: 10.5px; color: var(--muted); }
+  .row .state.red { color: var(--red); }
+  .row .state.green { color: var(--green); }
+  .row .num { font-variant-numeric: tabular-nums; color: var(--text); }
+  .row .acts { display: flex; align-items: center; gap: 6px; }
+  .row .caret { color: var(--muted); font-size: 10px; transition: transform 120ms ease; }
+  .row.open .caret { transform: rotate(90deg); }
+  .row.flag { border-left-color: var(--red); }
+  .row.later { opacity: .62; }
+  .row.later .num { color: var(--muted); }
+
+  .detail { display: none; padding: 4px 12px 16px 78px; border-top: 1px solid var(--line); }
+  .row.open .detail { display: block; }
+  /* Fixed left column so the numbers land in the same place on every record,
+     rather than shifting with content. */
+  .dcols { display: grid; grid-template-columns: 600px minmax(0, 1fr); gap: 28px; padding-top: 12px; }
+  @media (max-width: 1100px) { .dcols { grid-template-columns: 1fr; } }
+  .dfoot { display: flex; align-items: center; gap: 14px; margin-top: 12px; }
+  .dfoot .src { margin-left: auto; color: var(--muted); font-size: 10.5px; }
+
+  .row.done-approve { border-left-color: var(--green); }
+  .row.done-reject { border-left-color: var(--red); opacity: .45; }
+  .row.done-reject .fill, .row.done-reject .fieldlist { opacity: .35; pointer-events: none; }
+  .row.done-reject .writes b { color: var(--red); }
+
+
+  /* ───── inclusion controls: statement level and field level ─────────────
+     Approving a record includes everything by default; you untick what you do
+     not want. Opt-out, not opt-in - nobody wants to tick 134 boxes. */
+  .fillrow label { display: contents; cursor: pointer; }
+  .fillrow input[type=checkbox] {
+    width: 12px; height: 12px; margin: 0; accent-color: var(--amber); cursor: pointer;
+  }
+  .fillrow.off { opacity: .4; }
+  .fillrow.off .bar i { background: var(--line-2); }
+  .fillrow .sname { cursor: pointer; }
+
+  .fieldlist tbody tr.off { opacity: .38; }
+  .fieldlist td.pick { width: 22px; text-align: left; padding-left: 0; }
+  .fieldlist input[type=checkbox] { width: 12px; height: 12px; margin: 0; accent-color: var(--amber); cursor: pointer; }
+
+  .writes { margin-top: 10px; color: var(--muted); font-size: 11px; }
+  .writes b { color: var(--amber); }
+  .writes.partial b { color: var(--amber); }
+
+  .bulkbar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; border-bottom: 1px solid var(--line);
+    background: var(--panel-2);
+  }
+  .bulkbar .lbl { color: var(--muted); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; margin-right: 4px; }
+  .bulkbar button { padding: 5px 10px; font-size: 10px; }
+
+  /* ───── panels ───── */
+  .panel {
+    border: 1px solid var(--line); background: var(--panel);
+    min-width: 0; margin-bottom: 12px;
+  }
+  .panel-head {
+    display: flex; align-items: center; gap: 10px;
+    min-height: 32px; padding: 0 12px;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, #11100a 0%, #0a0a07 100%);
+  }
+  .panel-head h2 {
+    margin: 0; color: var(--amber); font-size: 11.5px; font-weight: 600; letter-spacing: .02em;
+  }
+  .panel-head .sym { color: var(--cyan); font-weight: 600; }
+  .panel-head .per { color: var(--muted); }
+  .panel-head .right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  /* The table needs the room; the fill bars do not. Weighting them equally left
+     the bars absurdly long and the numbers far from their labels. */
+  .panel-body { padding: 12px; display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 22px; }
+  @media (max-width: 900px) { .panel-body { grid-template-columns: 1fr; } }
+
+  .panel.flag { border-color: #4a2420; }
+  .panel.flag .panel-head { background: linear-gradient(180deg, #1a0f0d 0%, #0a0a07 100%); }
+  .panel.flag .panel-head h2 { color: var(--red); }
+  .panel.later { opacity: .78; }
+
+  .chip {
+    padding: 4px 9px; border: 1px solid var(--line-2); background: #0a0a07;
+    color: var(--amber); font-size: 10px; font-weight: 600; letter-spacing: .06em;
+    text-transform: uppercase; white-space: nowrap;
+  }
+  .chip.red { color: var(--red); border-color: #4a2420; }
+  .chip.green { color: var(--green); border-color: #163a26; }
+  .chip.grey { color: var(--muted); }
+
+  .sub-title { color: var(--muted); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 7px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 5px 10px; font-size: 11.5px; text-align: right; white-space: nowrap; }
+  th { color: var(--muted); font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child { text-align: left; padding-left: 0; }
+  td { border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: 0; }
+  td.k { color: var(--text); font-variant-numeric: normal; }
+  td.blank { color: var(--muted); }
+  td.neg { color: var(--red); }
+  td.after { color: var(--amber); font-weight: 600; }
+  td.kept { color: var(--green); font-weight: 600; }
+  td.act { color: var(--muted); font-size: 9.5px; letter-spacing: .05em; text-transform: uppercase; }
+  td.act.keep { color: var(--green); }
+
+  .fill { display: flex; flex-direction: column; gap: 6px; max-width: 320px; }
+  .fillrow { display: grid; grid-template-columns: 62px 1fr auto; gap: 9px; align-items: center; font-size: 11px; }
+  .bar { height: 6px; background: #0a0a07; border: 1px solid var(--line-2); position: relative; }
+  .bar i { position: absolute; inset: 0 auto 0 0; background: var(--amber); }
+  .bar i.was { background: var(--line-2); }
+  .fillrow .n { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* Keep each check's numbers near its label rather than flung to the far edge,
+     and keep prose to a readable measure. */
+  .checks { grid-column: 1/-1; border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 4px; max-width: 820px; }
+  .chk { display: grid; grid-template-columns: 44px 1fr auto; gap: 10px; align-items: baseline; font-size: 11.5px; }
+  .chk .st { font-size: 9.5px; letter-spacing: .1em; font-weight: 700; }
+  .chk.ok .st { color: var(--green); }
+  .chk.no .st { color: var(--red); }
+  .chk .d { color: var(--muted); font-size: 11px; }
+  .chk.no { background: rgba(255,77,66,.07); margin: 0 -6px; padding: 4px 6px; }
+
+  .note { grid-column: 1/-1; color: var(--muted); font-size: 11.5px; line-height: 1.6;
+    background: var(--panel-2); border-left: 2px solid var(--amber); padding: 8px 11px; max-width: 940px; margin-top: 12px; }
+  .note.good { border-left-color: var(--green); }
+  .note b { color: var(--text); font-weight: 600; }
+
+  .fieldlist { grid-column: 1/-1; border-top: 1px solid var(--line); padding-top: 10px; display: none; max-height: 260px; overflow-y: auto; }
+  .fieldlist.open { display: block; }
+
+  .actions { display: flex; gap: 8px; align-items: center; padding: 9px 12px; border-top: 1px solid var(--line); background: var(--panel-2); }
+  button {
+    font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .06em;
+    text-transform: uppercase; padding: 6px 13px; cursor: pointer;
+    border: 1px solid var(--line-2); background: #0a0a07; color: var(--text);
+  }
+  button:hover { border-color: var(--muted); }
+  button.approve { color: var(--green); border-color: #163a26; }
+  button.reject { color: var(--red); border-color: #4a2420; }
+  button.approve[aria-pressed="true"] { background: var(--green); color: #04150c; border-color: var(--green); }
+  button.reject[aria-pressed="true"] { background: var(--red); color: #1a0603; border-color: var(--red); }
+  button:focus-visible { outline: 1px solid var(--cyan); outline-offset: 2px; }
+  /* No margin-left:auto here - inside .dfoot it fought the source line and
+     left the link stranded mid-row. */
+  .linkish { color: var(--cyan); font-size: 11px; cursor: pointer; text-decoration: underline; }
+  .decision-note { color: var(--muted); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+  .panel.done-approve { border-color: #163a26; }
+  .panel.done-reject { opacity: .5; }
+
+  .source-line { color: var(--muted); font-size: 10.5px; padding: 7px 12px; border-top: 1px solid var(--line); }
+
+  /* ───── apply bar ───── */
+  .applybar {
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 14px; border-top: 1px solid var(--line); background: var(--panel);
+  }
+  .applybar .status { color: var(--muted); font-size: 11px; }
+  .applybar .status b { color: var(--text); }
+  button.apply { margin-left: auto; background: var(--amber); color: #14140f; border-color: var(--amber); }
+  button.apply[disabled] { opacity: .35; cursor: not-allowed; }
+
+  .result { border: 1px solid #163a26; background: rgba(47,212,127,.06); padding: 12px; margin-bottom: 12px; display: none; }
+  .result.open { display: block; }
+  .result h3 { margin: 0 0 6px; color: var(--green); font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; }
+  .result ul { margin: 6px 0 0; padding-left: 16px; color: var(--text); font-size: 11.5px; }
+  .result .undo { margin-top: 9px; color: var(--muted); font-size: 11px; line-height: 1.6; }
+
+  @media (max-width: 900px) {
+    .shell { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+  }
+</style>
+
+<!-- Structure only. Every value is rendered from the API; nothing is hardcoded. -->
+<div class="shell">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="mark"></span>
+      <strong>TEK2day&nbsp;Finance</strong>
+    </div>
+    <div class="sidebar-body">
+      <div class="side-label">Admin</div>
+      <div class="side-item active"><span>Data repair</span><span class="n" id="sideCount"></span></div>
+      <div class="side-label">Proposal</div>
+      <div id="sideProposals"></div>
+    </div>
+    <div class="sidebar-foot">
+      Signed in as<br><span style="color:var(--text)" id="viewer">&hellip;</span>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="command-bar">
+      <h1>Data repair &mdash; review queue</h1>
+      <div class="meta" id="runmeta"></div>
+    </header>
+
+    <div class="content" id="content">
+      <div class="mocknote" id="banner">Loading&hellip;</div>
+      <div class="stats" id="stats" hidden></div>
+      <div class="queue" id="queue" hidden></div>
+    </div>
+
+    <div class="applybar">
+      <span class="status" id="tally"></span>
+      <span class="status" id="writes"></span>
+      <button class="apply" id="applyBtn" disabled>Apply approved changes</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const fmt = n => (n === null || n === undefined) ? '&mdash;'
+    : (Math.abs(n) >= 1e6 ? (n / 1e6).toLocaleString('en-US', {maximumFractionDigits: 0}) + 'm'
+                          : n.toLocaleString('en-US', {maximumFractionDigits: 2}));
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function niceDate(iso) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+    return m ? `${+m[3]} ${MONTHS[+m[2] - 1]} ${m[1]}` : (iso || '');
+  }
+
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  async function api(path) {
+    const r = await fetch(path, { credentials: 'same-origin' });
+    if (r.status === 401) throw new Error('Sign in required.');
+    if (r.status === 403) throw new Error('This page is restricted to TEK2day administrators.');
+    if (!r.ok) throw new Error('Request failed (' + r.status + ').');
+    return r.json();
+  }
+
+  function valueCell(v, cls) {
+    if (v === null || v === undefined) return '<td class="blank">&mdash;</td>';
+    const neg = typeof v === 'number' && v < 0 ? ' neg' : '';
+    return '<td class="' + (cls || '') + neg + '">' + fmt(v) + '</td>';
+  }
+
+  function metricRows(rec) {
+    return (rec.metrics || []).map(m => {
+      const decided = m.action === 'keep ours' ? 'keep' : '';
+      const afterCls = m.action === 'fill' ? 'after' : (m.action === 'keep ours' ? 'kept' : '');
+      return '<tr><td class="k">' + esc(m.name) + '</td>'
+        + valueCell(m.firebase) + valueCell(m.yahoo) + valueCell(m.after, afterCls)
+        + '<td class="act ' + decided + '">' + esc(m.action || '') + '</td></tr>';
+    }).join('');
+  }
+
+  function fillRows(rec) {
+    return (rec.sections || []).map(s => {
+      const pct = s.total ? Math.round(s.after / s.total * 100) : 0;
+      const dim = s.after === s.before ? ' was' : '';
+      return '<div class="fillrow" data-stmt="' + esc(s.name) + '" data-n="' + (s.fills || 0) + '">'
+        + '<span class="sname">' + esc(s.name) + '</span>'
+        + '<span class="bar">' + (pct ? '<i class="' + dim.trim() + '" style="width:' + pct + '%"></i>' : '') + '</span>'
+        + '<span class="n">' + s.before + ' &rarr; ' + s.after + '/' + s.total + '</span></div>';
+    }).join('');
+  }
+
+  function checkRows(rec) {
+    const passed = (rec.checks || []).filter(c => c.pass);
+    if (!passed.length) return '';
+    return '<div class="sub-title" style="margin-top:14px">Checks passed</div>'
+      + passed.map(c => '<div class="chk ok"><span class="st">PASS</span><span>' + esc(c.name) + '</span></div>').join('');
+  }
+
+  function noteFor(rec) {
+    const failed = (rec.checks || []).filter(c => !c.pass);
+    let html = '';
+    failed.forEach(c => {
+      html += '<div class="note"><b>FAIL &mdash; ' + esc(c.name) + '.</b> ' + esc(c.detail || '') + '</div>';
+    });
+    if (rec.note) html += '<div class="note' + (rec.note_kind === 'good' ? ' good' : '') + '">' + esc(rec.note) + '</div>';
+    return html;
+  }
+
+  function rowHtml(rec, enabled) {
+    const flagged = rec.status === 'REVIEW';
+    const inert = rec.status === 'RETRY_LATER' || rec.status === 'NO_SOURCE';
+    const cls = ['row', flagged ? 'flag' : '', inert ? 'later' : ''].filter(Boolean).join(' ');
+    const stateCls = flagged ? 'red' : (rec.status === 'CLEAN' ? 'green' : '');
+
+    // Decisions are hidden, not disabled-looking, while the apply path does not
+    // exist — an approve button that cannot approve is worse than none.
+    const acts = (!inert && enabled)
+      ? '<button class="approve" aria-pressed="false">Approve</button>'
+        + '<button class="reject" aria-pressed="false">Reject</button>'
+      : '';
+
+    return '<div class="' + cls + '" data-id="' + esc(rec.id) + '">'
+      + '<div class="rmain">'
+      +   '<span class="sym">' + esc(rec.symbol) + '</span>'
+      +   '<span class="per">' + esc(rec.period) + (rec.period_end ? ' &middot; ended ' + esc(niceDate(rec.period_end)) : '') + '</span>'
+      +   '<span class="state ' + stateCls + '">' + esc(rec.state_label || '') + '</span>'
+      +   '<span class="r num">' + (inert ? '&mdash;' : (rec.fields || 0)) + '</span><span></span>'
+      +   '<span class="acts">' + acts + '</span>'
+      +   '<span class="caret">&#9656;</span>'
+      + '</div>'
+      + '<div class="detail">'
+      +   '<div class="dcols">'
+      +     '<div><table><thead><tr><th>metric</th><th>Firebase now</th><th>Yahoo today</th>'
+      +       '<th>if you approve</th><th></th></tr></thead><tbody>' + metricRows(rec) + '</tbody></table></div>'
+      +     '<div>' + (rec.sections && rec.sections.length
+                        ? '<div class="sub-title">Include in write</div><div class="fill">' + fillRows(rec) + '</div>'
+                        : '') + checkRows(rec) + '</div>'
+      +   '</div>'
+      +   noteFor(rec)
+      +   '<div class="dfoot"><span class="src">SOURCE: ' + esc(rec.source || 'Yahoo Finance') + ' &middot; TEK2day Finance</span></div>'
+      + '</div></div>';
+  }
+
+  function render(p) {
+    document.getElementById('viewer').textContent = p.viewer || '';
+    document.getElementById('runmeta').innerHTML =
+      'source <b>' + esc(p.source) + '</b> &middot; read <b>' + esc(p.source_read_at || '&mdash;')
+      + '</b> &middot; target <b>' + esc(p.target) + '</b>';
+
+    const s = p.summary || {};
+    document.getElementById('stats').innerHTML =
+        '<div class="stat review"><div class="n">' + (s.needs_review || 0) + '</div><div class="l">Needs review</div></div>'
+      + '<div class="stat clean"><div class="n">' + (s.checks_passed || 0) + '</div><div class="l">Checks passed</div></div>'
+      + '<div class="stat"><div class="n">' + (s.no_action || 0) + '</div><div class="l">No action</div></div>'
+      + '<div class="stat fields"><div class="n">' + (s.fields_proposed || 0) + '</div><div class="l">Fields proposed</div></div>';
+    document.getElementById('stats').hidden = false;
+    document.getElementById('sideCount').textContent = (s.needs_review || 0) + (s.checks_passed || 0);
+
+    const active = (p.records || []).filter(r => r.status === 'REVIEW' || r.status === 'CLEAN');
+    const inert  = (p.records || []).filter(r => r.status !== 'REVIEW' && r.status !== 'CLEAN');
+
+    let html = '<div class="qhead"><span>ticker</span><span>period</span><span>state</span>'
+             + '<span class="r">fields</span><span></span><span>' + (p.decisions_enabled ? 'decision' : '') + '</span><span></span></div>';
+    html += active.map(r => rowHtml(r, p.decisions_enabled)).join('');
+    if (inert.length) {
+      html += '<div class="qhead spaced solo"><span>no action available</span></div>';
+      html += inert.map(r => rowHtml(r, false)).join('');
+    }
+    const q = document.getElementById('queue');
+    q.innerHTML = html;
+    q.hidden = false;
+
+    q.querySelectorAll('.rmain').forEach(el => el.addEventListener('click', ev => {
+      if (ev.target.closest('button, .linkish, label, input')) return;
+      el.closest('.row').classList.toggle('open');
+    }));
+
+    const banner = document.getElementById('banner');
+    if (!p.decisions_enabled) {
+      banner.innerHTML = 'READ ONLY &mdash; this proposal can be reviewed but not applied yet. '
+        + 'Approving and writing arrives in the next release.';
+    } else {
+      banner.hidden = true;
+    }
+
+    document.getElementById('tally').innerHTML =
+      '<b>' + active.length + '</b> record(s) awaiting review';
+    document.getElementById('writes').innerHTML = p.decisions_enabled
+      ? 'Writes <b>0</b> fields'
+      : 'Review only &mdash; approving arrives in the next release';
+    document.getElementById('applyBtn').hidden = !p.decisions_enabled;
+  }
+
+  (async function load() {
+    const banner = document.getElementById('banner');
+    try {
+      const list = await api('/admin/api/repair/proposals');
+      const side = document.getElementById('sideProposals');
+      side.innerHTML = (list.proposals || []).map((x, i) =>
+        '<div class="side-item' + (i === 0 ? ' active' : '') + '"><span>' + esc(x.id) + '</span></div>').join('')
+        || '<div class="side-item"><span style="color:var(--muted)">none</span></div>';
+
+      if (!list.proposals || !list.proposals.length) {
+        banner.innerHTML = 'No repair proposals yet. Run the repair job to generate one.';
+        return;
+      }
+      render(await api('/admin/api/repair/proposals/' + encodeURIComponent(list.proposals[0].id)));
+    } catch (err) {
+      banner.innerHTML = esc(err.message);
+    }
+  })();
+</script>
