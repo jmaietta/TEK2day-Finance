@@ -18,11 +18,15 @@ This module must never acquire app.COMMAND_LOCK — that lock serialises the Ric
 terminal renderer, and partner traffic must not queue behind website traffic.
 """
 import os
+import threading
+import time
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 
+import envelope
 import storage
 
 router = APIRouter(prefix="/partner/v1", tags=["partner"])
@@ -178,6 +182,156 @@ def partner_whoami(request: Request) -> dict:
         "authenticated": True,
         "caller": caller,
     }
+
+
+# ── symbol resolution ────────────────────────────────────────────────────────
+#
+# TEK2day has no company-name lookup and is not gaining one: the slash commands
+# on both products are /TICKER, never /CompanyName, so a name never reaches here.
+# That also means there is nothing to disambiguate — GOOG and GOOGL are two
+# tickers a caller names explicitly, not one query with two answers.
+#
+# What this endpoint is for is FS1. Every other partner endpoint trusts the
+# symbol it is handed; this is where that trust is established, once.
+
+# How long "nobody has this symbol" is remembered.
+#
+# terminal._live_quote caches quotes for 30s but its should_cache requires a
+# price, so a MISS is never cached there — deliberately, since a transient Yahoo
+# blip should not stick. That is right for the website and wrong here: Kilby
+# serves many users from a few egress IPs, so one mistyped ticker can arrive
+# repeatedly and each repeat would be a fresh Yahoo call. Yahoo also feeds the
+# daily price pull, so being throttled on this path breaks ingestion elsewhere.
+#
+# An hour is safe because the fact is stable: a symbol no one has heard of does
+# not appear mid-afternoon. A genuinely new listing is late by at most an hour.
+_UNKNOWN_SYMBOL_TTL_SECONDS = 3600
+_unknown_symbols: dict[str, float] = {}
+_unknown_symbols_lock = threading.Lock()
+
+
+def _yahoo_knows(symbol: str) -> bool:
+    """Whether Yahoo has a quote for a symbol TEK2day does not hold.
+
+    The point is coverage lag, not a second opinion: a company that listed this
+    week is real and quotable before our universe job has added it. Anything this
+    finds is reported as NOT covered by TEK2day and carries a note saying so —
+    it is never blended into our own data, which is what FS8 forbids.
+    """
+    now = time.monotonic()
+    with _unknown_symbols_lock:
+        seen = _unknown_symbols.get(symbol)
+        if seen is not None and now - seen < _UNKNOWN_SYMBOL_TTL_SECONDS:
+            return False
+
+    # Imported here rather than at module load: terminal.py pulls in the Rich
+    # renderer, and this module must stay importable without it.
+    import terminal  # noqa: PLC0415
+
+    try:
+        # Reuses the quote path the website already uses, so "Yahoo has it" means
+        # the same thing on both. Never takes COMMAND_LOCK.
+        known = terminal._live_quote(symbol).get("price") is not None
+    except Exception:
+        # Yahoo being unreachable is not evidence the symbol is fake, so this is
+        # not cached as a miss — we simply cannot say, and report not covered.
+        return False
+
+    if not known:
+        with _unknown_symbols_lock:
+            _unknown_symbols[symbol] = now
+    return known
+
+
+def _not_found(requested: dict, detail: str) -> JSONResponse:
+    """No such symbol, anywhere. Shaped like envelope.integrity_error so a
+    consumer parses every failure the same way."""
+    return JSONResponse(
+        status_code=404,
+        content={
+            "api_version": API_VERSION,
+            "request_id": _request_id(),
+            "error": "symbol_not_found",
+            "detail": detail,
+            "requested": requested,
+            "retrieved_at": _now_iso(),
+        },
+    )
+
+
+@router.get("/symbols/resolve")
+def resolve_symbol(request: Request, symbol: str = Query(..., min_length=1, max_length=13)):
+    """Confirm a ticker exists and return its canonical symbol and name.
+
+    Three outcomes, and they are deliberately different things:
+      - held by TEK2day        -> coverage "covered", answer from our universe
+      - not held, Yahoo has it -> coverage "not_covered", plus a note. Real
+                                  company, we have no data for it yet.
+      - nobody has it          -> 404. A typo is not a company.
+    """
+    require_kilby(request)
+    requested = {"symbol": symbol}
+    norm = envelope.normalize_symbol(symbol)
+
+    # Shape first, so a malformed string never reaches Firestore or Yahoo.
+    if not envelope.valid_symbol(norm):
+        return _not_found(requested, f"Not a valid ticker: {symbol}")
+
+    try:
+        meta = storage.get_ticker_meta(norm)
+    except Exception:
+        # FS8: say the backend is unavailable rather than answering from Yahoo
+        # and passing it off as ours.
+        raise HTTPException(
+            status_code=503, detail="Symbol lookup unavailable"
+        ) from None
+
+    if meta:
+        # FS1. The document id and its symbol field should agree; if they ever
+        # disagree we would be about to answer about a different company, which
+        # is the one failure an institutional user cannot forgive.
+        stored = envelope.normalize_symbol(meta.get("symbol") or norm)
+        if stored != norm:
+            return JSONResponse(
+                status_code=409,
+                content=envelope.integrity_error(
+                    requested,
+                    {"symbol": stored},
+                    f"Record for {norm} carries symbol {stored}",
+                ),
+            )
+        return envelope.build(
+            "symbol_resolution",
+            {
+                "symbol": norm,
+                "name": meta.get("name"),
+                "sector": meta.get("sector") or None,
+                "coverage": "covered",
+                "active": bool(meta.get("active")),
+                "source": envelope.PLATFORM,
+            },
+            requested,
+            {"symbol": norm, "name": meta.get("name")},
+        )
+
+    if _yahoo_knows(norm):
+        return envelope.build(
+            "symbol_resolution",
+            {
+                "symbol": norm,
+                "name": None,
+                "sector": None,
+                "coverage": "not_covered",
+                "active": None,
+                "source": "Yahoo Finance",
+            },
+            requested,
+            {"symbol": norm, "name": None},
+            # Terse by rule: name the platform, state the fact, stop.
+            warnings=[{"code": "not_covered", "note": "Not covered by TEK2day Finance."}],
+        )
+
+    return _not_found(requested, f"No such ticker: {norm}")
 
 
 # No /capabilities endpoint: FastAPI already publishes the API surface as

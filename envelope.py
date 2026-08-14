@@ -87,6 +87,23 @@ def normalize_symbol(symbol: str) -> str:
     return str(symbol or "").strip().upper()
 
 
+# The shape of a ticker. Mirrors app.py:202, which the website's command bar has
+# used since launch — a partner asking for a symbol must be held to exactly the
+# same standard as a person typing one, or the two disagree about what a ticker
+# even is. Dots are real here (BRK.B, BF.B); dashes are not used by any ticker we
+# hold, but the website accepts them so this does too.
+#
+# NOTE this is shape only. It says "NVDA" and "APPL" are both well-formed; it
+# does NOT say either one exists. Existence is a Firestore lookup, and the two
+# checks must stay separate — conflating them is how a typo becomes a company.
+SYMBOL_RE = re.compile(r"^[A-Z][A-Z0-9.\-]{0,12}$")
+
+
+def valid_symbol(symbol: str) -> bool:
+    """Whether a string is shaped like a ticker. Not whether we hold it."""
+    return bool(SYMBOL_RE.fullmatch(normalize_symbol(symbol)))
+
+
 # ── period ───────────────────────────────────────────────────────────────────
 
 def period_block(storage_key: str | None, period_end: str | None) -> dict | None:
