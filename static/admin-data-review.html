@@ -579,7 +579,8 @@
     document.getElementById('stats').innerHTML =
         '<div class="stat clean"><div class="n">' + clean.length + '</div><div class="l">Populated cleanly</div></div>'
       + '<div class="stat review"><div class="n">' + warned.length + '</div><div class="l">Populated with a warning</div></div>'
-      + '<div class="stat"><div class="n">' + (none.length + waiting.length) + '</div><div class="l">Cannot be populated</div></div>'
+      + '<div class="stat"><div class="n">' + none.length + '</div><div class="l">Cannot be populated</div>'
+      +   '<div class="l wk">' + waiting.length + ' more waiting on Yahoo</div></div>'
       + '<div class="stat fields"><div class="n">' + fields.toLocaleString('en-US') + '</div>'
       +   '<div class="l">Fields populated</div><div class="l wk">run of ' + esc(p.source_read_at || '') + '</div></div>';
     document.getElementById('stats').hidden = false;
