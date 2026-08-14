@@ -148,6 +148,18 @@
   /* A section label, not a data row - it should not sit in the 7-column grid,
      where "no action available" wrapped inside a 66px cell. */
   .qhead.solo { display: block; padding: 7px 12px; }
+
+  /* Sections collapse. With 477 records the clean and unfillable sections run
+     to hundreds of rows, and scrolling past them to reach the handful that
+     carry a warning is the opposite of useful. */
+  .secthead { cursor: pointer; user-select: none; display: flex !important;
+    align-items: baseline; gap: 9px; }
+  .secthead:hover { background: linear-gradient(180deg, #191710 0%, #0f0f0b 100%); }
+  .secthead .scount { color: var(--muted); margin-left: auto; padding-left: 12px; }
+  .secthead .scaret { color: var(--muted); font-size: 10px; margin-left: 10px;
+    display: inline-block; transition: transform 120ms ease; }
+  .queue.closed .secthead .scaret { transform: rotate(-90deg); }
+  .queue.closed .qhead.cols, .queue.closed .row { display: none; }
   .qhead .r, .rmain .r { text-align: right; }
 
   /* Every row AND the header carry the same 2px left border, transparent by
@@ -532,13 +544,23 @@
 
   function section(title, blurb, dot, recs, kind, cols) {
     if (!recs.length) return '';
-    return '<div class="queue">'
-      + '<div class="qhead solo secthead"><span class="dot ' + dot + '"></span>' + title
-      +   ' <em>' + blurb + '</em></div>'
+    // Warnings open by default; everything else closed. The 31 that carry a
+    // warning are why you would open the page at all.
+    const closed = kind === 'warned' ? '' : ' closed';
+    return '<div class="queue' + closed + '">'
+      + '<div class="qhead solo secthead" onclick="toggleSection(this)">'
+      +   '<span class="dot ' + dot + '"></span>' + title
+      +   ' <em>' + blurb + '</em>'
+      +   '<span class="scount">' + recs.length + '</span>'
+      +   '<span class="scaret">&#9662;</span></div>'
       + '<div class="qhead cols"><span>ticker</span><span>period</span><span>' + cols
       +   '</span><span class="r">fields</span><span></span><span>populated</span><span></span></div>'
       + recs.map(r => rowHtml(r, kind)).join('')
       + '</div>';
+  }
+
+  function toggleSection(el) {
+    el.closest('.queue').classList.toggle('closed');
   }
 
   function render(p) {
