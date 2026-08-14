@@ -544,10 +544,10 @@
 
   function section(title, blurb, dot, recs, kind, cols) {
     if (!recs.length) return '';
-    // Warnings open by default; everything else closed. The 31 that carry a
-    // warning are why you would open the page at all.
-    const closed = kind === 'warned' ? '' : ' closed';
-    return '<div class="queue' + closed + '">'
+    // Every section starts closed. One section behaving differently from the
+    // rest is a rule the reader has to learn; the counts on each header already
+    // say what is inside.
+    return '<div class="queue closed">'
       + '<div class="qhead solo secthead" onclick="toggleSection(this)">'
       +   '<span class="dot ' + dot + '"></span>' + title
       +   ' <em>' + blurb + '</em>'
