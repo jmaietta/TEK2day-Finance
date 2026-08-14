@@ -200,23 +200,25 @@ def coverage_block(period_keys: list[str], gaps: list[str] | None = None) -> dic
 # ── warnings ─────────────────────────────────────────────────────────────────
 
 def warnings_from(record: dict | None) -> list[dict]:
-    """Footnotes, generated from the record at read time.
+    """Notes a partner may show a reader. Deliberately NOT the sanity checks.
 
-    Terse by rule: name TEK2day Finance, state the fact, stop. A portfolio
-    manager wants the fact, not the history of how it came to be missing, so the
-    upstream source is not repeated here — it belongs on the source line.
+    HIS RULE, 2026-08-14, and it is absolute: **a Kilby user must never be told
+    there is an error in the system.** Only the owner sees errors. Telling a
+    portfolio manager "we do not hold this value" is fine; telling one that a
+    check failed, or handing over a diagnostic, is not — it invites them to
+    distrust every other number on the page, which no caveat is worth.
 
-    Generated, never stored beside a card and never cached apart from the
-    numbers, so a note cannot outlive its cause: once a quarter is populated,
-    nothing generates the note and it simply stops appearing.
+    So `data_warnings` STOPS HERE. Those are internal check results written by
+    proposals.py (`{"code": "Diluted EPS x shares vs net income", "detail":
+    "0m vs 3m (100.0% apart)"}`) — an engineer's diagnostic, in an engineer's
+    words, about a check an outsider has no way to interpret. They belong on the
+    Data Review page, in the logs and in his email alerts. They are not a
+    partner's business and they never leave this function.
+
+    Absence is different and still travels: what we do not hold is reported
+    through `completeness`, in plain language, without implying a fault.
     """
-    if not record:
-        return []
-    out = []
-    for w in record.get("data_warnings") or []:
-        detail = str(w.get("detail") or "").strip()
-        out.append({"code": w.get("code"), "note": detail})
-    return out
+    return []
 
 
 def coverage_note(coverage: dict | None, requested_period: str | None = None) -> str | None:

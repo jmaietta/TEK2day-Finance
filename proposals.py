@@ -95,9 +95,24 @@ def run_checks(merged: dict, stored_all: dict, period: str) -> list[dict]:
                 "pass": 0.5 <= ratio <= 2.0,
             })
 
-    if all(finite(x) for x in (eps, shares, ni)) and ni:
+    if all(finite(x) for x in (eps, shares, ni)) and ni and shares:
+        # Reported EPS is rounded to two decimals — that is standard public
+        # company reporting, not a defect — so it stands for a BAND, not a point.
+        # A reported 0.00 means "somewhere in +/-0.005 per share".
+        #
+        # Multiplied out, that band is worth 0.005 * shares of net income. For a
+        # small cap that dwarfs the whole profit: ABTC 2025-Q3 reports 0.00 on a
+        # real 3,475,000 / 899,489,426 = 0.0039, and the band is +/-4.5m. The old
+        # point comparison called that "100.0% apart" and wrote a warning onto a
+        # record that was entirely correct — and that warning then travelled to
+        # the site, the exports and Kilby.
+        #
+        # So measure the distance to the BAND, not to its midpoint. A genuinely
+        # wrong EPS is still caught: the band is only ever half a cent wide.
         implied = eps * shares
-        gap = abs(implied - ni) / abs(ni)
+        rounding_band = 0.005 * abs(shares)
+        excess = max(0.0, abs(implied - ni) - rounding_band)
+        gap = excess / abs(ni)
         out.append({
             "name": "Diluted EPS x shares vs net income",
             "detail": f"{implied/1e6:,.0f}m vs {ni/1e6:,.0f}m ({gap*100:.1f}% apart)",
