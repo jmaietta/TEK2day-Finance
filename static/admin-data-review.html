@@ -1,6 +1,6 @@
-<!-- Admin data-repair review queue. READ-ONLY: renders a stored proposal and
-     sends nothing back. Styles are the approved mockup verbatim, so the live
-     page cannot drift from the design that was signed off. -->
+<!-- Admin Data Review. A REPORT, not a queue: records are populated
+     automatically by the weekly pull, and warnings are stored on the records
+     themselves. Nothing here requires action, so nothing here offers one. -->
 <title>TEK2day Finance Data Review</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -117,6 +117,8 @@
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 14px; }
   .stat { border: 1px solid var(--line); background: var(--panel); padding: 10px 12px; }
   .stat .n { font-size: 22px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .stat .l.wk { color: var(--muted); letter-spacing: .06em; text-transform: none;
+    font-size: 10.5px; margin-top: 2px; }
   .stat .l { color: var(--muted); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; margin-top: 4px; }
   .stat.review .n { color: var(--red); }
   .stat.clean .n { color: var(--green); }
@@ -332,9 +334,62 @@
     .shell { grid-template-columns: 1fr; }
     .sidebar { display: none; }
   }
-</style>
 
-<!-- Structure only. Every value is rendered from the API; nothing is hardcoded. -->
+  /* ───── section headers: each section states what it is and what you can do ─
+     The page must never imply a capability it does not have. Buttons appear in
+     exactly one section, because that is the only section where an action
+     exists. */
+  .qhead.secthead {
+    display: flex; align-items: baseline; gap: 9px;
+    padding: 9px 12px; font-size: 11px; letter-spacing: .08em;
+    color: var(--text); text-transform: uppercase;
+  }
+  .qhead.secthead em {
+    font-style: normal; color: var(--muted); letter-spacing: .02em;
+    text-transform: none; font-size: 11px;
+  }
+  .dot { width: 7px; height: 7px; flex: none; background: var(--muted); }
+  .dot.green { background: var(--green); }
+  .dot.red { background: var(--red); }
+  .dot.amber { background: var(--amber); }
+  .dot.grey { background: var(--muted); }
+
+  .qhead.cols { display: grid; }
+  .queue { margin-bottom: 14px; }
+
+  .row.done { border-left-color: var(--green); }
+  .row .when { color: var(--muted); font-size: 11px; }
+  .rmain.nohover { cursor: default; }
+  .rmain.nohover:hover { background: none; }
+  .row.later .caret { display: none; }
+
+  .revert { color: var(--muted); font-size: 11.5px; line-height: 1.7; }
+
+  .applyrow {
+    display: flex; align-items: center; gap: 14px;
+    padding: 9px 12px; border-top: 1px solid var(--line); background: var(--panel-2);
+  }
+  .applyrow .status { color: var(--muted); font-size: 11px; }
+  .applyrow .status b { color: var(--text); }
+  .applyrow button.apply { margin-left: auto; }
+
+  .weeknote { color: var(--muted); font-size: 11px; line-height: 1.6;
+    margin: -4px 0 14px; max-width: 940px; }
+  .weeknote b { color: var(--text); font-weight: 500; }
+
+  .secfoot { padding: 9px 12px; border-top: 1px solid var(--line);
+    color: var(--muted); font-size: 11px; line-height: 1.6; }
+
+  /* The warning is stored ON the record and travels with it. Shown here as a
+     prominent block, not a task: there is nothing to action on this page. */
+  .warnbox { border: 1px solid #4a2420; border-left-width: 3px; background: rgba(255,77,66,.06);
+    padding: 10px 12px; margin: 12px 0 4px; max-width: 940px; }
+  .warnlabel { color: var(--red); font-size: 9.5px; letter-spacing: .12em;
+    text-transform: uppercase; font-weight: 600; margin-bottom: 5px; }
+  .warntext { color: var(--text); font-size: 12px; line-height: 1.6; }
+  .warnwhere { color: var(--muted); font-size: 11px; margin-top: 6px; }
+</style>
+<!-- Structure only. Every value is rendered from the API. -->
 <div class="shell">
 
   <aside class="sidebar">
@@ -345,8 +400,8 @@
     <div class="sidebar-body">
       <div class="side-label">Admin</div>
       <div class="side-item active"><span>Data Review</span><span class="n" id="sideCount"></span></div>
-      <div class="side-label">Proposal</div>
-      <div id="sideProposals"></div>
+      <div class="side-label">Runs</div>
+      <div id="sideRuns"></div>
     </div>
     <div class="sidebar-foot">
       Signed in as<br><span style="color:var(--text)" id="viewer">&hellip;</span>
@@ -362,28 +417,27 @@
     <div class="content" id="content">
       <div class="mocknote" id="banner">Loading&hellip;</div>
       <div class="stats" id="stats" hidden></div>
-      <div class="queue" id="queue" hidden></div>
+      <div class="weeknote" id="weeknote" hidden></div>
+      <div id="sections"></div>
     </div>
 
     <div class="applybar">
       <span class="status" id="tally"></span>
-      <span class="status" id="writes"></span>
-      <button class="apply" id="applyBtn" disabled>Apply approved changes</button>
+      <span class="status" id="note"></span>
     </div>
   </div>
 </div>
 
 <script>
-  const fmt = n => (n === null || n === undefined) ? '&mdash;'
-    : (Math.abs(n) >= 1e6 ? (n / 1e6).toLocaleString('en-US', {maximumFractionDigits: 0}) + 'm'
-                          : n.toLocaleString('en-US', {maximumFractionDigits: 2}));
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  function niceDate(iso) {
-    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
-    return m ? `${+m[3]} ${MONTHS[+m[2] - 1]} ${m[1]}` : (iso || '');
-  }
-
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const niceDate = iso => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+    return m ? `${+m[3]} ${MONTHS[+m[2]-1]} ${m[1]}` : (iso || '');
+  };
+  const fmt = n => (n === null || n === undefined) ? '&mdash;'
+    : (Math.abs(n) >= 1e6 ? (n/1e6).toLocaleString('en-US',{maximumFractionDigits:0}) + 'm'
+                          : n.toLocaleString('en-US',{maximumFractionDigits:2}));
 
   async function api(path) {
     const r = await fetch(path, { credentials: 'same-origin' });
@@ -393,149 +447,155 @@
     return r.json();
   }
 
-  function valueCell(v, cls) {
+  function cell(v, cls) {
     if (v === null || v === undefined) return '<td class="blank">&mdash;</td>';
     const neg = typeof v === 'number' && v < 0 ? ' neg' : '';
     return '<td class="' + (cls || '') + neg + '">' + fmt(v) + '</td>';
   }
 
-  function metricRows(rec) {
+  // Populated records show what IS stored, not what "would" be written — the
+  // write already happened. Column headers say so.
+  function metricRows(rec, done) {
     return (rec.metrics || []).map(m => {
-      const decided = m.action === 'keep ours' ? 'keep' : '';
-      const afterCls = m.action === 'fill' ? 'after' : (m.action === 'keep ours' ? 'kept' : '');
+      const act = done ? (m.action === 'fill' ? 'populated' : (m.action === 'keep ours' ? 'kept' : m.action))
+                       : m.action;
+      const afterCls = m.action === 'fill' ? (done ? 'kept' : 'after') : (m.action === 'keep ours' ? 'kept' : '');
       return '<tr><td class="k">' + esc(m.name) + '</td>'
-        + valueCell(m.firebase) + valueCell(m.yahoo) + valueCell(m.after, afterCls)
-        + '<td class="act ' + decided + '">' + esc(m.action || '') + '</td></tr>';
+        + cell(m.firebase, done && m.action === 'fill' ? 'kept' : '')
+        + cell(m.yahoo) + (done ? '' : cell(m.after, afterCls))
+        + '<td class="act">' + esc(act || '') + '</td></tr>';
     }).join('');
   }
 
-  function fillRows(rec) {
-    return (rec.sections || []).map(s => {
+  function sectionsBlock(rec) {
+    if (!rec.sections || !rec.sections.length) return '';
+    const rows = rec.sections.map(s => {
       const pct = s.total ? Math.round(s.after / s.total * 100) : 0;
-      const dim = s.after === s.before ? ' was' : '';
-      return '<div class="fillrow" data-stmt="' + esc(s.name) + '" data-n="' + (s.fills || 0) + '">'
-        + '<span class="sname">' + esc(s.name) + '</span>'
-        + '<span class="bar">' + (pct ? '<i class="' + dim.trim() + '" style="width:' + pct + '%"></i>' : '') + '</span>'
+      return '<div class="fillrow"><span class="sname">' + esc(s.name) + '</span>'
+        + '<span class="bar">' + (pct ? '<i style="width:' + pct + '%"></i>' : '') + '</span>'
         + '<span class="n">' + s.before + ' &rarr; ' + s.after + '/' + s.total + '</span></div>';
     }).join('');
+    return '<div class="sub-title">Fields populated</div><div class="fill">' + rows + '</div>';
   }
 
-  function checkRows(rec) {
+  function checksBlock(rec) {
     const passed = (rec.checks || []).filter(c => c.pass);
     if (!passed.length) return '';
     return '<div class="sub-title" style="margin-top:14px">Checks passed</div>'
       + passed.map(c => '<div class="chk ok"><span class="st">PASS</span><span>' + esc(c.name) + '</span></div>').join('');
   }
 
-  function noteFor(rec) {
+  // The warning is stored ON the record and travels with the data. Terse by
+  // rule: name TEK2day Finance, state the fact, stop.
+  function warnBlock(rec) {
     const failed = (rec.checks || []).filter(c => !c.pass);
+    if (!failed.length && !rec.note) return '';
     let html = '';
-    failed.forEach(c => {
-      html += '<div class="note"><b>FAIL &mdash; ' + esc(c.name) + '.</b> ' + esc(c.detail || '') + '</div>';
-    });
+    if (failed.length) {
+      html += '<div class="warnbox"><div class="warnlabel">'
+        + (failed.length > 1 ? failed.length + ' warnings stored on this record' : 'Warning stored on this record')
+        + '</div>';
+      failed.forEach(c => {
+        html += '<div class="warntext">' + esc(c.name) + ': ' + esc(c.detail || '') + '</div>';
+      });
+      html += '<div class="warnwhere">Shown on the site, in exports, and by Kilby.</div></div>';
+    }
     if (rec.note) html += '<div class="note' + (rec.note_kind === 'good' ? ' good' : '') + '">' + esc(rec.note) + '</div>';
     return html;
   }
 
-  function rowHtml(rec, enabled) {
-    const flagged = rec.status === 'REVIEW';
-    const inert = rec.status === 'RETRY_LATER' || rec.status === 'NO_SOURCE';
-    const cls = ['row', flagged ? 'flag' : '', inert ? 'later' : ''].filter(Boolean).join(' ');
-    const stateCls = flagged ? 'red' : (rec.status === 'CLEAN' ? 'green' : '');
+  function rowHtml(rec, kind) {
+    const done = kind === 'clean' || kind === 'warned';
+    const cls = ['row', kind === 'warned' ? 'flag' : '', kind === 'clean' ? 'done' : '',
+                 kind === 'none' || kind === 'waiting' ? 'later' : ''].filter(Boolean).join(' ');
+    const stateCls = kind === 'warned' ? 'red' : (kind === 'clean' ? 'green' : '');
+    const inert = !done;
+    const head = done
+      ? '<th>metric</th><th>Firebase now</th><th>Yahoo</th><th></th>'
+      : '<th>metric</th><th>Firebase now</th><th>Yahoo</th><th></th>';
 
-    // Decisions are hidden, not disabled-looking, while the apply path does not
-    // exist — an approve button that cannot approve is worse than none.
-    const acts = (!inert && enabled)
-      ? '<button class="approve" aria-pressed="false">Approve</button>'
-        + '<button class="reject" aria-pressed="false">Reject</button>'
-      : '';
-
-    return '<div class="' + cls + '" data-id="' + esc(rec.id) + '">'
-      + '<div class="rmain">'
-      +   '<span class="sym">' + esc(rec.symbol) + '</span>'
-      +   '<span class="per">' + esc(rec.period) + (rec.period_end ? ' &middot; ended ' + esc(niceDate(rec.period_end)) : '') + '</span>'
-      +   '<span class="state ' + stateCls + '">' + esc(rec.state_label || '') + '</span>'
-      +   '<span class="r num">' + (inert ? '&mdash;' : (rec.fields || 0)) + '</span><span></span>'
-      +   '<span class="acts">' + acts + '</span>'
-      +   '<span class="caret">&#9656;</span>'
-      + '</div>'
-      + '<div class="detail">'
-      +   '<div class="dcols">'
-      +     '<div><table><thead><tr><th>metric</th><th>Firebase now</th><th>Yahoo today</th>'
-      +       '<th>if you approve</th><th></th></tr></thead><tbody>' + metricRows(rec) + '</tbody></table></div>'
-      +     '<div>' + (rec.sections && rec.sections.length
-                        ? '<div class="sub-title">Include in write</div><div class="fill">' + fillRows(rec) + '</div>'
-                        : '') + checkRows(rec) + '</div>'
-      +   '</div>'
-      +   noteFor(rec)
-      +   '<div class="dfoot"><span class="src">SOURCE: ' + esc(rec.source || 'Yahoo Finance') + ' &middot; TEK2day Finance</span></div>'
+    return '<div class="' + cls + '"><div class="rmain">'
+      + '<span class="sym">' + esc(rec.symbol) + '</span>'
+      + '<span class="per">' + esc(rec.period) + (rec.period_end ? ' &middot; ended ' + esc(niceDate(rec.period_end)) : '') + '</span>'
+      + '<span class="state ' + stateCls + '">' + esc(rec.state_label || '') + '</span>'
+      + '<span class="r num">' + (inert ? '&mdash;' : (rec.fields || 0)) + '</span><span></span>'
+      + '<span class="when">' + (rec.populated_at ? esc(String(rec.populated_at).slice(11,16)) : '') + '</span>'
+      + '<span class="caret">&#9656;</span>'
+      + '</div><div class="detail">'
+      +   warnBlock(rec)
+      +   '<div class="dcols"><div><table><thead><tr>' + head + '</tr></thead><tbody>'
+      +     metricRows(rec, done) + '</tbody></table></div><div>'
+      +     sectionsBlock(rec) + checksBlock(rec) + '</div></div>'
+      +   '<div class="dfoot"><span class="src">TEK2day Finance &middot; source ' + esc(rec.source || 'Yahoo Finance') + '</span></div>'
       + '</div></div>';
+  }
+
+  function section(title, blurb, dot, recs, kind, cols) {
+    if (!recs.length) return '';
+    return '<div class="queue">'
+      + '<div class="qhead solo secthead"><span class="dot ' + dot + '"></span>' + title
+      +   ' <em>' + blurb + '</em></div>'
+      + '<div class="qhead cols"><span>ticker</span><span>period</span><span>' + cols
+      +   '</span><span class="r">fields</span><span></span><span>populated</span><span></span></div>'
+      + recs.map(r => rowHtml(r, kind)).join('')
+      + '</div>';
   }
 
   function render(p) {
     document.getElementById('viewer').textContent = p.viewer || '';
     document.getElementById('runmeta').innerHTML =
-      'source <b>' + esc(p.source) + '</b> &middot; read <b>' + esc(p.source_read_at || '&mdash;')
-      + '</b> &middot; target <b>' + esc(p.target) + '</b>';
+      'source <b>' + esc(p.source) + '</b> &middot; via the weekly financials pull &middot; run <b>'
+      + esc(p.source_read_at || '') + '</b> &middot; target <b>' + esc(p.target) + '</b>';
 
-    const s = p.summary || {};
+    const recs = p.records || [];
+    const warned = recs.filter(r => r.status === 'REVIEW' && r.fields > 0);
+    const clean  = recs.filter(r => r.status === 'CLEAN');
+    const waiting = recs.filter(r => r.status === 'RETRY_LATER');
+    const none   = recs.filter(r => r.status === 'NO_SOURCE' || (r.status === 'REVIEW' && !r.fields));
+    const fields = clean.concat(warned).reduce((s, r) => s + (r.fields || 0), 0);
+
     document.getElementById('stats').innerHTML =
-        '<div class="stat review"><div class="n">' + (s.needs_review || 0) + '</div><div class="l">Needs review</div></div>'
-      + '<div class="stat clean"><div class="n">' + (s.checks_passed || 0) + '</div><div class="l">Checks passed</div></div>'
-      + '<div class="stat"><div class="n">' + (s.no_action || 0) + '</div><div class="l">No action</div></div>'
-      + '<div class="stat fields"><div class="n">' + (s.fields_proposed || 0) + '</div><div class="l">Fields proposed</div></div>';
+        '<div class="stat clean"><div class="n">' + clean.length + '</div><div class="l">Populated cleanly</div></div>'
+      + '<div class="stat review"><div class="n">' + warned.length + '</div><div class="l">Populated with a warning</div></div>'
+      + '<div class="stat"><div class="n">' + (none.length + waiting.length) + '</div><div class="l">Cannot be populated</div></div>'
+      + '<div class="stat fields"><div class="n">' + fields.toLocaleString('en-US') + '</div>'
+      +   '<div class="l">Fields populated</div><div class="l wk">run of ' + esc(p.source_read_at || '') + '</div></div>';
     document.getElementById('stats').hidden = false;
-    document.getElementById('sideCount').textContent = (s.needs_review || 0) + (s.checks_passed || 0);
+    document.getElementById('sideCount').textContent = clean.length + warned.length;
 
-    const active = (p.records || []).filter(r => r.status === 'REVIEW' || r.status === 'CLEAN');
-    const inert  = (p.records || []).filter(r => r.status !== 'REVIEW' && r.status !== 'CLEAN');
+    document.getElementById('sections').innerHTML =
+        section('Populated cleanly', 'every check passed &middot; written, nothing to do', 'green', clean, 'clean', 'checks')
+      + section('Populated with a warning', 'written, and the warning travels with the record &mdash; shown on the site, in exports, and by Kilby', 'red', warned, 'warned', 'warning attached')
+      + section('Cannot be populated', 'no source has the data &middot; disclosed as a coverage gap', 'grey', none, 'none', 'why')
+      + section('Waiting on Yahoo', 'reported, not yet published upstream &middot; the next pull populates it', 'amber', waiting, 'waiting', 'why');
 
-    let html = '<div class="qhead"><span>ticker</span><span>period</span><span>state</span>'
-             + '<span class="r">fields</span><span></span><span>' + (p.decisions_enabled ? 'decision' : '') + '</span><span></span></div>';
-    html += active.map(r => rowHtml(r, p.decisions_enabled)).join('');
-    if (inert.length) {
-      html += '<div class="qhead spaced solo"><span>no action available</span></div>';
-      html += inert.map(r => rowHtml(r, false)).join('');
-    }
-    const q = document.getElementById('queue');
-    q.innerHTML = html;
-    q.hidden = false;
-
-    q.querySelectorAll('.rmain').forEach(el => el.addEventListener('click', ev => {
-      if (ev.target.closest('button, .linkish, label, input')) return;
+    document.querySelectorAll('.rmain').forEach(el => el.addEventListener('click', ev => {
+      if (ev.target.closest('button, .linkish')) return;
       el.closest('.row').classList.toggle('open');
     }));
 
-    const banner = document.getElementById('banner');
-    if (!p.decisions_enabled) {
-      banner.innerHTML = 'READ ONLY &mdash; this proposal can be reviewed but not applied yet. '
-        + 'Approving and writing arrives in the next release.';
-    } else {
-      banner.hidden = true;
-    }
-
+    document.getElementById('banner').hidden = true;
     document.getElementById('tally').innerHTML =
-      '<b>' + active.length + '</b> record(s) awaiting review';
-    document.getElementById('writes').innerHTML = p.decisions_enabled
-      ? 'Writes <b>0</b> fields'
-      : 'Review only &mdash; approving arrives in the next release';
-    document.getElementById('applyBtn').hidden = !p.decisions_enabled;
+      '<b>' + (clean.length + warned.length) + '</b> record(s) populated &middot; <b>'
+      + fields.toLocaleString('en-US') + '</b> fields';
+    document.getElementById('note').innerHTML =
+      'Nothing on this page requires action. Warnings are stored on the records themselves.';
   }
 
   (async function load() {
     const banner = document.getElementById('banner');
     try {
       const list = await api('/admin/api/data-review/proposals');
-      const side = document.getElementById('sideProposals');
-      side.innerHTML = (list.proposals || []).map((x, i) =>
+      const runs = list.proposals || [];
+      document.getElementById('sideRuns').innerHTML = runs.map((x, i) =>
         '<div class="side-item' + (i === 0 ? ' active' : '') + '"><span>' + esc(x.id) + '</span></div>').join('')
-        || '<div class="side-item"><span style="color:var(--muted)">none</span></div>';
+        || '<div class="side-item"><span style="color:var(--muted)">none yet</span></div>';
 
-      if (!list.proposals || !list.proposals.length) {
-        banner.innerHTML = 'No repair proposals yet. Run the repair job to generate one.';
+      if (!runs.length) {
+        banner.innerHTML = 'No runs yet. The weekly financials pull writes one each time it runs.';
         return;
       }
-      render(await api('/admin/api/data-review/proposals/' + encodeURIComponent(list.proposals[0].id)));
+      render(await api('/admin/api/data-review/proposals/' + encodeURIComponent(runs[0].id)));
     } catch (err) {
       banner.innerHTML = esc(err.message);
     }

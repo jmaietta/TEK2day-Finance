@@ -96,8 +96,11 @@ def get_proposal(proposal_id: str, request: Request) -> dict:
         "status": data.get("status", "open"),
         # Echoed so the page can show who is signed in without a second call.
         "viewer": admin_email,
-        # Until the apply path ships, the page must not offer decisions it
-        # cannot honour. The page reads this rather than assuming.
+        # There is no approval step. Records that pass their checks are populated
+        # automatically by the weekly pull; records that fail one are populated
+        # too, with the warning written onto the record so it travels with the
+        # data. This page reports what happened — it is not a queue, and it must
+        # never imply an action that does not exist.
         "decisions_enabled": False,
         "summary": proposals.summarise(records),
         "records": records,
