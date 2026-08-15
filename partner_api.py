@@ -641,6 +641,150 @@ def equity_summary(request: Request, symbol: str):
     )
 
 
+# ── financial statements ─────────────────────────────────────────────────────
+#
+# The largest thing TEK2day gives Kilby. Kilby holds three fundamentals numbers
+# and no statements at all — no income statement, no balance sheet, no cash
+# flow, no history.
+
+_STATEMENTS = {
+    "income": ("income", "Income Statement"),
+    "balance_sheet": ("balance_sheet", "Balance Sheet"),
+    "cash_flow": ("cash_flow", "Cash Flow"),
+}
+
+_STATEMENT_FIELDS = {
+    "income": "INCOME_FIELDS",
+    "balance_sheet": "BALANCE_FIELDS",
+    "cash_flow": "CASHFLOW_FIELDS",
+}
+
+# How many periods to return. Quarterly history runs 5-8 periods and annual
+# reaches about five years; asking for more than exists is not an error, it is
+# simply the coverage we have, and `coverage` in the envelope says so.
+_MAX_PERIODS = 8
+
+
+def _field_pairs(fields):
+    """The field lists mix bare names with (key, label) pairs."""
+    for entry in fields:
+        if isinstance(entry, (list, tuple)):
+            yield entry[0], entry[1]
+        else:
+            yield entry, entry
+
+
+def _period_kind(key: str) -> str | None:
+    """Annual or quarterly, from the DOCUMENT ID PATTERN only.
+
+    FS2. Never from `freq` and never by sorting `period_end`: MSFT's 2026-FY
+    and 2026-Q2 BOTH end 2026-06-30, so a date sort can hand back a full year's
+    revenue for a quarterly question — a 3.7x error delivered confidently.
+
+    `freq` currently happens to be reliable for annual records (measured: 474 of
+    474 carry "FY"), but it is None on ~9% of quarterly ones, and a single
+    annual record without it becomes a quarter. The key pattern cannot drift.
+    """
+    if envelope.QUARTER_RE.fullmatch(key or ""):
+        return "quarterly"
+    if envelope.ANNUAL_RE.fullmatch(key or ""):
+        return "annual"
+    return None
+
+
+@router.get("/equities/{symbol}/financials")
+def equity_financials(
+    request: Request,
+    symbol: str,
+    statement: str = Query("income", pattern="^(income|balance_sheet|cash_flow)$"),
+    frequency: str = Query("quarterly", pattern="^(quarterly|annual)$"),
+):
+    """One financial statement, at one frequency, most recent periods first."""
+    require_kilby(request)
+    requested = {"symbol": symbol, "statement": statement, "frequency": frequency}
+    norm, meta, refusal = _resolve(symbol)
+    if refusal is not None:
+        return refusal
+    if meta is None:
+        return _not_found(requested, f"No financial statements held for {norm}")
+
+    import terminal  # noqa: PLC0415
+
+    try:
+        records = terminal._all_financials(norm) or []
+    except Exception:
+        raise HTTPException(status_code=503, detail="Financials unavailable") from None
+
+    wanted = [r for r in records if _period_kind(r.get("period") or "") == frequency]
+    if not wanted:
+        return envelope.build(
+            "financial_statement", None, requested, {"symbol": norm, "name": meta.get("name")},
+            coverage=envelope.coverage_block([]),
+        )
+
+    # Sort by the KEY, not by period_end — for the same reason the split above
+    # uses the key. Keys sort correctly as strings: 2025-Q4 < 2026-Q1.
+    wanted.sort(key=lambda r: r.get("period") or "")
+    selected = wanted[-_MAX_PERIODS:]
+    selected.reverse()  # most recent first, the order a reader wants
+
+    section, title = _STATEMENTS[statement]
+    fields = getattr(terminal, _STATEMENT_FIELDS[statement])
+
+    rows = []
+    for key, label in _field_pairs(fields):
+        values = [(r.get(section) or {}).get(key) for r in selected]
+        # A row nothing reports is noise, not information.
+        if not any(envelope.finite(v) for v in values):
+            continue
+        rows.append({
+            "field": key,
+            "label": label,
+            "values": [envelope.clean(v) for v in values],
+            "display": [_fin_display(statement, key, v) for v in values],
+        })
+
+    periods = [
+        envelope.period_block(r.get("period"), str(r.get("period_end") or "") or None)
+        for r in selected
+    ]
+
+    data = {
+        "symbol": norm,
+        "statement": statement,
+        "title": title,
+        "frequency": frequency,
+        "periods": periods,
+        "rows": rows,
+    }
+
+    # Completeness describes the MOST RECENT period — the one a reader is
+    # looking at — rather than the set, which would average away a stub.
+    newest = selected[0] if selected else None
+    coverage = envelope.coverage_block([r.get("period") for r in wanted])
+
+    return envelope.build(
+        "financial_statement", data, requested,
+        {"symbol": norm, "name": meta.get("name")},
+        record=newest,
+        period=periods[0] if periods else None,
+        coverage=coverage,
+    )
+
+
+def _fin_display(statement: str, field: str, value):
+    """Rendered string for a statement figure, by the same rules the site uses."""
+    if not envelope.finite(value):
+        return None
+    import terminal  # noqa: PLC0415
+    try:
+        if "EPS" in field:
+            return terminal._price(value)
+        return terminal._fin(value) if hasattr(terminal, "_fin") else terminal._dollar(value)
+    except Exception:
+        return None
+
+
 # No /capabilities endpoint: FastAPI already publishes the API surface as
 # OpenAPI at /openapi.json, with browsable docs at /docs. That is the standard
 # every client generator and gateway reads, and it is generated from the code so
