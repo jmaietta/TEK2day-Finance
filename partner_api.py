@@ -243,6 +243,38 @@ def _yahoo_knows(symbol: str) -> bool:
     return known
 
 
+def _resolve(symbol: str):
+    """Shared symbol resolution. Returns (normalised, meta, coverage) or a
+    JSONResponse to return as-is.
+
+    Every data endpoint goes through this, so FS1 is established in exactly one
+    place rather than re-implemented per endpoint with slightly different rules.
+    """
+    requested = {"symbol": symbol}
+    norm = envelope.normalize_symbol(symbol)
+
+    if not envelope.valid_symbol(norm):
+        return None, None, _not_found(requested, f"Not a valid ticker: {symbol}")
+
+    try:
+        meta = storage.get_ticker_meta(norm)
+    except Exception:
+        raise HTTPException(status_code=503, detail="Symbol lookup unavailable") from None
+
+    if not meta:
+        return norm, None, None
+
+    stored = envelope.normalize_symbol(meta.get("symbol") or norm)
+    if stored != norm:
+        return None, None, JSONResponse(
+            status_code=409,
+            content=envelope.integrity_error(
+                requested, {"symbol": stored}, f"Record for {norm} carries symbol {stored}"
+            ),
+        )
+    return norm, meta, None
+
+
 def _not_found(requested: dict, detail: str) -> JSONResponse:
     """No such symbol, anywhere. Shaped like envelope.integrity_error so a
     consumer parses every failure the same way."""
@@ -271,35 +303,11 @@ def resolve_symbol(request: Request, symbol: str = Query(..., min_length=1, max_
     """
     require_kilby(request)
     requested = {"symbol": symbol}
-    norm = envelope.normalize_symbol(symbol)
-
-    # Shape first, so a malformed string never reaches Firestore or Yahoo.
-    if not envelope.valid_symbol(norm):
-        return _not_found(requested, f"Not a valid ticker: {symbol}")
-
-    try:
-        meta = storage.get_ticker_meta(norm)
-    except Exception:
-        # FS8: say the backend is unavailable rather than answering from Yahoo
-        # and passing it off as ours.
-        raise HTTPException(
-            status_code=503, detail="Symbol lookup unavailable"
-        ) from None
+    norm, meta, refusal = _resolve(symbol)
+    if refusal is not None:
+        return refusal
 
     if meta:
-        # FS1. The document id and its symbol field should agree; if they ever
-        # disagree we would be about to answer about a different company, which
-        # is the one failure an institutional user cannot forgive.
-        stored = envelope.normalize_symbol(meta.get("symbol") or norm)
-        if stored != norm:
-            return JSONResponse(
-                status_code=409,
-                content=envelope.integrity_error(
-                    requested,
-                    {"symbol": stored},
-                    f"Record for {norm} carries symbol {stored}",
-                ),
-            )
         return envelope.build(
             "symbol_resolution",
             {
@@ -332,6 +340,134 @@ def resolve_symbol(request: Request, symbol: str = Query(..., min_length=1, max_
         )
 
     return _not_found(requested, f"No such ticker: {norm}")
+
+
+# ── company summary ──────────────────────────────────────────────────────────
+#
+# Built from terminal._market_snapshot(), NOT from app._summary_payload().
+#
+# They carry the same figures from the same reads, but _summary_payload is the
+# WEBSITE's payload: every value has been through terminal._price / _dollar /
+# _count / _ratio, which return display strings ("$182.45", "4.32T", "28.4x")
+# and the literal string "N/A" when a value is missing. Handing those to a
+# partner would break three failsafes at once -- "N/A" is not null (FS7),
+# "4.32T" bakes in a scale the envelope separately declares as `units` (FS4),
+# and two decimals in trillions loses about $5bn of market cap.
+#
+# _market_snapshot returns the same numbers raw. Same data logic, same reads,
+# no extra Yahoo traffic -- it just skips the browser formatting.
+
+# Which figures are computed at request time from the live quote, and which come
+# out of storage. A consumer that cannot tell them apart will assume the whole
+# response is as fresh as its freshest field.
+_LIVE_FIELDS = (
+    "price", "change", "change_pct", "volume", "market_cap", "enterprise_value",
+    "pe_ttm", "forward_pe", "ps_ttm", "ev_revenue", "ev_ebitda", "ev_opcf", "ev_fcf",
+)
+
+
+@router.get("/equities/{symbol}/summary")
+def equity_summary(request: Request, symbol: str):
+    """Company overview: quote, valuation and trailing fundamentals.
+
+    Anything price-derived is computed NOW from a live quote -- price, market
+    cap, enterprise value, P/E and the EV multiples. Stored prices are
+    yesterday's close and exist for history and charts only.
+    """
+    require_kilby(request)
+    requested = {"symbol": symbol}
+    norm, meta, refusal = _resolve(symbol)
+    if refusal is not None:
+        return refusal
+
+    if meta is None:
+        # Same three-way distinction /symbols/resolve makes. A ticker we do not
+        # cover is not an error and is not a company we can describe.
+        if _yahoo_knows(norm):
+            return envelope.build(
+                "company_summary", None, requested, {"symbol": norm, "name": None},
+                warnings=[{"code": "not_covered",
+                           "note": "Not covered by TEK2day Finance."}],
+            )
+        return _not_found(requested, f"No such ticker: {norm}")
+
+    import terminal  # noqa: PLC0415
+
+    try:
+        snap = terminal._market_snapshot(norm)
+    except Exception:
+        raise HTTPException(status_code=503, detail="Summary unavailable") from None
+
+    if not snap:
+        return _not_found(requested, f"No data held for {norm}")
+
+    # FS1 again, on the way OUT. _market_snapshot echoes the symbol it was given,
+    # so this catches a mix-up between the lookup and the build rather than
+    # trusting that nothing moved in between.
+    if envelope.normalize_symbol(snap.get("symbol") or "") != norm:
+        return JSONResponse(
+            status_code=409,
+            content=envelope.integrity_error(
+                requested, {"symbol": snap.get("symbol")},
+                "Snapshot returned a different symbol",
+            ),
+        )
+
+    data = {
+        "symbol": norm,
+        "name": meta.get("name") or snap.get("name") or norm,
+        "sector": snap.get("sector") or None,
+        "industry": snap.get("industry") or None,
+        "description": snap.get("summary") or None,
+        "quote": {
+            "price": snap.get("price"),
+            "change": snap.get("change"),
+            "change_pct": snap.get("change_pct"),
+            "volume": snap.get("volume"),
+            "fifty_two_week_high": snap.get("fifty_two_week_high"),
+            "fifty_two_week_low": snap.get("fifty_two_week_low"),
+        },
+        "valuation": {
+            "market_cap": snap.get("market_cap"),
+            "enterprise_value": snap.get("enterprise_value"),
+            "pe_ttm": snap.get("pe_ttm"),
+            "forward_pe": snap.get("forward_pe"),
+            "ps_ttm": snap.get("ps_ttm"),
+            "ev_revenue": snap.get("ev_revenue"),
+            "ev_ebitda": snap.get("ev_ebitda"),
+            "ev_opcf": snap.get("ev_opcf"),
+            "ev_fcf": snap.get("ev_fcf"),
+        },
+        "fundamentals": {
+            "revenue": snap.get("revenue"),
+            "ebitda": snap.get("ebitda"),
+            "net_income": snap.get("net_income"),
+            "eps_ttm": snap.get("eps_ttm"),
+            "forward_eps": snap.get("forward_eps"),
+            "diluted_shares": snap.get("shares"),
+            "beta": snap.get("beta"),
+            "dividend_yield": snap.get("dividend_yield"),
+        },
+        # FS5: the description travels WITH the value. "Share count" is five
+        # different valid numbers for MSFT, spread ~27m shares (~$14bn of market
+        # cap), so the one we mean has to be stated rather than assumed.
+        "definitions": {
+            "diluted_shares": "Diluted Average Shares, most recent quarter, raw count",
+            "eps_ttm": "Net income / diluted average shares, trailing twelve months",
+            "market_cap": "Live price x diluted average shares, computed at request time",
+            "enterprise_value": "Market cap + total debt - cash",
+        },
+        "basis": {
+            "live": list(_LIVE_FIELDS),
+            "note": "Live fields are computed at request time; all others are stored.",
+        },
+    }
+
+    return envelope.build(
+        "company_summary", data, requested,
+        {"symbol": norm, "name": data["name"]},
+        live=True,
+    )
 
 
 # No /capabilities endpoint: FastAPI already publishes the API surface as
