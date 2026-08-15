@@ -397,11 +397,45 @@ def _display(data: dict) -> dict:
         except Exception:
             return None
 
+    def fmt_estimates(estimates):
+        """Estimates render too, or the drift just moves to the estimates table.
+
+        Metric-dependent: revenue figures are dollars in the billions, EPS is a
+        per-share price, growth is a FRACTION and does multiply by 100 (NVDA's
+        0.4257 is the "roughly 43%" figure), and analyst counts are integers.
+        """
+        if not estimates:
+            return None
+        out = {}
+        for section in ("eps", "revenue"):
+            block = estimates.get(section)
+            if not isinstance(block, dict):
+                continue
+            rendered = {}
+            for metric, by_period in block.items():
+                if not isinstance(by_period, dict):
+                    continue
+                if metric in ("avg", "high", "low", "yearagorevenue"):
+                    f = terminal._dollar if section == "revenue" else terminal._price
+                elif metric == "yearagoeps":
+                    f = terminal._price
+                elif metric == "growth":
+                    f = terminal._pct
+                elif metric == "numberofanalysts":
+                    f = lambda v: f"{int(v):,}"
+                else:
+                    continue  # currency and anything unrecognised stay raw only
+                rendered[metric] = {p: fmt(v, f) for p, v in by_period.items()}
+            if rendered:
+                out[section] = rendered
+        return out or None
+
     quote = data.get("quote") or {}
     valuation = data.get("valuation") or {}
     fundamentals = data.get("fundamentals") or {}
 
     return {
+        "estimates": fmt_estimates(data.get("estimates")),
         "quote": {
             "price": fmt(quote.get("price"), terminal._price),
             "change": fmt(quote.get("change"), terminal._price),

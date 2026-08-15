@@ -110,6 +110,60 @@ def test_zero_is_rendered_not_dropped():
     check("zero renders", d["quote"]["change"] == "$0.00", str(d["quote"]["change"]))
 
 
+ESTIMATES = {
+    "revenue": {
+        "avg": {"0q": 113_550_860_190.0, "+1q": 154_215_461_860.0},
+        "growth": {"0q": 0.1082, "+1q": 0.0728},
+        "numberofanalysts": {"0q": 28.0, "+1q": 21.0},
+        "currency": {"0q": "USD"},
+    },
+    "eps": {
+        "avg": {"0q": 1.97656, "0y": 8.80268},
+        "growth": {"0q": 0.0684},
+        "yearagoeps": {"0q": 1.85},
+    },
+    "periods": {"0q": "Curr Q"},
+    "rolling": True,
+}
+
+
+def test_estimates_render_to_the_same_strings_the_card_shows():
+    """Without these, Kilby formats the estimates table with its own rules and
+    the drift simply moves from the quote to the estimates."""
+    d = partner_api._display({**SAMPLE, "estimates": ESTIMATES})
+    est = d["estimates"]
+    check("revenue avg 0q", est["revenue"]["avg"]["0q"] == "$113.55B",
+          str(est["revenue"]["avg"]["0q"]))
+    check("revenue avg +1q", est["revenue"]["avg"]["+1q"] == "$154.22B")
+    check("eps avg 0q", est["eps"]["avg"]["0q"] == "$1.98", str(est["eps"]["avg"]["0q"]))
+    check("eps avg 0y", est["eps"]["avg"]["0y"] == "$8.80")
+
+
+def test_estimate_growth_is_a_fraction_and_does_multiply():
+    """Unlike dividend_yield, growth IS stored as a fraction — NVDA's 0.4257 is
+    the "roughly 43%" figure. Getting these two backwards is the whole risk."""
+    d = partner_api._display({**SAMPLE, "estimates": ESTIMATES})
+    got = d["estimates"]["revenue"]["growth"]["0q"]
+    check("growth 0.1082 renders 10.82%", got == "10.82%", str(got))
+
+
+def test_analyst_counts_are_whole_numbers():
+    d = partner_api._display({**SAMPLE, "estimates": ESTIMATES})
+    got = d["estimates"]["revenue"]["numberofanalysts"]["0q"]
+    check("28.0 renders as 28", got == "28", str(got))
+
+
+def test_non_numeric_estimate_metrics_are_left_out():
+    """Currency is already a string; formatting it would be meaningless."""
+    d = partner_api._display({**SAMPLE, "estimates": ESTIMATES})
+    check("currency omitted from display", "currency" not in d["estimates"]["revenue"])
+
+
+def test_absent_estimates_produce_null_not_an_empty_shell():
+    d = partner_api._display(SAMPLE)
+    check("no estimates -> null", d.get("estimates") is None, str(d.get("estimates")))
+
+
 def test_structure_mirrors_the_data_exactly():
     """A consumer reads data.valuation.market_cap to calculate and
     display.valuation.market_cap to render. If the shapes diverge it has to
