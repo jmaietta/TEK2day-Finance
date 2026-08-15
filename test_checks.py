@@ -109,6 +109,71 @@ def test_zero_shares_does_not_divide_by_zero():
 
 # ── what a partner may see ───────────────────────────────────────────────────
 
+def balance_check(assets, liabilities, equity, minority=None):
+    bs = {
+        "Total Assets": assets,
+        "Total Liabilities Net Minority Interest": liabilities,
+        "Stockholders Equity": equity,
+    }
+    if minority is not None:
+        bs["Minority Interest"] = minority
+    doc = {"income": {}, "balance_sheet": bs, "cash_flow": {}}
+    for c in proposals.run_checks(doc, {}, "2023-FY"):
+        if c["name"].startswith("Assets"):
+            return c
+    return None
+
+
+def test_walmart_2023_reconciles_exactly():
+    """The real record. `Stockholders Equity` is the PARENT's share only;
+    Walmart consolidates Walmex and Flipkart and carries the rest in Minority
+    Interest. Without it:
+
+        159,206 + 76,693          = 235,899  vs assets 243,197  -> "3% off"
+        159,206 + 76,693 + 7,298  = 243,197  vs assets 243,197  -> exact
+
+    Nine of Walmart's eleven periods were flagged as broken balance sheets.
+    None of them were."""
+    c = balance_check(243_197e6, 159_206e6, 76_693e6, 7_298e6)
+    check("WMT 2023-FY passes", c is not None and c["pass"], c["detail"] if c else "did not run")
+    check("WMT 2023-FY is exact", c is not None and "0.00%" in c["detail"],
+          c["detail"] if c else "")
+
+
+def test_exxon_2023_reconciles_exactly():
+    c = balance_check(376_317e6, 163_779e6, 204_802e6, 7_736e6)
+    check("XOM 2023-FY passes", c is not None and c["pass"], c["detail"] if c else "did not run")
+
+
+def test_companies_without_minority_interest_are_unaffected():
+    """Eight of the golden ten have none and always passed. They must keep
+    passing — the fix must not depend on the field being present."""
+    c = balance_check(1_000e6, 600e6, 400e6)
+    check("no minority interest still passes", c is not None and c["pass"],
+          c["detail"] if c else "did not run")
+
+
+def test_a_genuinely_broken_balance_sheet_still_fails():
+    """The point is to stop flagging SOUND records, not to stop checking."""
+    c = balance_check(1_000e6, 600e6, 100e6, 10e6)
+    check("real imbalance still fails", c is not None and not c["pass"],
+          c["detail"] if c else "did not run")
+
+
+def test_minority_interest_cannot_mask_a_real_imbalance():
+    """A small minority interest must not paper over a large gap."""
+    c = balance_check(1_000e6, 300e6, 300e6, 5e6)
+    check("small MI does not rescue a big gap", c is not None and not c["pass"],
+          c["detail"] if c else "did not run")
+
+
+def test_nan_minority_interest_is_treated_as_absent():
+    """Firestore stores Yahoo's NaN verbatim; adding it would poison the sum."""
+    c = balance_check(1_000e6, 600e6, 400e6, float("nan"))
+    check("NaN minority interest ignored", c is not None and c["pass"],
+          c["detail"] if c else "did not run")
+
+
 def test_internal_diagnostics_never_reach_a_partner():
     """HIS RULE: a Kilby user must never be told there is an error."""
     record = {

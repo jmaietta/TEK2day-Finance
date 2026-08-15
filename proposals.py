@@ -123,10 +123,31 @@ def run_checks(merged: dict, stored_all: dict, period: str) -> list[dict]:
     liabilities = bs.get("Total Liabilities Net Minority Interest")
     equity = bs.get("Stockholders Equity")
     if all(finite(x) for x in (assets, liabilities, equity)) and assets:
-        gap = abs((liabilities + equity) - assets) / assets
+        # `Stockholders Equity` is the PARENT's share only. A company that
+        # consolidates a subsidiary it does not wholly own carries the rest in
+        # Minority Interest, and the identity is not complete without it:
+        #
+        #   Assets = Liabilities + Stockholders Equity + Minority Interest
+        #
+        # Leaving it out flagged nine of Walmart's eleven periods as broken
+        # balance sheets. They are not. WMT 2023-FY:
+        #
+        #   159,206 + 76,693           = 235,899  vs assets 243,197  -> "3% off"
+        #   159,206 + 76,693 + 7,298   = 243,197  vs assets 243,197  -> exact
+        #
+        # Minority Interest is 7,298m — the gap to the dollar. Same story for
+        # XOM at 7,736m. Walmex and Flipkart for one, consolidated affiliates
+        # for the other.
+        #
+        # This is the second check found flagging correct records rather than
+        # bad data (the first was Diluted EPS x shares). A check that fires on
+        # sound records is worse than no check: its warnings ride ON the record.
+        minority = bs.get("Minority Interest")
+        total_equity_side = liabilities + equity + (minority if finite(minority) else 0.0)
+        gap = abs(total_equity_side - assets) / assets
         out.append({
             "name": "Assets = Liabilities + Equity",
-            "detail": f"{assets/1e6:,.0f}m vs {(liabilities+equity)/1e6:,.0f}m ({gap*100:.2f}% apart)",
+            "detail": f"{assets/1e6:,.0f}m vs {total_equity_side/1e6:,.0f}m ({gap*100:.2f}% apart)",
             "pass": gap <= 0.02,
         })
     return out
