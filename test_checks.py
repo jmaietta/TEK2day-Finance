@@ -31,14 +31,17 @@ def check(name, condition, detail=""):
         _failed.append(f"{name}{(' — ' + detail) if detail else ''}")
 
 
-def eps_check(eps, shares, ni):
+def eps_check(eps, shares, ni, ni_common=None):
     """Run the checks and return the EPS one, or None if it did not run."""
+    income = {
+        "Diluted EPS": eps,
+        "Diluted Average Shares": shares,
+        "Net Income": ni,
+    }
+    if ni_common is not None:
+        income["Net Income Common Stockholders"] = ni_common
     doc = {
-        "income": {
-            "Diluted EPS": eps,
-            "Diluted Average Shares": shares,
-            "Net Income": ni,
-        },
+        "income": income,
         "balance_sheet": {},
         "cash_flow": {},
     }
@@ -108,6 +111,55 @@ def test_zero_shares_does_not_divide_by_zero():
 
 
 # ── what a partner may see ───────────────────────────────────────────────────
+
+def test_agnc_2024_passes_with_preferred_dividends():
+    """EPS is net income to COMMON divided by diluted shares:
+
+        $731,000,000 / 786,000,000 shares = $0.93
+
+    AGNC is a mortgage REIT and carries heavy preferred stock. Checked against
+    total net income of $863,000,000 it failed by exactly its preferred
+    dividends -- $132,000,000 -- every period, forever."""
+    c = eps_check(0.93, 786_000_000, 863_000_000, ni_common=731_000_000)
+    check("AGNC FY2024 passes", c is not None and c["pass"],
+          c["detail"] if c else "did not run")
+
+
+def test_preferred_heavy_company_fails_without_the_common_figure():
+    """Proves the fix is doing the work: the same record checked against total
+    net income is what used to fail."""
+    c = eps_check(0.93, 786_000_000, 863_000_000)
+    check("without NI-common it fails", c is not None and not c["pass"],
+          c["detail"] if c else "did not run")
+
+
+def test_common_figure_is_preferred_when_both_exist():
+    c = eps_check(1.00, 1_000_000_000, 5_000_000_000, ni_common=1_000_000_000)
+    check("uses NI-common not NI", c is not None and c["pass"],
+          c["detail"] if c else "did not run")
+
+
+def test_falls_back_to_net_income_when_common_is_absent():
+    """Most companies have no preferred stock and store no common figure."""
+    c = eps_check(2.50, 1_000_000_000, 2_500_000_000)
+    check("falls back to Net Income", c is not None and c["pass"],
+          c["detail"] if c else "did not run")
+
+
+def test_nan_common_figure_falls_back():
+    c = eps_check(2.50, 1_000_000_000, 2_500_000_000, ni_common=float("nan"))
+    check("NaN common figure falls back", c is not None and c["pass"],
+          c["detail"] if c else "did not run")
+
+
+def test_a_genuinely_wrong_eps_still_fails():
+    """AERA FY2025, a real record: $1,455,448 / 2,396,505 shares = $0.61, but
+    the stored EPS is 0.00. Sixty-one cents does not round to zero. The check
+    must keep catching this."""
+    c = eps_check(0.0, 2_396_505, 1_455_448, ni_common=1_455_448)
+    check("AERA's wrong EPS still fails", c is not None and not c["pass"],
+          c["detail"] if c else "did not run")
+
 
 def balance_check(assets, liabilities, equity, minority=None):
     bs = {
