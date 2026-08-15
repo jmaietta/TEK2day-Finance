@@ -366,6 +366,81 @@ _LIVE_FIELDS = (
 )
 
 
+def _display(data: dict) -> dict:
+    """The same figures, formatted once, by us.
+
+    A partner that formats our numbers itself has to reimplement our rules —
+    when a figure becomes T rather than B, how many decimals a ratio gets, the
+    "x" suffix. The day those drift, two products show the same company
+    differently, which is precisely the problem this endpoint exists to fix.
+    Market cap disagreeing by $40bn was a definition problem; market cap
+    disagreeing by a rounding rule would be a pointless one.
+
+    So: raw values for arithmetic, these for rendering. A consumer keeps every
+    decision about colour, type and layout, and gives up only how many decimals
+    a trillion gets.
+
+    Uses the WEBSITE's own formatters, so a number rendered here is
+    character-for-character what finance.tek2dayholdings.com shows.
+
+    Missing stays null rather than becoming the string "N/A" — how to draw an
+    absent value is the consumer's call (Kilby draws an em dash), and a string
+    there would be indistinguishable from a real one.
+    """
+    import terminal  # noqa: PLC0415
+
+    def fmt(value, formatter):
+        if not envelope.finite(value):
+            return None
+        try:
+            return formatter(value)
+        except Exception:
+            return None
+
+    quote = data.get("quote") or {}
+    valuation = data.get("valuation") or {}
+    fundamentals = data.get("fundamentals") or {}
+
+    return {
+        "quote": {
+            "price": fmt(quote.get("price"), terminal._price),
+            "change": fmt(quote.get("change"), terminal._price),
+            "change_pct": fmt(quote.get("change_pct"), lambda v: f"{v:+.2f}%"),
+            "volume": fmt(quote.get("volume"), terminal._count),
+            "day_high": fmt(quote.get("day_high"), terminal._price),
+            "day_low": fmt(quote.get("day_low"), terminal._price),
+            "fifty_two_week_high": fmt(quote.get("fifty_two_week_high"), terminal._price),
+            "fifty_two_week_low": fmt(quote.get("fifty_two_week_low"), terminal._price),
+        },
+        "valuation": {
+            "market_cap": fmt(valuation.get("market_cap"), terminal._dollar),
+            "enterprise_value": fmt(valuation.get("enterprise_value"), terminal._dollar),
+            "pe_ttm": fmt(valuation.get("pe_ttm"), terminal._ratio),
+            "forward_pe": fmt(valuation.get("forward_pe"), terminal._ratio),
+            "ps_ttm": fmt(valuation.get("ps_ttm"), terminal._ratio),
+            "ev_revenue": fmt(valuation.get("ev_revenue"), terminal._ratio),
+            "ev_ebitda": fmt(valuation.get("ev_ebitda"), terminal._ratio),
+            "ev_opcf": fmt(valuation.get("ev_opcf"), terminal._ratio),
+            "ev_fcf": fmt(valuation.get("ev_fcf"), terminal._ratio),
+        },
+        "fundamentals": {
+            "revenue": fmt(fundamentals.get("revenue"), terminal._dollar),
+            "ebitda": fmt(fundamentals.get("ebitda"), terminal._dollar),
+            "net_income": fmt(fundamentals.get("net_income"), terminal._dollar),
+            "eps_ttm": fmt(fundamentals.get("eps_ttm"), terminal._price),
+            "forward_eps": fmt(fundamentals.get("forward_eps"), terminal._price),
+            "diluted_shares": fmt(fundamentals.get("diluted_shares"), terminal._count),
+            "beta": fmt(fundamentals.get("beta"), terminal._num),
+            # NOT terminal._pct — that multiplies by 100, and this value is
+            # already a percentage. AAPL stores 0.35 meaning 0.35%, which _pct
+            # would render as "35.00%", overstating Apple's dividend yield by
+            # a hundredfold. Caught by reading the real record rather than
+            # trusting the formatter's name.
+            "dividend_yield": fmt(fundamentals.get("dividend_yield"), lambda v: f"{v:.2f}%"),
+        },
+    }
+
+
 def _estimates(symbol: str) -> dict | None:
     """Consensus EPS and revenue estimates, raw.
 
@@ -520,6 +595,10 @@ def equity_summary(request: Request, symbol: str):
             "note": "Live fields are computed at request time; all others are stored.",
         },
     }
+    # Mirrors the structure above key for key, so a consumer reads
+    # data.valuation.market_cap to calculate and display.valuation.market_cap
+    # to render, and the two can never describe different numbers.
+    data["display"] = _display(data)
 
     return envelope.build(
         "company_summary", data, requested,
