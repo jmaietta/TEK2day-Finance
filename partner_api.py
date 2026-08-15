@@ -366,6 +366,61 @@ _LIVE_FIELDS = (
 )
 
 
+def _estimates(symbol: str) -> dict | None:
+    """Consensus EPS and revenue estimates, raw.
+
+    Built from `terminal._estimate_history` rather than `app._estimates_payload`
+    for the same reason the rest of this endpoint is: that builder formats for
+    the browser, turning growth into "12.40%" and revenue into "91.8B" and
+    missing values into the string "N/A".
+
+    ⚠️ THE PERIOD KEYS ARE ROLLING, NOT FIXED. `0q` means "the current quarter"
+    at the moment of reading, not a specific quarter. When a company reports,
+    every key shifts down one and the numbers change wholesale — that is a
+    ROLLOVER, not analysts revising their views. A consumer comparing today's
+    `0q` against last week's `0q` across a report date is comparing two
+    different quarters and will call it a revision. Hence `rolling: true` and
+    the labels travelling with the values.
+    """
+    try:
+        import terminal  # noqa: PLC0415
+        history = terminal._estimate_history(symbol)
+    except Exception:
+        return None
+    if not history:
+        return None
+
+    record = history[0]
+    out: dict = {}
+    for prefix, name in (("eps", "eps"), ("rev", "revenue")):
+        metrics = {
+            key[len(prefix) + 1:]: value
+            for key, value in record.items()
+            if key.startswith(f"{prefix}_")
+        }
+        if not metrics:
+            continue
+        section: dict = {}
+        for metric, by_period in metrics.items():
+            if not isinstance(by_period, dict):
+                continue
+            section[metric] = {
+                period: envelope.clean(value) for period, value in by_period.items()
+            }
+        if section:
+            out[name] = section
+
+    if not out:
+        return None
+
+    out["periods"] = {
+        code: terminal.PERIOD_LABELS.get(code, code) for code in terminal.PERIOD_ORDER
+    }
+    out["rolling"] = True
+    out["note"] = "Period keys are relative to today and shift when a company reports."
+    return out
+
+
 @router.get("/equities/{symbol}/summary")
 def equity_summary(request: Request, symbol: str):
     """Company overview: quote, valuation and trailing fundamentals.
@@ -424,9 +479,12 @@ def equity_summary(request: Request, symbol: str):
             "change": snap.get("change"),
             "change_pct": snap.get("change_pct"),
             "volume": snap.get("volume"),
+            "day_high": snap.get("day_high"),
+            "day_low": snap.get("day_low"),
             "fifty_two_week_high": snap.get("fifty_two_week_high"),
             "fifty_two_week_low": snap.get("fifty_two_week_low"),
         },
+        "estimates": _estimates(norm),
         "valuation": {
             "market_cap": snap.get("market_cap"),
             "enterprise_value": snap.get("enterprise_value"),

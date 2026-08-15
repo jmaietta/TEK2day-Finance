@@ -644,6 +644,11 @@ def _market_snapshot(symbol):
         "volume": quote.get("volume"),
         "fifty_two_week_high": quote.get("fifty_two_week_high"),
         "fifty_two_week_low": quote.get("fifty_two_week_low"),
+        # Already fetched by _live_quote and previously dropped here, so the
+        # chart had the day's range and nothing else could reach it. Passing it
+        # through costs no extra Yahoo call.
+        "day_high": quote.get("day_high"),
+        "day_low": quote.get("day_low"),
         "shares": shares,
         "market_cap": market_cap,
         "enterprise_value": enterprise_value,
