@@ -927,6 +927,13 @@ def comparisons(request: Request, symbols: str = Query(..., min_length=1)):
             return norm, meta, None
         return norm, meta, snap
 
+    # Every symbol can normalise away — "\t" survives the split above because
+    # only spaces are turned into separators, then normalises to "". That left
+    # `ordered` empty and ThreadPoolExecutor(max_workers=0) raises, turning a
+    # malformed request into a 500. It is the same answer as no symbols at all.
+    if not ordered:
+        return _not_found(requested, "No usable symbols requested")
+
     # Concurrently: each snapshot is a live quote, and six of them in series is
     # slow enough to time a request out.
     with ThreadPoolExecutor(max_workers=len(ordered)) as pool:
