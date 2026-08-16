@@ -17,10 +17,12 @@ OpenAPI at /openapi.json (browsable at /docs), which FastAPI generates.
 This module must never acquire app.COMMAND_LOCK — that lock serialises the Rich
 terminal renderer, and partner traffic must not queue behind website traffic.
 """
+import logging
 import os
 import threading
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -30,6 +32,11 @@ import envelope
 import storage
 
 router = APIRouter(prefix="/partner/v1", tags=["partner"])
+
+# A wrong-company answer is the one failure an institutional user cannot
+# forgive, so when FS1 discards one it must leave a trace for HIM — never for
+# the caller, who is told nothing beyond the figure being unavailable.
+logger = logging.getLogger("tek2day.partner")
 
 # Bumped only for breaking changes to a response contract. Kilby pins on this.
 API_VERSION = "1.0.0"
@@ -783,6 +790,175 @@ def _fin_display(statement: str, field: str, value):
         return terminal._fin(value) if hasattr(terminal, "_fin") else terminal._dollar(value)
     except Exception:
         return None
+
+
+# ── comparisons ──────────────────────────────────────────────────────────────
+#
+# Kilby has no compare tool at all — grepped, there is nothing — so this is one
+# of only two things in Phase 3 it genuinely cannot do without TEK2day.
+
+_MAX_COMPARE = 6
+
+# The 15 metrics the website compares on, in its order. `kind` drives both the
+# rendered string and how a consumer should right-align it.
+_COMPARE_METRICS = [
+    ("price",            "Price",             "price"),
+    ("market_cap",       "Market Cap",        "money"),
+    ("enterprise_value", "EV",                "money"),
+    ("revenue",          "Revenue (TTM)",     "money"),
+    ("ebitda",           "EBITDA (TTM)",      "money"),
+    ("net_income",       "Net Income (TTM)",  "money"),
+    ("eps_ttm",          "EPS (TTM)",         "price"),
+    ("forward_eps",      "EPS (Fwd)",         "price"),
+    ("pe_ttm",           "P/E TTM (GAAP)",    "ratio"),
+    ("forward_pe",       "Fwd P/E (Est)",     "ratio"),
+    ("ps_ttm",           "P/S (TTM)",         "ratio"),
+    ("ev_revenue",       "EV/Rev (TTM)",      "ratio"),
+    ("ev_ebitda",        "EV/EBITDA (TTM)",   "ratio"),
+    ("ev_opcf",          "EV/OpCF (TTM)",     "ratio"),
+    ("ev_fcf",           "EV/FCF (TTM)",      "ratio"),
+]
+
+
+def _compare_display(kind: str, value):
+    if not envelope.finite(value):
+        return None
+    import terminal  # noqa: PLC0415
+    try:
+        if kind == "price":
+            return terminal._price(value)
+        if kind == "ratio":
+            return terminal._ratio(value)
+        return terminal._dollar(value)
+    except Exception:
+        return None
+
+
+@router.get("/comparisons")
+def comparisons(request: Request, symbols: str = Query(..., min_length=1)):
+    """Compare up to six companies on the metrics the website compares on.
+
+    FS1 ON A SET, which is a stronger promise than FS1 on a single symbol.
+
+    Every requested symbol is accounted for in the response, in the order it
+    was asked for, whether or not we hold it. A comparison that quietly drops
+    one is the dangerous shape: a reader sees a complete-looking table, counts
+    columns without thinking, and never notices the company they cared about is
+    not in it. So an uncovered symbol comes back as a column marked
+    `covered: false` with null values, and `not_covered` lists it plainly.
+    """
+    require_kilby(request)
+    requested_raw = [s for s in str(symbols or "").replace(" ", ",").split(",") if s]
+    requested = {"symbols": requested_raw}
+
+    if not requested_raw:
+        return _not_found(requested, "No symbols requested")
+    if len(requested_raw) > _MAX_COMPARE:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "api_version": API_VERSION,
+                "request_id": _request_id(),
+                "error": "too_many_symbols",
+                "detail": f"Maximum {_MAX_COMPARE} symbols at a time; {len(requested_raw)} requested",
+                "requested": requested,
+                "retrieved_at": _now_iso(),
+            },
+        )
+
+    # De-duplicate but KEEP ORDER — asking for NVDA twice should not produce two
+    # identical columns, and the order asked for is the order to display.
+    seen, ordered = set(), []
+    for raw in requested_raw:
+        norm = envelope.normalize_symbol(raw)
+        if norm and norm not in seen:
+            seen.add(norm)
+            ordered.append(norm)
+
+    def load(norm):
+        """Resolve and snapshot one symbol. Never raises — a symbol that cannot
+        be loaded is a column marked uncovered, not a failed comparison."""
+        if not envelope.valid_symbol(norm):
+            return norm, None, None
+        try:
+            meta = storage.get_ticker_meta(norm)
+        except Exception:
+            return norm, None, None
+        if not meta:
+            return norm, None, None
+        try:
+            import terminal  # noqa: PLC0415
+            snap = terminal._market_snapshot(norm)
+        except Exception:
+            return norm, meta, None
+
+        # FS1 on the way OUT, per company. The summary endpoint does this and a
+        # comparison needs it more, not less: a wrong-company column sits inside
+        # a table under the right heading, next to companies that ARE right,
+        # which is far harder to notice than a single wrong card. Discard it and
+        # let the column render as uncovered rather than show another company's
+        # numbers under this ticker.
+        if snap and envelope.normalize_symbol(snap.get("symbol") or "") != norm:
+            logger.warning(
+                "comparison symbol mismatch",
+                extra={"detail": f"asked={norm} got={snap.get('symbol')}"},
+            )
+            return norm, meta, None
+        return norm, meta, snap
+
+    # Concurrently: each snapshot is a live quote, and six of them in series is
+    # slow enough to time a request out.
+    with ThreadPoolExecutor(max_workers=len(ordered)) as pool:
+        loaded = list(pool.map(load, ordered))
+
+    companies, missing = [], []
+    for norm, meta, snap in loaded:
+        covered = bool(meta and snap)
+        if not covered:
+            missing.append(norm)
+        companies.append({
+            "symbol": norm,
+            "name": (meta or {}).get("name") if meta else None,
+            "covered": covered,
+        })
+
+    rows = []
+    for key, label, kind in _COMPARE_METRICS:
+        values, display = [], []
+        for _, _, snap in loaded:
+            value = (snap or {}).get(key)
+            values.append(envelope.clean(value) if envelope.finite(value) else None)
+            display.append(_compare_display(kind, value))
+        # Unlike a single-company statement, a row is KEPT even when every value
+        # is missing: the metric list is the comparison's frame, and a row that
+        # vanishes for one set of companies and appears for another makes two
+        # comparisons impossible to read against each other.
+        rows.append({"field": key, "label": label, "kind": kind,
+                     "values": values, "display": display})
+
+    data = {
+        "companies": companies,
+        "rows": rows,
+        "not_covered": missing,
+        "definitions": {
+            "market_cap": "Live price x diluted average shares, computed at request time",
+            "enterprise_value": "Market cap + total debt - cash",
+        },
+    }
+
+    warnings = []
+    if missing:
+        warnings.append({
+            "code": "not_covered",
+            "note": "Not covered by TEK2day Finance: " + ", ".join(missing) + ".",
+        })
+
+    return envelope.build(
+        "comparison", data, requested,
+        {"symbols": [c["symbol"] for c in companies]},
+        live=True,
+        warnings=warnings,
+    )
 
 
 # No /capabilities endpoint: FastAPI already publishes the API surface as
