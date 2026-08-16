@@ -41,7 +41,8 @@ UNIVERSE = {
 
 SNAPS = {
     "NVDA": {"symbol": "NVDA", "price": 225.16, "market_cap": 5.49e12, "revenue": 2.53e11,
-             "pe_ttm": 34.4, "eps_ttm": 6.54, "enterprise_value": 5.49e12},
+             "pe_ttm": 34.4, "eps_ttm": 6.54, "enterprise_value": 5.49e12,
+             "ttm_as_of": "2026-04-30", "balance_sheet_as_of": "2026-04-30"},
     "AMD": {"symbol": "AMD", "price": 514.39, "market_cap": 8.53e11, "revenue": 4.13e10,
             "pe_ttm": 132.5, "eps_ttm": 3.88, "enterprise_value": 8.52e11},
     "INTC": {"symbol": "INTC", "price": 102.50, "market_cap": 5.23e11, "revenue": 5.70e10,
@@ -276,6 +277,65 @@ def test_a_failing_snapshot_does_not_fail_the_comparison():
     check("AMD keeps its column", got == ["NVDA", "AMD"], str(got))
     amd = next(c for c in body["data"]["companies"] if c["symbol"] == "AMD")
     check("AMD marked uncovered", amd["covered"] is False)
+
+
+
+# ── as-of dates travel per company ───────────────────────────────────────────
+#
+# A comparison is read ACROSS, so two columns whose TTM windows end on different
+# dates are not strictly comparable — and nothing else in the response reveals
+# it. Measured 16 Aug 2026: AMZN's window ended 31 March while MSFT's ended
+# 30 June, because Yahoo had not filled Amazon's June quarter. Both figures were
+# correct. Putting them side by side without saying so was not.
+
+def test_each_company_carries_its_own_as_of_dates():
+    install()
+    _, body = call("NVDA,AMD")
+    nvda = body["data"]["companies"][0]
+    check("ttm date present", nvda.get("ttm_as_of") == "2026-04-30", str(nvda))
+    check("balance sheet date present",
+          nvda.get("balance_sheet_as_of") == "2026-04-30", str(nvda))
+
+
+def test_columns_may_carry_different_as_of_dates():
+    """THE CASE THIS EXISTS FOR. One stale quarter at Yahoo and two columns are
+    describing different twelve-month periods."""
+    install()
+    amd = {**SNAPS["AMD"], "ttm_as_of": "2026-03-31", "balance_sheet_as_of": "2026-03-31"}
+    terminal._market_snapshot = lambda s: (amd if s == "AMD" else SNAPS.get(s))
+    _, body = call("NVDA,AMD")
+    dates = [c.get("ttm_as_of") for c in body["data"]["companies"]]
+    check("dates differ and both are stated", dates == ["2026-04-30", "2026-03-31"], str(dates))
+
+
+def test_an_uncovered_column_claims_no_dates():
+    """No data, no period. A date beside null figures would imply we hold
+    something for that company."""
+    install()
+    _, body = call("NVDA,VOO")
+    voo = body["data"]["companies"][1]
+    check("no ttm date", voo.get("ttm_as_of") is None, str(voo))
+    check("no balance sheet date", voo.get("balance_sheet_as_of") is None, str(voo))
+
+
+def test_a_snapshot_without_dates_does_not_break_the_table():
+    """Older cached snapshots predate these fields."""
+    install()
+    terminal._market_snapshot = lambda s: ({k: v for k, v in SNAPS["NVDA"].items()
+                                            if not k.endswith("_as_of")}
+                                           if s == "NVDA" else SNAPS.get(s))
+    status, body = call("NVDA,AMD")
+    check("still 200", status == 200, str(status))
+    check("date is simply null",
+          body["data"]["companies"][0].get("ttm_as_of") is None, str(body["data"]["companies"][0]))
+
+
+def test_the_dates_are_defined():
+    install()
+    _, body = call("NVDA,AMD")
+    defs = body["data"]["definitions"]
+    check("ttm_as_of defined", "ttm_as_of" in defs, str(list(defs)))
+    check("balance_sheet_as_of defined", "balance_sheet_as_of" in defs, str(list(defs)))
 
 
 def main():

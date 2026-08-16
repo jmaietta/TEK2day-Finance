@@ -622,6 +622,25 @@ def equity_summary(request: Request, symbol: str):
             "beta": snap.get("beta"),
             "dividend_yield": snap.get("dividend_yield"),
         },
+        # WHICH TWELVE MONTHS, AND WHICH BALANCE SHEET.
+        #
+        # Every figure above labelled TTM covers a twelve-month period, and that
+        # period does not always end on the latest quarter: Yahoo opens a quarter
+        # within hours of a release and fills it in days or weeks later, and
+        # until it does the window sits one quarter back. Enterprise value has
+        # the same exposure through the balance sheet behind it.
+        #
+        # Measured 16 Aug 2026: AMZN's TTM ended 31 March while the card implied
+        # "now", and ORCL's enterprise value stood on a February balance sheet
+        # while Yahoo had May's. Neither was knowable from the response.
+        #
+        # An institutional user asked "as of when?" deserves an answer, and FS4
+        # says a figure is declared rather than inferred. Null means we hold no
+        # such period at all — which is why the figure beside it is null too.
+        "periods": {
+            "ttm_as_of": snap.get("ttm_as_of"),
+            "balance_sheet_as_of": snap.get("balance_sheet_as_of"),
+        },
         # FS5: the description travels WITH the value. "Share count" is five
         # different valid numbers for MSFT, spread ~27m shares (~$14bn of market
         # cap), so the one we mean has to be stated rather than assumed.
@@ -630,6 +649,8 @@ def equity_summary(request: Request, symbol: str):
             "eps_ttm": "Net income / diluted average shares, trailing twelve months",
             "market_cap": "Live price x diluted average shares, computed at request time",
             "enterprise_value": "Market cap + total debt - cash",
+            "ttm_as_of": "Last day of the twelve months every TTM figure covers",
+            "balance_sheet_as_of": "Period end of the balance sheet behind enterprise value",
         },
         "basis": {
             "live": list(_LIVE_FIELDS),
@@ -920,6 +941,15 @@ def comparisons(request: Request, symbols: str = Query(..., min_length=1)):
             "symbol": norm,
             "name": (meta or {}).get("name") if meta else None,
             "covered": covered,
+            # PER COMPANY, not per table — and that is the point. A comparison is
+            # read ACROSS, so two columns whose TTM windows end on different
+            # dates are not strictly comparable, and nothing else in the response
+            # would reveal it. Measured 16 Aug 2026: AMZN's window ended 31 March
+            # while MSFT's ended 30 June, because Yahoo had not filled Amazon's
+            # June quarter. Both figures were correct; putting them side by side
+            # without saying so was not.
+            "ttm_as_of": (snap or {}).get("ttm_as_of"),
+            "balance_sheet_as_of": (snap or {}).get("balance_sheet_as_of"),
         })
 
     rows = []
@@ -943,6 +973,8 @@ def comparisons(request: Request, symbols: str = Query(..., min_length=1)):
         "definitions": {
             "market_cap": "Live price x diluted average shares, computed at request time",
             "enterprise_value": "Market cap + total debt - cash",
+            "ttm_as_of": "Last day of the twelve months this company's TTM figures cover",
+            "balance_sheet_as_of": "Period end of the balance sheet behind enterprise value",
         },
     }
 
