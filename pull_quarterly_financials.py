@@ -87,6 +87,8 @@ REVIEW_TRIP_MIN_TICKERS = 50
 
 _reviewed = 0
 _tickers_seen = 0
+_tickers_populated = 0
+_this_ticker_populated = False
 _tripped = False
 _records: list[dict] = []   # what this run did, for the Data Review page
 
@@ -97,19 +99,38 @@ def _safety_trip(total_tickers: int) -> bool:
     Emits DATA REVIEW SAFETY TRIP, which the "Data review safety trip" alert
     policy watches for and emails on. Nothing further is populated in this run;
     the pull itself carries on ingesting, because that is its actual job.
+
+    ⚠️ MEASURED PER TICKER, NOT PER RECORD — and it has to be. This ratio was
+    originally populated-records over tickers-seen, which silently assumed at
+    most one stub per ticker. It is not bounded by 1, so it stopped meaning
+    "what proportion of companies look broken" the moment a company could
+    contribute two.
+
+    That assumption broke on 16 Aug 2026 when proposals.is_stub started
+    recognising skeleton records — Yahoo posts field names first and fills the
+    numbers in later, and Firestore stores those blanks as `nan`, so a section
+    full of labels and empty of data used to read as complete. Measured across
+    ten tickers, reachable stubs went from 0.4 to 1.3 per ticker. The old ratio
+    would have crossed 0.80 within the first hundred companies and disabled
+    populating for the whole run — the fix would have switched the repair off.
+
+    Counting tickers keeps the number bounded and keeps the threshold meaning
+    what its comment says: more than 80% of COMPANIES carrying a stub is a
+    detection fault, not a backlog.
     """
     global _tripped
     if _tripped or _tickers_seen < REVIEW_TRIP_MIN_TICKERS:
         return _tripped
-    ratio = _reviewed / max(_tickers_seen, 1)
+    ratio = _tickers_populated / max(_tickers_seen, 1)
     if ratio > REVIEW_TRIP_RATIO:
         _tripped = True
         logger.error(
-            "DATA REVIEW SAFETY TRIP: populated %d records across %d tickers (%.0f%%), "
+            "DATA REVIEW SAFETY TRIP: populated a record for %d of %d tickers (%.0f%%), "
             "above the %.0f%% threshold. Stub detection is likely broken rather than the "
             "backlog being large. Populating is disabled for the rest of this run; "
-            "ingestion continues.",
-            _reviewed, _tickers_seen, ratio * 100, REVIEW_TRIP_RATIO * 100,
+            "ingestion continues. (%d records populated in total.)",
+            _tickers_populated, _tickers_seen, ratio * 100, REVIEW_TRIP_RATIO * 100,
+            _reviewed,
         )
     return _tripped
 
@@ -120,7 +141,7 @@ def _review(symbol: str, doc: dict) -> int:
     Never raises: proposals.safe_review_and_populate swallows everything and
     logs, so a bad record cannot end the pull.
     """
-    global _reviewed
+    global _reviewed, _tickers_populated, _this_ticker_populated
     if not REVIEW_ENABLED or _tripped:
         return 0
     rec = proposals.safe_review_and_populate(symbol, doc["period"], doc, logger=logger)
@@ -132,6 +153,11 @@ def _review(symbol: str, doc: dict) -> int:
         _records.append(rec)
         return 0
     _reviewed += 1
+    # Count this COMPANY once, however many of its periods are repaired — the
+    # safety trip asks what proportion of companies look broken.
+    if not _this_ticker_populated:
+        _this_ticker_populated = True
+        _tickers_populated += 1
     _records.append(rec)
     warnings = [c for c in (rec.get("checks") or []) if not c["pass"]]
     logger.info(
@@ -144,8 +170,9 @@ def _review(symbol: str, doc: dict) -> int:
 
 def _note_ticker(i: int, total: int) -> None:
     """Record progress and evaluate the safety trip, once per ticker."""
-    global _tickers_seen
+    global _tickers_seen, _this_ticker_populated
     _tickers_seen = i
+    _this_ticker_populated = False
     _safety_trip(total)
 
 
@@ -236,8 +263,9 @@ def main():
         q_written, a_written, failed, elapsed,
     )
     logger.info(
-        "Data review: populated %d stub record(s) across %d tickers%s",
-        populated, _tickers_seen, " [SAFETY TRIP FIRED]" if _tripped else "",
+        "Data review: populated %d stub record(s) across %d of %d tickers%s",
+        populated, _tickers_populated, _tickers_seen,
+        " [SAFETY TRIP FIRED]" if _tripped else "",
     )
 
     # Save what this run did so the Data Review page can show it. Wrapped: a

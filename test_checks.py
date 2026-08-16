@@ -263,6 +263,117 @@ def test_absence_still_travels():
     check("absence note names no fault", "error" not in str(notes).lower())
 
 
+
+# ── stub detection: a skeleton is not a statement ───────────────────────────
+#
+# Yahoo posts a record within hours of a release with the field NAMES present
+# and the numbers missing, then fills them in over days or weeks. Firestore
+# stores those blanks as `nan`, NOT as absent keys — so a section is full of
+# labels and empty of data.
+#
+# The old test asked whether a section had any fields at all. Oracle's quarter
+# ending 2024-11-30 has 66 balance-sheet field names of which 2 hold a number,
+# so it read as complete, and the repair job skipped it on every run since
+# November 2024. The column is still blank on the website.
+
+def _sheet(**overrides):
+    """A balance sheet shaped like Yahoo's: many keys, mostly NaN."""
+    nan = float("nan")
+    block = {name: nan for name in (
+        "Total Assets", "Total Debt", "Cash And Cash Equivalents",
+        "Common Stock Equity", "Net PPE", "Goodwill", "Working Capital",
+    )}
+    block.update(overrides)
+    return block
+
+
+def _doc(income=None, balance=None, cash_flow=None):
+    return {
+        "income": {"Total Revenue": 1.0, "Net Income": 1.0} if income is None else income,
+        "balance_sheet": _sheet(**{"Total Assets": 1.0}) if balance is None else balance,
+        "cash_flow": {"Operating Cash Flow": 1.0} if cash_flow is None else cash_flow,
+    }
+
+
+def test_a_complete_record_is_not_a_stub():
+    check("complete record passes", not proposals.is_stub(_doc()))
+
+
+def test_an_entirely_empty_section_is_a_stub():
+    """The case the old test already caught. It must keep working."""
+    check("empty balance sheet", proposals.is_stub(_doc(balance={})))
+    check("empty income", proposals.is_stub(_doc(income={})))
+    check("empty cash flow", proposals.is_stub(_doc(cash_flow={})))
+
+
+def test_a_section_of_field_names_with_no_numbers_is_a_stub():
+    """ORACLE 2024-Q4, THE CASE THE OLD TEST MISSED. Seven field names, every
+    value NaN. Reads as populated, contains nothing."""
+    check("all-NaN balance sheet is a stub", proposals.is_stub(_doc(balance=_sheet())))
+
+
+def test_two_obscure_lines_do_not_make_a_balance_sheet():
+    """Oracle's record is not all-NaN — it holds two deferred-tax figures. So
+    "does it contain ANY number" is also the wrong question; counting is."""
+    sheet = _sheet()
+    sheet["Non Current Deferred Taxes Liabilities"] = 2_864_000_000.0
+    sheet["Non Current Deferred Liabilities"] = 2_864_000_000.0
+    check("real numbers without Total Assets", proposals.is_stub(_doc(balance=sheet)))
+
+
+def test_the_anchor_line_alone_is_enough():
+    """The inverse. A sparse statement that HAS its headline figure is usable,
+    and repairing it would only overwrite nothing."""
+    check("Total Assets alone", not proposals.is_stub(_doc(balance={"Total Assets": 5.0})))
+
+
+def test_income_accepts_either_headline():
+    """Not every issuer reports "Total Revenue" under that name — banks in
+    particular — and net income is universal."""
+    check("net income only", not proposals.is_stub(_doc(income={"Net Income": 1.0})))
+    check("total revenue only", not proposals.is_stub(_doc(income={"Total Revenue": 1.0})))
+    check("neither is a stub", proposals.is_stub(_doc(income={"Gross Profit": 1.0})))
+
+
+def test_a_nan_anchor_is_missing():
+    check("NaN Total Assets", proposals.is_stub(_doc(balance=_sheet(**{"Total Assets": float("nan")}))))
+    check("None Total Assets", proposals.is_stub(_doc(balance=_sheet(**{"Total Assets": None}))))
+
+
+def test_a_missing_section_key_is_a_stub():
+    doc = _doc()
+    del doc["cash_flow"]
+    check("absent section", proposals.is_stub(doc))
+
+
+# ── the safety trip counts COMPANIES, not records ───────────────────────────
+
+def test_the_trip_measures_tickers_not_records():
+    """The trip disables repairs when detection looks broken. Measured per
+    RECORD it is not bounded by 1, so a change that finds more stubs per company
+    would trip it and switch the repair off — which is what recognising
+    skeletons would have done: 0.4 to 1.3 reachable stubs per ticker."""
+    import pull_quarterly_financials as pull
+    pull._tripped = False
+    pull._tickers_seen = 100
+    pull._reviewed = 130          # 1.3 records per ticker — over 0.80 per RECORD
+    pull._tickers_populated = 40  # but only 40% of companies
+    check("does not trip on records", not pull._safety_trip(100))
+
+    pull._tickers_populated = 90  # 90% of companies really do look broken
+    check("trips on companies", pull._safety_trip(100))
+    pull._tripped = False
+
+
+def test_the_trip_stays_quiet_on_a_small_run():
+    import pull_quarterly_financials as pull
+    pull._tripped = False
+    pull._tickers_seen = 10
+    pull._tickers_populated = 10
+    check("below the minimum", not pull._safety_trip(10))
+    pull._tripped = False
+
+
 def main():
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

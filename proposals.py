@@ -54,14 +54,53 @@ def _num(v):
     return v if finite(v) else None
 
 
+# The line that makes each statement a statement. A balance sheet without Total
+# Assets is not a balance sheet, however many deferred-tax lines it carries.
+#
+# Income allows either headline because not every issuer reports "Total Revenue"
+# under that name — banks in particular — and net income is universal.
+ANCHOR_FIELDS = {
+    "income": ("Total Revenue", "Net Income"),
+    "balance_sheet": ("Total Assets",),
+    "cash_flow": ("Operating Cash Flow",),
+}
+
+
 def is_stub(doc: dict) -> bool:
     """A period whose contents never arrived.
 
-    Structural rather than a field-count threshold: a real filing populates all
-    three statements, so an empty section is the reliable signal and needs no
-    tuning per company (JPM's income statement has 38 fields, JNJ's has 49).
+    ⚠️ THIS USED TO ASK WHETHER A SECTION HAD ANY FIELDS AT ALL, AND THAT MISSED
+    THE COMMON CASE. Yahoo posts a skeleton within hours of a release: the field
+    NAMES arrive first and the numbers follow over days or weeks. Firestore
+    stores those blanks as `nan`, not as absent keys — so the section is full of
+    labels and empty of data, and a test counting labels calls it complete.
+
+    Oracle's quarter ending 2024-11-30, still in production on 16 Aug 2026:
+
+        balance_sheet   66 field names stored, 2 holding a number
+        Total Assets                nan
+        Total Debt                  nan
+        Cash And Cash Equivalents   nan
+        (the two real values are Non Current Deferred Taxes Liabilities
+         and Non Current Deferred Liabilities — 2,864,000,000 each)
+
+    The repair job has looked at that record on every run since November 2024,
+    concluded it was complete, and moved on. The column is blank on the website
+    to this day while Yahoo holds the real figures.
+
+    NOTE ALSO WHY "any real number" IS NOT THE TEST EITHER — that record has two
+    of them. Counting is the wrong question; two obscure liability lines do not
+    make a balance sheet. The anchor field is what a reader would need for the
+    statement to mean anything, so its absence is the reliable signal and, like
+    the old test, needs no tuning per company.
     """
-    return any(not (doc.get(section) or {}) for section in storage.STATEMENT_SECTIONS)
+    for section, anchors in ANCHOR_FIELDS.items():
+        block = doc.get(section) or {}
+        if not block:
+            return True
+        if not any(finite(block.get(field)) for field in anchors):
+            return True
+    return False
 
 
 def is_recent(doc: dict, days: int = RECENT_DAYS) -> bool:
