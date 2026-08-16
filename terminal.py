@@ -505,6 +505,33 @@ def _latest_balance_value(latest, keys):
     return _to_float(_first_value(latest.get("balance_sheet", {}), keys))
 
 
+def _balance_period(quarterly, annual):
+    """The most recent period that actually HOLDS a balance sheet.
+
+    A balance sheet is a point-in-time statement, so unlike revenue it is never
+    summed across quarters — it is taken whole from a single period. But it must
+    not be taken from the latest period regardless of whether that period has
+    one. A quarter Yahoo has opened but not yet populated would otherwise erase
+    the balance sheet, while the income statement survives because
+    `_statement_value` already falls back through prior quarters and annuals.
+
+    That asymmetry is not hypothetical. Oracle, 16 Aug 2026: Yahoo had not sent
+    the May quarter's figures, so cash and debt came back empty while revenue
+    was fine — and enterprise value silently became market cap, taking EV/Rev,
+    EV/EBITDA, EV/OpCF and EV/FCF down with it on the website, the terminal and
+    the partner API at once.
+
+    A balance sheet is always "as of last reported" anyway, so falling back to
+    the most recent one we hold is what the figure means, not an approximation
+    of it.
+    """
+    for period in list(quarterly or []) + list(annual or []):
+        sheet = period.get("balance_sheet")
+        if isinstance(sheet, dict) and any(value is not None for value in sheet.values()):
+            return period
+    return None
+
+
 def _estimate_value(data, prefix, metric, periods):
     metric_map = data.get(f"{prefix}_{metric}")
     if isinstance(metric_map, dict):
@@ -541,6 +568,10 @@ def _firestore_fundamentals(symbol, meta):
         "free_cashflow": None,
         "cash": None,
         "debt": None,
+        # Which period the balance sheet came from, and None when we hold none
+        # at all. Enterprise value depends on it, so a consumer must be able to
+        # tell "as of March" from "we do not have one".
+        "balance_sheet_as_of": None,
     }
     all_fins = _all_financials(symbol)
     if not all_fins:
@@ -591,12 +622,18 @@ def _firestore_fundamentals(symbol, meta):
         if result["operating_cashflow"] is not None and capex is not None:
             result["free_cashflow"] = result["operating_cashflow"] + capex
 
-    result["cash"] = _latest_balance_value(latest, [
+    # NOT `latest` — the most recent period that actually has a balance sheet.
+    # See _balance_period: an opened-but-unpopulated quarter used to erase cash
+    # and debt while revenue carried on, which turned enterprise value into
+    # market cap without saying so.
+    balance = _balance_period(quarterly, annual)
+    result["balance_sheet_as_of"] = (balance or {}).get("period_end")
+    result["cash"] = _latest_balance_value(balance, [
         "Cash And Cash Equivalents",
         "Cash Cash Equivalents And Short Term Investments",
         "Cash And Short Term Investments",
     ])
-    result["debt"] = _latest_balance_value(latest, [
+    result["debt"] = _latest_balance_value(balance, [
         "Total Debt",
         "Long Term Debt",
         "Long Term Debt And Capital Lease Obligation",
@@ -623,10 +660,21 @@ def _market_snapshot(symbol):
     price = quote.get("price")
     shares = fundamentals.get("shares")
     market_cap = price * shares if price is not None and shares is not None else None
+    # FS7: missing is never zero. `debt or 0` used to make "we hold no balance
+    # sheet" and "this company has no debt" produce the same enterprise value —
+    # market cap exactly — with nothing saying which. Four multiples are built
+    # on EV, so one absent balance sheet published five wrong figures.
+    #
+    # Inside a balance sheet we DO read an absent line as zero: the statement is
+    # there and does not report the item. Absent STATEMENT and absent LINE are
+    # different claims and are now treated differently.
+    has_balance_sheet = fundamentals.get("balance_sheet_as_of") is not None
     debt = fundamentals.get("debt") or 0
     cash = fundamentals.get("cash") or 0
     enterprise_value = (
-        market_cap + debt - cash if market_cap is not None else None
+        market_cap + debt - cash
+        if market_cap is not None and has_balance_sheet
+        else None
     )
     eps_ttm = _calc_ratio(fundamentals.get("net_income"), shares)
     forward_eps = _latest_forward_eps(symbol)
@@ -652,6 +700,11 @@ def _market_snapshot(symbol):
         "shares": shares,
         "market_cap": market_cap,
         "enterprise_value": enterprise_value,
+        # Which quarter the balance sheet behind EV came from, and None when we
+        # hold none. A portfolio manager reading ORCL's enterprise value while
+        # Yahoo is late with the May quarter deserves to know it stands on
+        # February's balance sheet.
+        "balance_sheet_as_of": fundamentals.get("balance_sheet_as_of"),
         "revenue": fundamentals.get("revenue"),
         "ebitda": fundamentals.get("ebitda"),
         "net_income": fundamentals.get("net_income"),
