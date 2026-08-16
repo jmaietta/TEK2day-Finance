@@ -7,26 +7,37 @@ No network, no Firestore.
 
 WHY THIS FILE EXISTS — Oracle, 16 August 2026.
 
-Yahoo had opened ORCL's May quarter but not yet sent its figures. Revenue was
-fine, because `_statement_value` already falls back through prior quarters and
-then annuals. Cash and debt were not, because they were read from the LATEST
-period regardless of whether that period held a balance sheet. So they came
-back empty.
+ORCL's enterprise value came back exactly equal to its market cap. The first two
+explanations were both wrong, and each was only ruled out by looking:
 
-Empty cash and debt were then read as ZERO, which made enterprise value come out
-exactly equal to market cap — and EV feeds EV/Rev, EV/EBITDA, EV/OpCF and
-EV/FCF. One quarter Yahoo had not populated yet published FIVE wrong figures,
-on the website, the terminal and the partner API at once, with nothing saying
-anything was missing.
+  "Yahoo has not sent the May quarter."   Yahoo had it, fully populated.
+  "TEK2day has not ingested it."          TEK2day had it too — in 2026-FY.
 
-Two rules are pinned here:
+Oracle's fiscal year ends 31 May, so `2026-Q2` and `2026-FY` BOTH end
+2026-05-31. The quarterly record's balance sheet is empty; the annual one holds
+all seventy fields. The code read the quarterly one, found nothing, and
 
-1. A balance sheet FALLS BACK, like the income statement already did. It is a
-   point-in-time statement and is always "as of last reported", so taking the
-   most recent one we hold is what the figure means rather than an approximation
-   of it.
-2. No balance sheet at all means NO ENTERPRISE VALUE. Not market cap. An empty
-   cell is a true statement; market cap wearing EV's label is not.
+    debt = fundamentals.get("debt") or 0
+
+turned "we have no balance sheet" into "this company has no debt". EV feeds
+EV/Rev, EV/EBITDA, EV/OpCF and EV/FCF, so a record that was merely in the wrong
+place published FIVE wrong figures at once, on the website, the terminal and the
+partner API, every one of them plausible.
+
+Three rules are pinned here:
+
+1. The balance sheet is chosen by DATE, across quarterly and annual alike. It is
+   a point-in-time statement, so two records closing the same day describe the
+   same sheet. This is safe ONLY for the balance sheet — MSFT's 2026-FY and
+   2026-Q2 also share a date and their revenues differ by 3.7x.
+2. It FALLS BACK, like the income statement already did, to the most recent
+   period that actually holds one.
+3. Absent means absent: no balance sheet, no enterprise value, and none of the
+   four multiples built on it. Not market cap. An empty cell is a true
+   statement; market cap wearing EV's label is not.
+
+And the trap that nearly undid all three: Firestore holds `nan`, not None, where
+Yahoo sent a blank. A presence test counts that as a sheet.
 """
 import sys
 
@@ -53,6 +64,10 @@ def period(period_end, freq="Q", balance=None, revenue=None):
 
 
 SHEET = {"Total Debt": 96_000_000_000.0, "Cash And Cash Equivalents": 11_000_000_000.0}
+
+# ORCL's real 2026-FY balance sheet, as stored, read 16 Aug 2026.
+MAY_SHEET = {"Total Debt": 156_189_000_000.0, "Cash And Cash Equivalents": 31_289_000_000.0,
+             "Total Assets": 261_759_000_000.0}
 
 
 # ── _balance_period: which period the balance sheet comes from ───────────────
@@ -81,9 +96,9 @@ def test_it_falls_back_as_far_as_it_has_to():
           str(found))
 
 
-def test_quarterly_is_exhausted_before_annual():
-    """An annual sheet is older than any quarterly one we hold. Only reach for
-    it when no quarter has a balance sheet at all."""
+def test_a_newer_quarterly_sheet_beats_an_older_annual_one():
+    """Selection is by DATE, not by frequency. A February quarterly sheet is
+    more recent than last May's annual one and wins on that alone."""
     quarterly = [period("2026-05-31"), period("2026-02-28", balance=SHEET)]
     annual = [period("2025-05-31", freq="FY", balance=SHEET)]
     found = terminal._balance_period(quarterly, annual)
@@ -102,6 +117,75 @@ def test_annual_is_used_when_no_quarter_has_one():
 def test_no_balance_sheet_anywhere_returns_none():
     quarterly = [period("2026-05-31"), period("2026-02-28")]
     check("nothing found is None", terminal._balance_period(quarterly, []) is None)
+
+
+def test_a_sheet_of_nans_is_not_a_sheet():
+    """THE ONE THAT ALMOST GOT THROUGH. Firestore holds `nan`, not None,
+    wherever Yahoo sent a blank — ORCL's 2024-Q4 is 66 balance-sheet fields of
+    it. A presence test written as `value is not None` counts that as a real
+    sheet, `_to_float` then turns every figure back into None, and enterprise
+    value collapses to market cap through a record that looks complete."""
+    nan = float("nan")
+    quarterly = [period("2026-05-31", balance={"Total Debt": nan, "Cash And Cash Equivalents": nan}),
+                 period("2026-02-28", balance=SHEET)]
+    found = terminal._balance_period(quarterly, [])
+    check("nan-only sheet is skipped", (found or {}).get("period_end") == "2026-02-28",
+          str(found))
+
+
+def test_a_nan_sheet_does_not_produce_an_enterprise_value():
+    """The end-to-end version of the above: the bug this reintroduced was EV
+    equalling market cap exactly."""
+    nan = float("nan")
+    install([period("2026-05-31", balance={"Total Debt": nan, "Cash And Cash Equivalents": nan},
+                    revenue=14_000_000_000.0)])
+    snap = terminal._market_snapshot("ORCL")
+    check("nan sheet withholds EV", snap["enterprise_value"] is None,
+          str(snap["enterprise_value"]))
+    check("nan sheet EV is not market cap", snap["enterprise_value"] != snap["market_cap"])
+
+
+def test_a_mixed_sheet_with_one_real_value_counts():
+    """Finiteness, not purity. One real figure among NaNs is still a sheet."""
+    nan = float("nan")
+    quarterly = [period("2026-05-31", balance={"Total Debt": nan, "Cash And Cash Equivalents": 5.0}),
+                 period("2026-02-28", balance=SHEET)]
+    found = terminal._balance_period(quarterly, [])
+    check("one finite value is enough", (found or {}).get("period_end") == "2026-05-31",
+          str(found))
+
+
+# ── the fiscal-year-end collision ────────────────────────────────────────────
+
+def test_the_annual_sheet_wins_when_it_shares_the_quarter_end_date():
+    """ORACLE, EXACTLY AS STORED. Its fiscal year ends 31 May, so 2026-Q2 and
+    2026-FY both end 2026-05-31 — and the QUARTERLY record's balance sheet is
+    empty while the ANNUAL one holds all 70 fields. Preferring quarterly falls
+    back to February while May sits in the next record along.
+
+    Safe only because a balance sheet is point-in-time: the two records describe
+    the same balance sheet. Doing this to an income statement would be the MSFT
+    3.7x error."""
+    quarterly = [period("2026-05-31"), period("2026-02-28", balance=SHEET)]
+    annual = [period("2026-05-31", freq="FY", balance=MAY_SHEET)]
+    found = terminal._balance_period(quarterly, annual)
+    check("annual sheet at the same date wins",
+          (found or {}).get("period_end") == "2026-05-31" and (found or {}).get("freq") == "FY",
+          str(found))
+
+
+def test_oracles_enterprise_value_uses_mays_figures_not_februarys():
+    """The whole point. Before this, ORCL's EV stood on February's balance
+    sheet at best, and on market cap at worst."""
+    install([period("2026-05-31", revenue=19_184_000_000.0),
+             period("2026-05-31", freq="FY", balance=MAY_SHEET),
+             period("2026-02-28", balance=SHEET)])
+    snap = terminal._market_snapshot("ORCL")
+    expected = snap["market_cap"] + 156_189_000_000.0 - 31_289_000_000.0
+    check("EV uses May's balance sheet", snap["enterprise_value"] == expected,
+          f"{snap['enterprise_value']} != {expected}")
+    check("balance sheet date is May", snap.get("balance_sheet_as_of") == "2026-05-31",
+          str(snap.get("balance_sheet_as_of")))
 
 
 def test_a_sheet_of_nulls_is_not_a_sheet():

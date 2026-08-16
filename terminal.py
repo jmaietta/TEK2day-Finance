@@ -505,8 +505,36 @@ def _latest_balance_value(latest, keys):
     return _to_float(_first_value(latest.get("balance_sheet", {}), keys))
 
 
+def _has_balance_sheet(period) -> bool:
+    """Whether a period carries a usable balance sheet.
+
+    NaN is the trap. Firestore holds `nan` — not None — wherever Yahoo sent a
+    blank, and ORCL's 2024-Q4 is 66 balance-sheet fields of it. A presence test
+    written as `value is not None` counts that as a populated sheet, `_to_float`
+    then turns every figure back into None, and enterprise value collapses to
+    market cap through a record that looks complete. So the test is finiteness,
+    not presence — the same standard `_to_float` applies to the values.
+    """
+    sheet = (period or {}).get("balance_sheet")
+    if not isinstance(sheet, dict):
+        return False
+    return any(_to_float(value) is not None for value in sheet.values())
+
+
 def _balance_period(quarterly, annual):
     """The most recent period that actually HOLDS a balance sheet.
+
+    ORDERED BY DATE ACROSS BOTH FREQUENCIES, which is right here and would be
+    badly wrong anywhere else. A balance sheet is a point-in-time statement, so
+    the annual and the quarterly record dated 2026-05-31 describe the SAME
+    balance sheet and either will do. An income statement is a flow: MSFT's
+    2026-FY and 2026-Q2 also share 2026-06-30 and differ by 3.7x, which is why
+    `_statement_value` keeps the two apart and this deliberately does not.
+
+    Oracle is exactly why it matters. Its fiscal year ends 31 May, so 2026-Q2
+    and 2026-FY both end 2026-05-31 — and the quarterly record's balance sheet
+    is empty while the annual one holds all 70 fields. Preferring quarterly
+    would fall back to FEBRUARY while May sits in the next record along.
 
     A balance sheet is a point-in-time statement, so unlike revenue it is never
     summed across quarters — it is taken whole from a single period. But it must
@@ -525,11 +553,21 @@ def _balance_period(quarterly, annual):
     the most recent one we hold is what the figure means, not an approximation
     of it.
     """
-    for period in list(quarterly or []) + list(annual or []):
-        sheet = period.get("balance_sheet")
-        if isinstance(sheet, dict) and any(value is not None for value in sheet.values()):
-            return period
-    return None
+    candidates = [p for p in (list(quarterly or []) + list(annual or []))
+                  if _has_balance_sheet(p)]
+    if not candidates:
+        return None
+    # Most recent first. Ties — an annual and a quarterly closing the same day —
+    # settle on the one holding more of the statement, so a full annual sheet
+    # beats a thin quarterly one at the same date.
+    return max(
+        candidates,
+        key=lambda p: (
+            str(p.get("period_end") or ""),
+            sum(1 for v in (p.get("balance_sheet") or {}).values()
+                if _to_float(v) is not None),
+        ),
+    )
 
 
 def _estimate_value(data, prefix, metric, periods):
