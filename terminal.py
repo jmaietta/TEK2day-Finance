@@ -476,14 +476,74 @@ def _estimate_history(symbol):
         return []
 
 
+def _period_end_date(period):
+    try:
+        return datetime.strptime(str((period or {}).get("period_end") or ""), "%Y-%m-%d")
+    except (ValueError, TypeError):
+        return None
+
+
+def _are_consecutive_quarters(periods) -> bool:
+    """Whether these periods are adjacent quarters in calendar terms.
+
+    Adjacency in the STORED LIST is not adjacency in time. If a quarter is
+    missing from Firestore entirely — no document, not even a stub — the list
+    closes up and four records that look neighbouring can span fifteen months.
+    Summing those and calling the result trailing-twelve-months would be a
+    worse error than the one this fix exists to remove, because the number
+    would look completely ordinary.
+
+    Fiscal quarters run 13 or 14 weeks, so a real gap is about 91 days; 60 to
+    120 accommodates every issuer's calendar without admitting a skipped
+    quarter, which would show up as roughly 180.
+    """
+    dates = [_period_end_date(p) for p in periods]
+    if any(d is None for d in dates):
+        return False
+    for newer, older in zip(dates, dates[1:]):
+        gap = (newer - older).days
+        if not 60 <= gap <= 120:
+            return False
+    return True
+
+
+def _ttm_window(periods, section, keys, size=4):
+    """The most recent run of `size` consecutive quarters that hold this field.
+
+    Returns (total, period_end of the newest quarter in the window), or
+    (None, None).
+
+    WHY A WINDOW AND NOT `periods[:4]`.
+
+    Yahoo opens a quarter within hours of a release and fills it in over the
+    following days — sometimes weeks. Until it does, TEK2day holds a stub in the
+    newest slot. The old code took the four newest RECORDS, hit that stub on its
+    first iteration, gave up, and `_statement_value` then published the latest
+    ANNUAL figure under a heading that says (TTM).
+
+    Amazon, 16 Aug 2026, measured: the card showed $716.92B revenue and $77.67B
+    net income — its fiscal 2025, a period that ended nearly eight months
+    earlier — because its June quarter was a stub at Yahoo and therefore here.
+    The four quarters behind that stub were all present and sum to $742.78B.
+
+    So a stub at the FRONT simply moves the window back one quarter. That is
+    still a true trailing twelve months; it just ends a quarter earlier, and the
+    date it ends on is returned so a consumer can say which.
+    """
+    values = [_to_float(_first_value((p or {}).get(section, {}), keys)) for p in periods]
+    for start in range(0, max(0, len(periods) - size + 1)):
+        window = values[start:start + size]
+        if any(value is None for value in window):
+            continue
+        if not _are_consecutive_quarters(periods[start:start + size]):
+            continue
+        return sum(window), str(periods[start].get("period_end") or "") or None
+    return None, None
+
+
 def _sum_recent(periods, section, keys):
-    vals = []
-    for period in periods[:4]:
-        val = _to_float(_first_value(period.get(section, {}), keys))
-        if val is None:
-            return None
-        vals.append(val)
-    return sum(vals) if len(vals) == 4 else None
+    total, _end = _ttm_window(periods, section, keys)
+    return total
 
 
 def _latest_annual_value(periods, section, keys):
@@ -492,11 +552,60 @@ def _latest_annual_value(periods, section, keys):
     return _to_float(_first_value(periods[0].get(section, {}), keys))
 
 
+def _latest_annual_window(annual, section, keys):
+    """The newest fiscal year holding this field, with the date it ends on."""
+    if not annual:
+        return None, None
+    value = _to_float(_first_value((annual[0] or {}).get(section, {}), keys))
+    if value is None:
+        return None, None
+    return value, str(annual[0].get("period_end") or "") or None
+
+
+def _ttm_value(quarterly, annual, section, keys):
+    """The trailing twelve months, and the date those twelve months END on.
+
+    WHICHEVER GENUINE TWELVE-MONTH WINDOW ENDS LATER WINS. A fiscal year IS four
+    consecutive quarters; the only question is which window is more recent.
+
+    The old code asked a different question — "can I sum four quarters, and if
+    not, what is the latest annual figure?" — and published the answer under a
+    heading reading (TTM) with nothing marking it as annual. Measured across 55
+    large caps on 16 Aug 2026, THIRTEEN were showing a fiscal year labelled TTM,
+    ten of them stale, including all four big banks:
+
+        JPM   showed 181.85B (FY to 2025-12-31)   real TTM 186.94B to 2026-03-31
+        BAC   showed 113.10B                      real TTM 116.00B
+        WFC   showed  83.70B                      real TTM  84.74B
+        GS    showed  58.28B                      real TTM  60.45B
+        AMZN  showed 716.92B                      real TTM 742.78B
+
+    Both directions matter, which is why neither source can simply be preferred:
+
+    - AMZN's fiscal year ended in December and a stub June quarter pushed the
+      quarterly window back to March. March is still LATER than December, so
+      the quarters win and the figure moves forward by $25.9bn.
+    - ORCL's fiscal year ends 31 MAY, which is later than the February its
+      quarterly window reaches once its own stub is stepped over. The annual
+      record wins, and dropping it would have swapped a correct figure for a
+      three-month-older one.
+    - BRK.B has no complete quarterly window at all. Without the annual it has
+      no revenue row.
+
+    The returned date is what makes this honest: a consumer is told which twelve
+    months the figure covers rather than assuming it is the twelve months ending
+    today.
+    """
+    q_total, q_end = _ttm_window(quarterly, section, keys)
+    a_total, a_end = _latest_annual_window(annual, section, keys)
+    if a_total is not None and (q_end is None or (a_end or "") > q_end):
+        return a_total, a_end
+    return q_total, q_end
+
+
 def _statement_value(quarterly, annual, section, keys):
-    val = _sum_recent(quarterly, section, keys)
-    if val is not None:
-        return val
-    return _latest_annual_value(annual, section, keys)
+    total, _end = _ttm_value(quarterly, annual, section, keys)
+    return total
 
 
 def _latest_balance_value(latest, keys):
@@ -610,6 +719,9 @@ def _firestore_fundamentals(symbol, meta):
         # at all. Enterprise value depends on it, so a consumer must be able to
         # tell "as of March" from "we do not have one".
         "balance_sheet_as_of": None,
+        # The quarter the trailing-twelve-month window ENDS on. Not always the
+        # latest quarter: a stub in the newest slot moves the window back one.
+        "ttm_as_of": None,
     }
     all_fins = _all_financials(symbol)
     if not all_fins:
@@ -635,7 +747,11 @@ def _firestore_fundamentals(symbol, meta):
         if shares is not None:
             result["shares"] = shares
 
-    result["revenue"] = _statement_value(quarterly, annual, "income", [
+    # Revenue is the anchor row, so its window dates the whole TTM block. A
+    # consumer reading "$742.78B (TTM)" is entitled to know which twelve months
+    # that is — and after a stub quarter it is not the twelve months ending
+    # today.
+    result["revenue"], result["ttm_as_of"] = _ttm_value(quarterly, annual, "income", [
         "Total Revenue",
     ])
     result["ebitda"] = _statement_value(quarterly, annual, "income", [
@@ -743,6 +859,8 @@ def _market_snapshot(symbol):
         # Yahoo is late with the May quarter deserves to know it stands on
         # February's balance sheet.
         "balance_sheet_as_of": fundamentals.get("balance_sheet_as_of"),
+        # The twelve months every (TTM) figure below actually covers.
+        "ttm_as_of": fundamentals.get("ttm_as_of"),
         "revenue": fundamentals.get("revenue"),
         "ebitda": fundamentals.get("ebitda"),
         "net_income": fundamentals.get("net_income"),
