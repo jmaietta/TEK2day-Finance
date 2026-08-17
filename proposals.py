@@ -19,6 +19,7 @@ import math
 import re
 from datetime import datetime, timezone
 
+import envelope
 import storage
 
 PROPOSALS = "repair_proposals"
@@ -54,16 +55,9 @@ def _num(v):
     return v if finite(v) else None
 
 
-# The line that makes each statement a statement. A balance sheet without Total
-# Assets is not a balance sheet, however many deferred-tax lines it carries.
-#
-# Income allows either headline because not every issuer reports "Total Revenue"
-# under that name — banks in particular — and net income is universal.
-ANCHOR_FIELDS = {
-    "income": ("Total Revenue", "Net Income"),
-    "balance_sheet": ("Total Assets",),
-    "cash_flow": ("Operating Cash Flow",),
-}
+# The anchor lines live in envelope.py — the same rule serves the repair job and
+# the completeness Kilby is told, and two copies of it would drift.
+ANCHOR_FIELDS = envelope.ANCHOR_FIELDS
 
 
 def is_stub(doc: dict) -> bool:

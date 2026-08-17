@@ -374,6 +374,109 @@ def test_the_trip_stays_quiet_on_a_small_run():
     pull._tripped = False
 
 
+
+# ── completeness: "complete" must mean usable ───────────────────────────────
+#
+# Kilby acts on this one word: `complete` -> quote it normally, `stub` -> "we
+# hold no usable data for this quarter". The old test asked only whether a
+# section held ANY real number, so ORCL's quarter ending 2024-11-30 — 7 real
+# figures out of 176, with Total Assets, Total Debt and Cash all blank —
+# reported itself `complete`.
+
+def _cw(income=None, balance=None, cash_flow=None, **extra):
+    doc = {
+        "income": {"Total Revenue": 1.0, "Net Income": 1.0} if income is None else income,
+        "balance_sheet": {"Total Assets": 1.0} if balance is None else balance,
+        "cash_flow": {"Operating Cash Flow": 1.0} if cash_flow is None else cash_flow,
+    }
+    doc.update(extra)
+    return doc
+
+
+def test_a_usable_record_is_complete():
+    check("complete", envelope.completeness_block(_cw())["status"] == envelope.COMPLETE)
+
+
+def test_the_oracle_record_is_a_stub():
+    """7 real figures out of 176. Two obscure liability lines are not a balance
+    sheet."""
+    nan = float("nan")
+    sheet = {n: nan for n in ("Total Assets", "Total Debt", "Cash And Cash Equivalents")}
+    sheet["Non Current Deferred Taxes Liabilities"] = 2_864_000_000.0
+    sheet["Non Current Deferred Liabilities"] = 2_864_000_000.0
+    out = envelope.completeness_block(_cw(balance=sheet))
+    check("stub", out["status"] == envelope.STUB, out["status"])
+    check("counts stay honest", out["sections"]["balance_sheet"] == "2/5",
+          out["sections"]["balance_sheet"])
+
+
+def test_a_summary_statement_is_not_a_stub():
+    """HIS RULING, 16 Aug: "we can't afford mistakes where summary statements
+    are flagged and withheld." CMBT's cash flow holds 8 fields — but they are
+    every headline total, and a reader can use it. A retention-based rule was
+    built and abandoned because it marked this `stub`."""
+    cmbt = {n: 1.0 for n in (
+        "Operating Cash Flow", "Investing Cash Flow", "Financing Cash Flow",
+        "Free Cash Flow", "Beginning Cash Position", "End Cash Position",
+        "Changes In Cash", "Effect Of Exchange Rate Changes")}
+    check("summary cash flow survives",
+          envelope.completeness_block(_cw(cash_flow=cmbt))["status"] == envelope.COMPLETE)
+
+
+def test_the_direct_method_is_not_a_stub():
+    """Foreign issuers reporting under the DIRECT method label operating cash
+    flow differently. Measured 17 Aug: CILJF, CYATY and PTXKY are 70-100%
+    populated and were flagged purely on the label."""
+    direct = {"Cash Flowsfromusedin Operating Activities Direct": 1.0,
+              "Classesof Cash Receiptsfrom Operating Activities": 1.0}
+    check("direct method survives",
+          envelope.completeness_block(_cw(cash_flow=direct))["status"] == envelope.COMPLETE)
+
+
+def test_a_missing_anchor_is_a_stub():
+    check("no Total Assets", envelope.completeness_block(
+        _cw(balance={"Goodwill": 1.0, "Net PPE": 1.0}))["status"] == envelope.STUB)
+    check("no operating cash flow", envelope.completeness_block(
+        _cw(cash_flow={"Free Cash Flow": 1.0}))["status"] == envelope.STUB)
+
+
+def test_income_accepts_either_anchor():
+    check("net income only", envelope.completeness_block(
+        _cw(income={"Net Income": 1.0}))["status"] == envelope.COMPLETE)
+    check("revenue only", envelope.completeness_block(
+        _cw(income={"Total Revenue": 1.0}))["status"] == envelope.COMPLETE)
+
+
+def test_a_nan_anchor_does_not_count():
+    """Firestore stores Yahoo's blanks as nan, not as absent keys."""
+    check("nan anchor", envelope.completeness_block(
+        _cw(balance={"Total Assets": float("nan"), "Goodwill": 1.0}))["status"] == envelope.STUB)
+
+
+def test_an_existing_record_is_never_absent():
+    """`absent` means "we hold no record" and makes Kilby say "coverage begins
+    March 2025" — false for a company we hold years of. An existing but empty
+    record is a `stub`: "we hold no usable data for this quarter". His ruling,
+    16 Aug. AMZN's June 2026 quarter is empty here AND at Yahoo, so no pull can
+    ever fill it, and Kilby has to answer about it today."""
+    out = envelope.completeness_block(_cw(income={}, balance={}, cash_flow={}))
+    check("empty record is a stub", out["status"] == envelope.STUB, out["status"])
+
+
+def test_no_record_at_all_is_absent():
+    check("None is absent", envelope.completeness_block(None)["status"] == envelope.ABSENT)
+
+
+def test_a_warning_makes_it_partial():
+    check("partial", envelope.completeness_block(
+        _cw(data_warnings=[{"code": "x"}]))["status"] == envelope.PARTIAL)
+
+
+def test_the_repair_job_and_the_contract_share_one_rule():
+    """Two copies of "did the statement arrive?" would drift."""
+    check("one source of truth", proposals.ANCHOR_FIELDS is envelope.ANCHOR_FIELDS)
+
+
 def main():
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

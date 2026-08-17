@@ -138,6 +138,76 @@ def period_block(storage_key: str | None, period_end: str | None) -> dict | None
 
 # ── completeness ─────────────────────────────────────────────────────────────
 
+# The line that makes each statement a statement. A balance sheet without Total
+# Assets is not a balance sheet, however many other lines it carries.
+#
+# Income allows either headline because not every issuer reports "Total Revenue"
+# under that name — banks in particular — and net income is universal.
+#
+# ⚠️ THIS IS THE SAME RULE THE REPAIR JOB USES (proposals.is_stub), imported from
+# here so the two cannot drift. One concept: "did the statement arrive?"
+# Each entry lists every NAME the same line legitimately arrives under. A
+# missing anchor must mean "the statement did not arrive", never "this issuer
+# presents it differently".
+ANCHOR_FIELDS = {
+    # Not every issuer reports "Total Revenue" under that name — banks in
+    # particular — and net income is universal.
+    "income": ("Total Revenue", "Net Income"),
+    "balance_sheet": ("Total Assets",),
+    # Companies reporting under the DIRECT method label operating cash flow
+    # differently. Measured 17 Aug 2026: CILJF, CYATY and PTXKY are 70-100%
+    # populated, complete statements, and were flagged purely because Yahoo
+    # names the line "Cash Flowsfromusedin Operating Activities Direct". Foreign
+    # issuers using IFRS presentation; the statement is fine, the label differs.
+    "cash_flow": (
+        "Operating Cash Flow",
+        "Cash Flowsfromusedin Operating Activities Direct",
+    ),
+}
+
+
+def _section_usable(section: str, block) -> bool:
+    """Whether a statement section actually arrived.
+
+    Two tests, both of which a section must pass:
+
+    1. It holds at least one real number. Firestore stores Yahoo's blanks as
+       `nan`, not as absent keys, so a section can be full of field NAMES and
+       empty of data — which is why counting keys was never enough.
+    2. It carries its headline line. This is what catches the case test 1
+       cannot: ORCL's quarter ending 2024-11-30 holds two real figures out of
+       sixty-six — `Non Current Deferred Taxes Liabilities` and `Non Current
+       Deferred Liabilities` — while Total Assets, Total Debt and Cash are all
+       blank. Two obscure liabilities are not a balance sheet.
+
+    ⚠️ WHY NOT A PROPORTION OF THE PREVIOUS PERIOD, which was designed, built and
+    then abandoned on the evidence (16 Aug 2026). A "kept less than 60% of last
+    quarter's fields" rule was measured across 166 companies and changed the
+    verdict on two — CMBT and KBON — and BOTH were usable:
+
+        CMBT 2026-Q1 cash flow, 8 fields: Operating, Investing and Financing
+        Cash Flow, Free Cash Flow, Beginning and End Cash Position, Changes In
+        Cash, FX effect.
+
+    That is a summary cash flow statement, not a skeleton: every headline total
+    is present and a reader can use it. HIS RULING: *"we can't afford mistakes
+    where summary statements are flagged and withheld."* Marking that `stub`
+    makes Kilby say "we hold no usable data for this quarter" about data we
+    hold and could show.
+
+    The anchor test catches ORCL outright, passes both summary statements, needs
+    no previous period, and has no threshold to tune. Simpler and safer.
+
+    Cannot raise: this runs inside every financials response.
+    """
+    block = block or {}
+    if not isinstance(block, dict):
+        return False
+    if not any(finite(v) for v in block.values()):
+        return False
+    return any(finite(block.get(field)) for field in ANCHOR_FIELDS.get(section, ()))
+
+
 def completeness_block(record: dict | None, coverage: dict | None = None) -> dict:
     """How complete a financial record is, and where its values came from.
 
@@ -152,17 +222,27 @@ def completeness_block(record: dict | None, coverage: dict | None = None) -> dic
         return {"status": ABSENT, "sections": {}, "source": None, "coverage": coverage}
 
     sections = {}
-    empty_sections = 0
+    unusable = 0
     for name in STATEMENT_SECTIONS:
         block = record.get(name) or {}
         populated = sum(1 for v in block.values() if finite(v))
+        # The counts stay a plain census of what is stored — they were always
+        # honest, and they are what a human reads to check this verdict.
         sections[name] = f"{populated}/{len(block)}" if block else "0/0"
-        if populated == 0:
-            empty_sections += 1
+        if not _section_usable(name, block):
+            unusable += 1
 
-    if empty_sections == len(STATEMENT_SECTIONS):
-        status = ABSENT
-    elif empty_sections:
+    if unusable:
+        # ⚠️ A RECORD THAT EXISTS IS NEVER `absent`, however empty it is.
+        # `absent` is defined as "no record at all" and makes Kilby answer
+        # "coverage begins March 2025" — false for a company we hold years of.
+        # An existing but unusable record is a `stub`: "we hold no usable data
+        # for this quarter", which is true and is what the contract's own table
+        # says `stub` is for.
+        #
+        # This is not hypothetical. AMZN's June 2026 quarter is empty here AND
+        # empty at Yahoo, so no pull can ever fill it — and Kilby has to answer
+        # questions about it today. (His ruling, 16 Aug.)
         status = STUB
     elif record.get("data_warnings"):
         status = PARTIAL
