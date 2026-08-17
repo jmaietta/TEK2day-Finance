@@ -51,10 +51,29 @@ QUARTER_RE = re.compile(r"[0-9]{4}-Q[0-9]")
 ANNUAL_RE = re.compile(r"[0-9]{4}-FY")
 
 # Completeness, in the four states Kilby must tell apart.
-COMPLETE = "complete"      # all three statements populated
-PARTIAL = "partial"        # populated, but a check failed
-STUB = "stub"              # present but substantially empty
-ABSENT = "absent"          # no record at all
+COMPLETE = "complete"      # all three statements arrived
+PARTIAL = "partial"        # arrived, but a sanity check failed
+STUB = "stub"              # we hold the period; it carries nothing usable
+ABSENT = "absent"          # we hold no record for the period
+
+# The legend, shipped WITH every completeness block.
+#
+# FS5 — the description travels with the value. Figures already carry a
+# `definitions` block; the status that decides whether a figure is quoted at all
+# carried nothing, so a partner received the word "stub" and had to guess. These
+# four words were defined only in code comments and in our own planning
+# documents, neither of which a consumer can see.
+#
+# `complete` is honest about its own limit on purpose: it means as complete as
+# our SOURCE has. Matching the filing itself needs SEC.gov or a data partner,
+# which TEK2day does not have, and claiming otherwise would be the one kind of
+# overstatement an institutional user cannot forgive.
+STATUS_MEANING = {
+    COMPLETE: "All three statements arrived, as complete as our source has",
+    PARTIAL: "Arrived, but a sanity check failed - quote it with the warning",
+    STUB: "We hold this period, but it carries no usable data",
+    ABSENT: "We hold no record for this period",
+}
 
 
 def request_id() -> str:
@@ -219,7 +238,8 @@ def completeness_block(record: dict | None, coverage: dict | None = None) -> dic
     our source has. Matching the actual filing needs SEC.gov or a data partner.
     """
     if record is None:
-        return {"status": ABSENT, "sections": {}, "source": None, "coverage": coverage}
+        return {"status": ABSENT, "meaning": STATUS_MEANING, "sections": {},
+                "source": None, "coverage": coverage}
 
     sections = {}
     unusable = 0
@@ -251,6 +271,9 @@ def completeness_block(record: dict | None, coverage: dict | None = None) -> dic
 
     return {
         "status": status,
+        # Shipped every time rather than documented elsewhere: a consumer must
+        # never have to look up what the word it just received means.
+        "meaning": STATUS_MEANING,
         "sections": sections,
         # Distinguishes a value from the original pull from one the Data Review
         # populated later. An institutional user asking where a figure came from

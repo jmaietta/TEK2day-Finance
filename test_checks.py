@@ -477,6 +477,33 @@ def test_the_repair_job_and_the_contract_share_one_rule():
     check("one source of truth", proposals.ANCHOR_FIELDS is envelope.ANCHOR_FIELDS)
 
 
+
+def test_every_status_carries_its_own_definition():
+    """FS5 — the description travels with the value. A partner receiving the
+    word "stub" must not have to look up what it means: these four words lived
+    only in code comments and in our own planning documents, neither of which a
+    consumer can see."""
+    out = envelope.completeness_block(_cw())
+    meaning = out.get("meaning") or {}
+    for state in (envelope.COMPLETE, envelope.PARTIAL, envelope.STUB, envelope.ABSENT):
+        check(f"{state} defined", bool(meaning.get(state)), str(list(meaning)))
+    check("the status returned is one of them", out["status"] in meaning, out["status"])
+
+
+def test_the_legend_ships_even_when_there_is_no_record():
+    """`absent` is exactly the case a consumer is most likely to misread."""
+    out = envelope.completeness_block(None)
+    check("legend present on absent", envelope.ABSENT in (out.get("meaning") or {}), str(out))
+
+
+def test_complete_admits_its_own_limit():
+    """`complete` means as complete as our SOURCE has. Matching the filing needs
+    SEC.gov or a data partner, which TEK2day does not have, and claiming
+    otherwise is the one overstatement an institutional user cannot forgive."""
+    text = envelope.STATUS_MEANING[envelope.COMPLETE].lower()
+    check("says 'as complete as our source has'", "our source" in text, text)
+
+
 def main():
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):
