@@ -427,14 +427,41 @@ def _financial_payload(symbol: str, section: str, fields: list, title: str) -> d
 
     sections = []
     if section == "balance_sheet":
-        seen = set()
-        unique = []
-        for financial in sorted(all_fins, key=lambda f: f.get("period_end", "")):
-            period_end = financial.get("period_end", "")
-            if period_end in seen:
-                continue
-            seen.add(period_end)
-            unique.append(financial)
+        # A balance sheet is point-in-time, so one column per DATE — an annual
+        # and a quarterly record closing the same day describe the same sheet.
+        #
+        # ⚠️ BUT WHICH ONE IS KEPT MATTERS, AND THIS USED TO KEEP WHICHEVER CAME
+        # FIRST. Yahoo posts a skeleton within hours of a release and fills it in
+        # later, so the two records are routinely NOT equivalent:
+        #
+        #     GOOGL 2024-12-31   2024-FY  63 fields, Total Assets $450.3B
+        #                        2024-Q4   4 fields, Total Assets missing
+        #
+        # The 4-field skeleton won, and /GOOGL bal showed an almost empty column
+        # for 2024 — every figure blank except Total Debt, which happened to be
+        # one of the four. Measured 18 Aug 2026: 133 of 521 sampled companies
+        # (26%) carry this collision, JPM among them, where $4,002.8B of total
+        # assets was being discarded.
+        #
+        # Keep the record holding more of the statement, and break a genuine tie
+        # toward the ANNUAL: it is the audited, fuller presentation, and it is
+        # the one carrying Total Debt when the quarter does not (GOOGL 2025-FY
+        # has $59.3B; 2025-Q4, same field count, has none).
+        #
+        # Same rule as terminal._balance_period, which already does this for
+        # enterprise value. This is the display path catching up with the
+        # calculation path.
+        def _sheet_weight(financial):
+            block = financial.get("balance_sheet") or {}
+            populated = sum(1 for v in block.values() if terminal._to_float(v) is not None)
+            return (populated, 1 if str(financial.get("period") or "").endswith("-FY") else 0)
+
+        best: dict[str, dict] = {}
+        for financial in all_fins:
+            period_end = str(financial.get("period_end", ""))
+            if period_end not in best or _sheet_weight(financial) > _sheet_weight(best[period_end]):
+                best[period_end] = financial
+        unique = sorted(best.values(), key=lambda f: str(f.get("period_end", "")))
         periods = unique[-8:]
         if periods:
             sections.append({
