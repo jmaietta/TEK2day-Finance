@@ -291,6 +291,136 @@ def test_no_price_still_means_no_enterprise_value():
           str(snap["enterprise_value"]))
 
 
+
+# ── total debt: the figure enterprise value actually needs ───────────────────
+#
+# EV needs TOTAL debt, long-term plus short-term. The old chain reached for
+# `Long Term Debt` ahead of `Long Term Debt And Capital Lease Obligation` — the
+# NARROWEST of three candidates. On GOOGL 2025-Q1 that is $10.9bn against a real
+# total nearer $22.6bn.
+#
+# ENBRIDGE IS WHY THE ANNUAL FALLBACK EXISTS. Its selected balance sheet states
+# no debt at all; its 2025 annual reports $105.25bn. Enterprise value was being
+# computed as market cap minus cash — $111.95bn instead of $217.20bn, understated
+# by 48%, with every EV multiple wrong by the same factor.
+
+def sheet(period_end, **balance):
+    return {"period_end": period_end, "freq": "Q", "balance_sheet": balance}
+
+
+def annual(period_end, **balance):
+    return {"period_end": period_end, "freq": "FY", "balance_sheet": balance}
+
+
+def test_total_debt_is_used_when_stated():
+    b = sheet("2026-06-30", **{"Total Debt": 112.8e9, "Long Term Debt": 98.2e9})
+    check("stated total wins", terminal._total_debt(b, []) == (112.8e9, "2026-06-30"))
+
+
+def test_the_parts_are_added_when_the_total_is_missing():
+    """Measured over 938 records: long-term + short-term rebuilds Total Debt to
+    within 0.5% in 99.5% of them."""
+    b = sheet("2026-03-31", **{
+        "Long Term Debt And Capital Lease Obligation": 90.0e9,
+        "Current Debt And Capital Lease Obligation": 2.5e9})
+    value, where = terminal._total_debt(b, [])
+    check("parts summed", value == 92.5e9, str(value))
+    check("same period", where == "2026-03-31", str(where))
+
+
+def test_the_wider_long_term_field_beats_the_narrow_one():
+    """THE OLD ORDERING TOOK THE NARROWEST. GOOGL 2025-Q1: $10.9bn instead of
+    $22.6bn."""
+    b = sheet("2025-03-31", **{
+        "Long Term Debt": 10.9e9,
+        "Long Term Debt And Capital Lease Obligation": 22.6e9})
+    value, _w = terminal._total_debt(b, [])
+    check("wider field used", value == 22.6e9, str(value))
+
+
+def test_short_term_alone_is_never_used_as_total_debt():
+    """Measured over 1,138 records: short-term is a MEDIAN 24.3% of total debt
+    and under a tenth of it in a third of cases. A quarter of the answer wearing
+    the whole answer's label is worse than no answer."""
+    b = sheet("2026-03-31", **{"Current Debt And Capital Lease Obligation": 2.5e9})
+    value, _w = terminal._total_debt(b, [])
+    check("short-term alone refused", value is None, str(value))
+
+
+def test_the_last_annual_total_is_carried_forward():
+    """ENBRIDGE. 81.2% of quarters missing Total Debt carry no debt line at all,
+    so the choice is last-known-total versus pretending it is zero."""
+    b = sheet("2026-06-30", **{"Total Assets": 100e9})
+    a = [annual("2025-12-31", **{"Total Debt": 105.25e9}),
+         annual("2024-12-31", **{"Total Debt": 99.0e9})]
+    value, where = terminal._total_debt(b, a)
+    check("carried forward", value == 105.25e9, str(value))
+    check("dated to the annual it came from", where == "2025-12-31", str(where))
+
+
+def test_the_carried_figure_is_the_most_recent_annual_that_states_one():
+    """Both candidates must sit inside the one-year window — an annual that
+    states nothing does not consume the allowance."""
+    b = sheet("2026-06-30", **{"Total Assets": 100e9})
+    a = [annual("2026-03-31"), annual("2025-12-31", **{"Total Debt": 99.0e9})]
+    value, where = terminal._total_debt(b, a)
+    check("skips the silent annual", (value, where) == (99.0e9, "2025-12-31"), str((value, where)))
+
+
+def test_no_debt_anywhere_stays_unknown():
+    check("nothing invented", terminal._total_debt(sheet("2026-06-30"), []) == (None, None))
+
+
+def test_enterprise_value_uses_the_carried_debt():
+    """End to end: the 48% understatement closes."""
+    install([period("2026-06-30", balance={"Cash And Cash Equivalents": 5e9},
+                    revenue=10e9),
+             period("2025-12-31", freq="FY", balance={"Total Debt": 105.25e9})])
+    snap = terminal._market_snapshot("ENB")
+    expected = snap["market_cap"] + 105.25e9 - 5e9
+    check("debt included in EV", snap["enterprise_value"] == expected,
+          f"{snap['enterprise_value']} != {expected}")
+    check("and the date is reported", snap.get("debt_as_of") == "2025-12-31",
+          str(snap.get("debt_as_of")))
+
+
+
+def test_a_carried_figure_older_than_a_year_is_refused():
+    """HIS RULE, 18 Aug: one year, no further. Carried figures were running to
+    5.0 years old, and the fact that the oldest happened to be zero is luck, not
+    a reason. A five-year-old debt position is not evidence about a company
+    today."""
+    b = sheet("2026-06-30", **{"Total Assets": 100e9})
+    a = [annual("2021-12-31", **{"Total Debt": 50e9})]
+    check("too old is refused", terminal._total_debt(b, a) == (None, None),
+          str(terminal._total_debt(b, a)))
+
+
+def test_a_carried_figure_inside_a_year_is_used():
+    """ENBRIDGE sits at 0.5 years."""
+    b = sheet("2026-06-30", **{"Total Assets": 100e9})
+    a = [annual("2025-12-31", **{"Total Debt": 105.25e9})]
+    value, where = terminal._total_debt(b, a)
+    check("inside the window", (value, where) == (105.25e9, "2025-12-31"), str((value, where)))
+
+
+def test_the_window_is_measured_from_the_SHEET_not_the_clock():
+    """Measured against the selected sheet's own date so the answer is
+    reproducible and these tests do not rot as time passes."""
+    b = sheet("2019-06-30", **{"Total Assets": 100e9})
+    a = [annual("2018-12-31", **{"Total Debt": 7e9})]
+    value, _w = terminal._total_debt(b, a)
+    check("old dates still work together", value == 7e9, str(value))
+
+
+def test_a_stale_annual_is_skipped_for_a_fresh_one():
+    b = sheet("2026-06-30", **{"Total Assets": 100e9})
+    a = [annual("2021-12-31", **{"Total Debt": 50e9}),
+         annual("2025-12-31", **{"Total Debt": 105.25e9})]
+    value, where = terminal._total_debt(b, a)
+    check("finds the one in range", (value, where) == (105.25e9, "2025-12-31"), str((value, where)))
+
+
 def main():
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

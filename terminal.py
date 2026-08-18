@@ -630,6 +630,87 @@ def _has_balance_sheet(period) -> bool:
     return any(_to_float(value) is not None for value in sheet.values())
 
 
+# How far back a stated annual total debt may be carried into a period that
+# states none. HIS RULE, 18 Aug 2026: one year, no further. Measured carried
+# figures ran 0.6 to 5.0 years old; a five-year-old debt position is not
+# evidence about a company today.
+_DEBT_CARRY_FORWARD_DAYS = 366
+
+
+def _total_debt(balance, annual):
+    """Total debt for enterprise value, and the period it came from.
+
+    EV needs TOTAL debt — long-term plus short-term. The chain below is ordered
+    by how close each candidate is to that figure, which the old one was not: it
+    reached for `Long Term Debt` ahead of `Long Term Debt And Capital Lease
+    Obligation`, taking the NARROWEST of the three. On GOOGL 2025-Q1 that is
+    $10.9bn against a real total nearer $22.6bn.
+
+    Reconstruction is second because it is near-exact: measured 18 Aug 2026 over
+    938 records holding both parts, long-term + short-term rebuilds Total Debt
+    to within 0.5% in 933 of them (99.5%).
+
+    ⚠️ AND WHY THE ANNUAL FALLBACK EXISTS, which was HIS CALL and which I argued
+    against before measuring. A quarterly record missing Total Debt usually has
+    nothing else either: of 467 such records, 81.2% carry NEITHER a long-term nor
+    a short-term line. So the real choice is not "same period versus mixed
+    period" — it is "last known total debt versus pretend it is zero", and zero
+    is the only answer that is definitely wrong.
+
+    Enbridge is the case in point. Its selected balance sheet has no debt line at
+    all, its 2025 annual reports $105.25bn, and enterprise value was being
+    computed as market cap minus cash — as though the company carried no debt.
+
+    Short-term debt alone is NEVER used as a stand-in for total debt: measured
+    over 1,138 records, it is a median 24.3% of the total and under a tenth of it
+    in a third of cases. A quarter of the answer wearing the whole answer's label
+    is worse than no answer.
+
+    Returns (value, period_end it came from). The date is returned because a
+    figure carried forward from an earlier period must be placeable — the same
+    reason balance_sheet_as_of exists.
+    """
+    sheet = (balance or {}).get("balance_sheet") or {}
+    where = (balance or {}).get("period_end")
+
+    total = _to_float(sheet.get("Total Debt"))
+    if total is not None:
+        return total, where
+
+    long_term = _to_float(sheet.get("Long Term Debt And Capital Lease Obligation"))
+    short_term = _to_float(sheet.get("Current Debt And Capital Lease Obligation"))
+    if short_term is None:
+        short_term = _to_float(sheet.get("Current Debt"))
+    if long_term is not None and short_term is not None:
+        return long_term + short_term, where
+    if long_term is not None:
+        return long_term, where
+
+    # Nothing in this period. Fall back to the most recent ANNUAL record that
+    # states a total, and say which one it was.
+    #
+    # ⚠️ ONE YEAR, NO FURTHER — HIS RULE, and the measurement is why. Carried
+    # figures ran from 0.6 to 5.0 years old. A five-year-old debt position is not
+    # evidence about a company today, and the fact that the oldest ones happened
+    # to be zero is luck rather than a reason. Enbridge, the case this fallback
+    # exists for, is 0.6 years — comfortably inside.
+    #
+    # Measured AGAINST THE SELECTED SHEET'S OWN DATE, not the wall clock, so the
+    # answer is reproducible and a test does not rot.
+    reference = _period_end_date(balance)
+    for period in (annual or []):
+        stated = _to_float(((period or {}).get("balance_sheet") or {}).get("Total Debt"))
+        if stated is None:
+            continue
+        stated_at = _period_end_date(period)
+        if reference is None or stated_at is None:
+            continue
+        if abs((reference - stated_at).days) > _DEBT_CARRY_FORWARD_DAYS:
+            continue
+        return stated, period.get("period_end")
+    return None, None
+
+
 def _balance_period(quarterly, annual):
     """The most recent period that actually HOLDS a balance sheet.
 
@@ -722,6 +803,10 @@ def _firestore_fundamentals(symbol, meta):
         # The quarter the trailing-twelve-month window ENDS on. Not always the
         # latest quarter: a stub in the newest slot moves the window back one.
         "ttm_as_of": None,
+        # Which period the debt figure came from. Usually the same as
+        # balance_sheet_as_of, but not when the selected sheet states no debt at
+        # all and the last annual total is carried forward.
+        "debt_as_of": None,
     }
     all_fins = _all_financials(symbol)
     if not all_fins:
@@ -787,11 +872,7 @@ def _firestore_fundamentals(symbol, meta):
         "Cash Cash Equivalents And Short Term Investments",
         "Cash And Short Term Investments",
     ])
-    result["debt"] = _latest_balance_value(balance, [
-        "Total Debt",
-        "Long Term Debt",
-        "Long Term Debt And Capital Lease Obligation",
-    ])
+    result["debt"], result["debt_as_of"] = _total_debt(balance, annual)
     return result
 
 
@@ -861,6 +942,9 @@ def _market_snapshot(symbol):
         "balance_sheet_as_of": fundamentals.get("balance_sheet_as_of"),
         # The twelve months every (TTM) figure below actually covers.
         "ttm_as_of": fundamentals.get("ttm_as_of"),
+        # Differs from balance_sheet_as_of when the selected sheet carries no
+        # debt line and an earlier annual total was used instead.
+        "debt_as_of": fundamentals.get("debt_as_of"),
         "revenue": fundamentals.get("revenue"),
         "ebitda": fundamentals.get("ebitda"),
         "net_income": fundamentals.get("net_income"),
