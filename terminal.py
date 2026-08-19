@@ -220,6 +220,27 @@ def computed_eps(income, field="Diluted EPS"):
     return net_income / shares
 
 
+def _analyst_count(val):
+    """How many analysts contributed. Blank when we do not know.
+
+    ⚠️ THIS WAS A LIVE 500. The old line was:
+
+        str(int(val)) if val is not None else "N/A"
+
+    Firestore stores Yahoo's blanks as `nan`, and `nan is not None` is True, so
+    `int(nan)` raised and took the WHOLE COMPANY PAGE down — not the row, the
+    page. Measured 19 Aug 2026: five companies in a 200 sample, so roughly 250
+    across the universe, where /CANF, /CRML and /LOT returned "cannot convert
+    float NaN to integer" instead of a summary. It also broke the terminal's
+    estimates table and cmd_full.
+
+    Fifth time presence has been tested where finiteness was meant. Shared by
+    the website and the terminal so there is only one of it now.
+    """
+    v = _to_float(val)
+    return "N/A" if v is None else f"{int(v):,}"
+
+
 def _eps(val):
     """A per-share figure in the accounting convention: a loss in parentheses.
 
@@ -400,11 +421,22 @@ def _yahoo(symbol):
 
 
 def _to_float(val):
+    """A usable number, or None.
+
+    ⚠️ REJECTS INFINITY AS WELL AS NaN. It used to filter only NaN, which meant
+    Inf flowed through as a "valid" figure — and `int(inf)` raises OverflowError
+    the same way `int(nan)` raises ValueError, the bug that took ~250 company
+    pages down. Caught by a test written for the NaN fix, which is the only
+    reason it was found.
+
+    This is now the same standard envelope.finite applies. No financial figure
+    is ever legitimately infinite, so nothing is lost by refusing it.
+    """
     if val is None:
         return None
     try:
         v = float(val)
-        if v != v:
+        if v != v or v in (float("inf"), float("-inf")):
             return None
         return v
     except (ValueError, TypeError):
@@ -1206,7 +1238,7 @@ def cmd_estimates(symbol):
                 if mk == "growth":
                     row.append(_pct(val))
                 elif mk == "numberofanalysts":
-                    row.append(str(int(val)) if val is not None else "N/A")
+                    row.append(_analyst_count(val))
                 elif prefix == "rev" and mk in ("avg", "high", "low", "yearagorevenue"):
                     row.append(_dollar(val))
                 elif prefix == "eps" and mk in ("avg", "high", "low", "yearagoeps"):

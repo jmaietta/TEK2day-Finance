@@ -156,6 +156,33 @@ def test_plain_numbers_use_brackets():
     check("negative", terminal._num(-12.5) == "(12.50)", terminal._num(-12.5))
 
 
+# ── the analyst count, which was a live 500 ──────────────────────────────────
+
+def test_a_nan_analyst_count_does_not_raise():
+    """THIS TOOK WHOLE COMPANY PAGES DOWN. The old line was
+    `str(int(val)) if val is not None else "N/A"` — and `nan is not None` is
+    True, so `int(nan)` raised. Measured 19 Aug 2026: /CANF, /CRML and /LOT
+    returned "cannot convert float NaN to integer" instead of a summary, roughly
+    250 companies across the universe. Not a wrong number — no page at all."""
+    check("nan", terminal._analyst_count(float("nan")) == "N/A",
+          terminal._analyst_count(float("nan")))
+    check("none", terminal._analyst_count(None) == "N/A")
+    check("inf", terminal._analyst_count(float("inf")) == "N/A")
+
+
+def test_an_analyst_count_renders_as_a_whole_number():
+    check("plain", terminal._analyst_count(40.0) == "40", terminal._analyst_count(40.0))
+    check("grouped", terminal._analyst_count(1234.0) == "1,234",
+          terminal._analyst_count(1234.0))
+
+
+def test_the_website_and_terminal_share_one_analyst_formatter():
+    """Two copies of this line existed and both carried the same bug."""
+    import app
+    check("website uses it", "terminal._analyst_count" in
+          __import__("inspect").getsource(app._estimates_payload))
+
+
 def main():
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

@@ -324,7 +324,7 @@ def _estimates_payload(symbol: str) -> dict | None:
                 if metric_key == "growth":
                     values.append(terminal._pct(val))
                 elif metric_key == "numberofanalysts":
-                    values.append(str(int(val)) if val is not None else "N/A")
+                    values.append(terminal._analyst_count(val))
                 elif prefix == "rev" and metric_key in ("avg", "high", "low", "yearagorevenue"):
                     values.append(terminal._dollar(val))
                 elif prefix == "eps" and metric_key in ("avg", "high", "low", "yearagoeps"):
