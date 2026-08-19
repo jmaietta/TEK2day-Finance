@@ -75,53 +75,63 @@ _cik_cache = {}
 # ── Formatting helpers ─────────────────────────────────────────────────────
 
 
+# ⚠️ EVERY FORMATTER BELOW GOES THROUGH _to_float, AND THAT IS THE WHOLE POINT.
+#
+# These helpers used to ask "is this value MISSING?" (`val is None`) when they
+# meant "is this value a USABLE NUMBER?". NaN is not None, so it walked straight
+# past the guard and into the f-string, and Yahoo sends NaN whenever it has no
+# figure — it is not rare. Measured 19 Aug 2026 across the full universe: 6,182
+# cells on 809 of the 4,337 companies holding estimates printed a literal `$nan`,
+# `nan%` or `($nan)` to users on the website and in the terminal. `_dollar` was
+# the worst of them, rendering a missing number as `($nan)` — brackets, which in
+# this codebase mean a LOSS.
+#
+# The partner API never had the bug because it filters on `envelope.finite`.
+# `_eps` and `_analyst_count` were fixed on 19 Aug; these six were left behind,
+# which is the seventh instance of this same confusion. Yahoo writes `--` for a
+# figure it does not have; we now write `N/A`.
+#
+# _to_float also rejects Inf, so `$infT` and `infB` are gone with it.
+
 def _dollar(val):
     """Money, in the accounting convention: a negative in brackets.
 
     His call, 18 Aug — consistent across every financial figure, so a loss never
     depends on a reader catching a minus sign at 12px.
     """
-    if val is None:
+    v = _to_float(val)
+    if v is None:
         return "N/A"
-    try:
-        v = float(val)
-        a = abs(v)
-        if a >= 1e12:
-            out = f"${a / 1e12:,.2f}T"
-        elif a >= 1e9:
-            out = f"${a / 1e9:,.2f}B"
-        elif a >= 1e6:
-            out = f"${a / 1e6:,.1f}M"
-        else:
-            out = f"${a:,.2f}"
-        return out if v >= 0 else f"({out})"
-    except (ValueError, TypeError):
-        return "N/A"
+    a = abs(v)
+    if a >= 1e12:
+        out = f"${a / 1e12:,.2f}T"
+    elif a >= 1e9:
+        out = f"${a / 1e9:,.2f}B"
+    elif a >= 1e6:
+        out = f"${a / 1e6:,.1f}M"
+    else:
+        out = f"${a:,.2f}"
+    return out if v >= 0 else f"({out})"
 
 
 def _count(val):
-    if val is None:
+    v = _to_float(val)
+    if v is None:
         return "N/A"
-    try:
-        v = float(val)
-        if abs(v) >= 1e9:
-            return f"{v / 1e9:,.2f}B"
-        if abs(v) >= 1e6:
-            return f"{v / 1e6:,.1f}M"
-        if abs(v) >= 1e3:
-            return f"{v / 1e3:,.0f}K"
-        return f"{v:,.0f}"
-    except (ValueError, TypeError):
-        return "N/A"
+    if abs(v) >= 1e9:
+        return f"{v / 1e9:,.2f}B"
+    if abs(v) >= 1e6:
+        return f"{v / 1e6:,.1f}M"
+    if abs(v) >= 1e3:
+        return f"{v / 1e3:,.0f}K"
+    return f"{v:,.0f}"
 
 
 def _pct(val):
-    if val is None:
+    v = _to_float(val)
+    if v is None:
         return "N/A"
-    try:
-        return f"{float(val) * 100:.2f}%"
-    except (ValueError, TypeError):
-        return "N/A"
+    return f"{v * 100:.2f}%"
 
 
 def _ratio(val):
@@ -131,15 +141,12 @@ def _ratio(val):
     not. A negative multiple is not an accounting entry, and "(2.2x)" reads more
     like a footnote marker than a number.
     """
-    if val is None:
+    v = _to_float(val)
+    if v is None:
         return "N/A"
-    try:
-        v = float(val)
-        if abs(v) >= 100:
-            return f"{v:,.0f}x"
-        return f"{v:.1f}x"
-    except (ValueError, TypeError):
-        return "N/A"
+    if abs(v) >= 100:
+        return f"{v:,.0f}x"
+    return f"{v:.1f}x"
 
 
 def _safe_ratio(num, denom):
@@ -155,24 +162,31 @@ def _safe_ratio(num, denom):
 
 
 def _num(val, decimals=2):
-    """A plain number, negative in brackets."""
+    """A plain number, negative in brackets.
+
+    Keeps the one behaviour the others do not have: a NON-NUMERIC value passes
+    through as itself, because callers use this for labels as well as figures.
+    A value that IS a number but not a finite one is still refused — `nan` must
+    not reach the `str(val)` fallback and print itself.
+    """
+    v = _to_float(val)
+    if v is not None:
+        out = f"{abs(v):,.{decimals}f}"
+        return out if v >= 0 else f"({out})"
     if val is None:
         return "N/A"
     try:
-        v = float(val)
-        out = f"{abs(v):,.{decimals}f}"
-        return out if v >= 0 else f"({out})"
+        float(val)
     except (ValueError, TypeError):
         return str(val) if val else "N/A"
+    return "N/A"  # a number we refused: NaN or Inf
 
 
 def _price(val):
-    if val is None:
+    v = _to_float(val)
+    if v is None:
         return "N/A"
-    try:
-        return f"${float(val):,.2f}"
-    except (ValueError, TypeError):
-        return "N/A"
+    return f"${v:,.2f}"
 
 
 # Which share count belongs with which reported EPS line.
@@ -260,12 +274,8 @@ def _fin(val):
     interest expense, a loss-making quarter. A leading minus is easy to miss in
     a table of forty rows; brackets are not.
     """
-    if val is None:
-        return ""
-    try:
-        v = float(val)
-        if v != v:
-            return ""
+    v = _to_float(val)
+    if v is not None:
         a = abs(v)
         if a >= 1e9:
             out = f"{a / 1e9:,.1f}B"
@@ -276,8 +286,13 @@ def _fin(val):
         else:
             out = f"{a:,.2f}"
         return out if v >= 0 else f"({out})"
+    if val is None:
+        return ""
+    try:
+        float(val)
     except (ValueError, TypeError):
         return str(val)
+    return ""  # this branch used to filter NaN but let Inf through as `infB`
 
 
 def _color(val):
