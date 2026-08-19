@@ -483,6 +483,21 @@ def _display(data: dict) -> dict:
     }
 
 
+# What each rolling code means, spelled out. A partner reading "0q" should not
+# have to guess, and "Curr Q" is a column heading rather than a definition.
+_PERIOD_MEANING = {
+    "0q": "Current quarter, relative to as_of",
+    "+1q": "Next quarter, relative to as_of",
+    "0y": "Current fiscal year, relative to as_of",
+    "+1y": "Next fiscal year, relative to as_of",
+}
+
+# Estimates are pulled weekly, so a record a few days old is normal. Past this
+# the pull has likely stalled and the consumer should be told rather than left
+# to assume the consensus is current.
+_ESTIMATE_STALE_DAYS = 14
+
+
 def _estimates(symbol: str) -> dict | None:
     """Consensus EPS and revenue estimates, raw.
 
@@ -530,11 +545,23 @@ def _estimates(symbol: str) -> dict | None:
     if not out:
         return None
 
+    # Spelled out rather than reusing terminal.PERIOD_LABELS ("Curr Q"), which
+    # is sized for a Rich column, not for a contract a partner reads.
     out["periods"] = {
-        code: terminal.PERIOD_LABELS.get(code, code) for code in terminal.PERIOD_ORDER
+        code: _PERIOD_MEANING.get(code, code) for code in terminal.PERIOD_ORDER
     }
     out["rolling"] = True
-    out["note"] = "Period keys are relative to today and shift when a company reports."
+    # ⚠️ ANCHORED TO THE RECORD, NOT TO "TODAY". Estimates are pulled weekly, so
+    # the snapshot can be several days old — NVDA's was six days old when this
+    # was written. Saying the keys are relative to "today" is therefore wrong on
+    # most days of the week, and wrong in the direction that matters: a consumer
+    # would resolve "current quarter" against the wrong date.
+    out["as_of"] = str(record.get("date") or "") or None
+    out["captured_at"] = str(record.get("fetched_at") or "") or None
+    out["note"] = (
+        "Period keys are relative to as_of, not to today, and shift when the "
+        "company reports."
+    )
     return out
 
 
@@ -1019,3 +1046,73 @@ def comparisons(request: Request, symbols: str = Query(..., min_length=1)):
 # exist, which is static. /health reports whether the DATA is current right now,
 # which no specification can express — and Kilby needs that before it trusts a
 # number in front of an investor.
+
+
+@router.get("/equities/{symbol}/estimates")
+def equity_estimates(request: Request, symbol: str):
+    """Consensus EPS and revenue estimates.
+
+    ⚠️ THE PERIOD KEYS ARE ROLLING AND THAT IS THE WHOLE DIFFICULTY OF THIS
+    ENDPOINT. `0q` means "the current quarter" as at `as_of` — not a fixed
+    quarter. When a company reports, every key shifts down one and the numbers
+    change wholesale. That is a ROLLOVER, not analysts changing their minds, and
+    a consumer comparing today's `0q` against last week's `0q` across a report
+    date is comparing two different quarters.
+
+    So the response says three things it would be easy to leave implicit: that
+    the keys are rolling, what each one means, and the DATE they are relative
+    to. `as_of` is the record's own date, never "today" — estimates are pulled
+    weekly and a snapshot several days old is normal.
+    """
+    require_kilby(request)
+    requested = {"symbol": symbol}
+    norm, meta, refusal = _resolve(symbol)
+    if refusal is not None:
+        return refusal
+    if meta is None:
+        return _not_found(requested, f"No estimates held for {norm}")
+
+    data = _estimates(norm)
+    if not data:
+        # Covered, but nobody publishes a consensus for it. Coverage, not
+        # failure — same shape as a company with no quarterly statements.
+        return envelope.build(
+            "estimates", None, requested,
+            {"symbol": norm, "name": meta.get("name")},
+            warnings=[{"code": "no_estimates",
+                       "note": "No analyst estimates held for this company."}],
+        )
+
+    data["symbol"] = norm
+    data["definitions"] = {
+        "avg": "Consensus mean across contributing analysts",
+        "high": "Highest individual estimate",
+        "low": "Lowest individual estimate",
+        "numberofanalysts": "How many analysts contributed",
+        "growth": "Expected change against the year-ago period, as a fraction",
+        "yearagoeps": "Actual EPS for the same period a year earlier",
+        "yearagorevenue": "Actual revenue for the same period a year earlier",
+        "as_of": "The date these estimates were captured; period keys are relative to it",
+    }
+
+    warnings = []
+    as_of = data.get("as_of")
+    stale_days = None
+    if as_of:
+        try:
+            captured = datetime.strptime(as_of, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            stale_days = (datetime.now(timezone.utc) - captured).days
+        except ValueError:
+            stale_days = None
+    if stale_days is not None and stale_days > _ESTIMATE_STALE_DAYS:
+        warnings.append({
+            "code": "stale_estimates",
+            "note": f"Estimates were captured {stale_days} days ago.",
+        })
+
+    return envelope.build(
+        "estimates", data, requested,
+        {"symbol": norm, "name": meta.get("name")},
+        as_of=as_of,
+        warnings=warnings,
+    )
