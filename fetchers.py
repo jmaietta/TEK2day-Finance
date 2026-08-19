@@ -117,6 +117,63 @@ def fetch_estimates(symbol: str) -> dict | None:
         return None
 
 
+def yahoo_epoch_seconds(value):
+    """Yahoo's quote timestamp as epoch SECONDS, or None.
+
+    ⚠️ THIS EXISTS BECAUSE `ts + offset` TOOK THE PRICE PIPELINE DOWN FOR A WEEK.
+    13-19 Aug 2026: every one of 9,911 tickers failed nightly, the job reported
+    success, and Firestore's prices froze. Two upstream changes lined up —
+    yfinance began returning `regularMarketTime` as a pandas Timestamp instead
+    of an int, and pandas 3 made `Timestamp + int` a TypeError.
+
+    ⚠️ `int(value)` IS NOT THE FIX AND MUST NOT BE USED. On a pandas Timestamp
+    it raises outright, and where a caller swallows that (app.py did) the quote
+    silently vanishes instead of failing loudly. `.timestamp()` is the only
+    accessor that means SECONDS for both datetime and pandas Timestamp.
+
+    Accepts what Yahoo has actually been observed to send: int, float, numeric
+    string, datetime, pandas Timestamp. Anything else is None, never a guess.
+    """
+    if value is None or isinstance(value, bool):
+        return None
+    # datetime and pandas Timestamp both expose .timestamp() in SECONDS.
+    as_epoch = getattr(value, "timestamp", None)
+    if callable(as_epoch):
+        try:
+            return float(as_epoch())
+        except Exception:  # noqa: BLE001 - a broken clock is not a crash
+            return None
+    try:
+        seconds = float(value)
+    except (TypeError, ValueError):
+        return None
+    return None if seconds != seconds or seconds in (float("inf"), float("-inf")) else seconds
+
+
+def yahoo_local_date(timestamp, gmtoffset=0):
+    """The exchange's LOCAL trading date for a Yahoo quote, or None.
+
+    gmtoffset converts the quote timestamp to the exchange's own date without
+    needing a timezone database — a bar stamped 21:00 UTC belongs to the New
+    York session that already closed, not to the next day.
+
+    ⚠️ ONE COPY, CALLED BY ALL THREE SURFACES. This line previously existed
+    four times — fetchers, terminal and twice in app — and when the type change
+    landed, app happened to be written differently and the other two broke. The
+    project has been bitten by exactly this before: the balance-sheet fix landed
+    on the website and left the terminal blank, and the status doc's ruling was
+    "Do not reintroduce a second copy." It got reintroduced. This is the one copy.
+    """
+    seconds = yahoo_epoch_seconds(timestamp)
+    if seconds is None:
+        return None
+    offset = yahoo_epoch_seconds(gmtoffset) or 0.0
+    try:
+        return datetime.fromtimestamp(seconds + offset, tz=timezone.utc).date()
+    except (OverflowError, OSError, ValueError):
+        return None
+
+
 def _bar_from_metadata(meta: dict, symbol: str) -> dict | None:
     """
     Build a daily bar from the chart response metadata, which carries the
@@ -132,10 +189,11 @@ def _bar_from_metadata(meta: dict, symbol: str) -> dict | None:
     def _round(value):
         return None if value is None else round(float(value), 4)
 
-    # gmtoffset converts the quote timestamp to the exchange's local date
-    # without needing a tz database.
-    offset = meta.get("gmtoffset") or 0
-    bar_date = datetime.fromtimestamp(ts + offset, tz=timezone.utc).strftime("%Y-%m-%d")
+    local_date = yahoo_local_date(ts, meta.get("gmtoffset") or 0)
+    if local_date is None:
+        logger.warning("%s: unusable quote timestamp %r", symbol, ts)
+        return None
+    bar_date = local_date.strftime("%Y-%m-%d")
     volume = meta.get("regularMarketVolume")
     return {
         "date": bar_date,

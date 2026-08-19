@@ -520,12 +520,18 @@ def _live_quote(symbol):
         quote["day_low"] = _to_float(meta.get("regularMarketDayLow"))
         ts = meta.get("regularMarketTime")
         if ts:
-            # gmtoffset converts the quote timestamp to the exchange's
-            # local date without needing a tz database.
-            offset = meta.get("gmtoffset") or 0
-            quote["date"] = datetime.fromtimestamp(
-                ts + offset, tz=timezone.utc
-            ).strftime("%Y-%m-%d")
+            # ⚠️ SHARED WITH fetchers AND app. This line used to be its own copy
+            # of `ts + offset`, and when yfinance began sending a pandas
+            # Timestamp it raised into the bare `except` below — silently
+            # costing this quote its date, 52-week range and day range, which is
+            # why the company-page chart lost its last point. Do not inline it
+            # again. Imported here rather than at module scope so the pip
+            # package keeps its lazy yfinance import.
+            from fetchers import yahoo_local_date  # noqa: PLC0415
+
+            local_date = yahoo_local_date(ts, meta.get("gmtoffset") or 0)
+            if local_date is not None:
+                quote["date"] = local_date.strftime("%Y-%m-%d")
     except Exception:
         pass
 

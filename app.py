@@ -41,6 +41,7 @@ import admin_api
 import auth
 import exports
 import partner_api
+import fetchers
 import storage
 import terminal
 import watchlist
@@ -783,11 +784,12 @@ def _macro_yahoo_chart_data(symbol: str) -> dict:
         value = _macro_float_or_none(close)
         if value is None:
             continue
-        try:
-            source_date = datetime.fromtimestamp(
-                int(timestamp) + offset, tz=timezone.utc
-            ).date()
-        except (TypeError, ValueError, OSError):
+        # ⚠️ `int(timestamp)` RAISES on a pandas Timestamp, and this `except`
+        # swallowed it — so when yfinance changed the type, the macro overlay
+        # lost its history SILENTLY while the price job died loudly. Shared
+        # helper, one copy, see fetchers.yahoo_local_date.
+        source_date = fetchers.yahoo_local_date(timestamp, offset)
+        if source_date is None:
             continue
         by_date[source_date] = {
             "date": source_date,
@@ -803,10 +805,9 @@ def _macro_yahoo_chart_data(symbol: str) -> dict:
     price = _macro_float_or_none(meta.get("regularMarketPrice"))
     timestamp = meta.get("regularMarketTime")
     if price is not None and timestamp:
-        try:
-            live_date = datetime.fromtimestamp(
-                int(timestamp) + offset, tz=timezone.utc
-            ).date()
+        # Shared helper, one copy — see fetchers.yahoo_local_date.
+        live_date = fetchers.yahoo_local_date(timestamp, offset)
+        if live_date is not None:
             quote.update(
                 {
                     "price": price,
@@ -820,8 +821,6 @@ def _macro_yahoo_chart_data(symbol: str) -> dict:
                 "value": price,
                 "raw_source_value": str(meta.get("regularMarketPrice")),
             }
-        except (TypeError, ValueError, OSError):
-            pass
 
     return {
         "quote": quote,
