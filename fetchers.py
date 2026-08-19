@@ -6,11 +6,44 @@ a normalized dict ready for Firestore storage.
 """
 import logging
 import math
+import os
+import platform
+import sys
 from datetime import date, datetime, timezone
 
 import yfinance as yf
 
 logger = logging.getLogger("ydp.fetchers")
+
+# ⚠️ THE FIRST FEW FAILURES CARRY THEIR TRACEBACK; THE REST DO NOT.
+#
+# A one-line `logger.error(..., exc)` made the 13-19 Aug 2026 price outage
+# undiagnosable for a week. Every one of 9,911 tickers failed with the same
+# pandas message and NOT ONE said where. The library worked on every version
+# tested locally, so without a stack the fault could not be located at all.
+#
+# Full tracebacks for all 9,911 would be ~10,000 stack dumps a night, which is
+# its own kind of unreadable and costs money to store. The first three are
+# enough: when a run fails wholesale it fails identically every time.
+_TRACEBACK_BUDGET = int(os.environ.get("FETCH_TRACEBACK_BUDGET", "3"))
+_traceback_count = 0
+
+
+def _log_fetch_failure(kind: str, symbol: str, exc: Exception) -> None:
+    """One line per failure, with a stack for the first few of a run."""
+    global _traceback_count
+    if _traceback_count < _TRACEBACK_BUDGET:
+        _traceback_count += 1
+        logger.error(
+            "%s: %s fetch failed (%d of %d with traceback) | python=%s "
+            "platform=%s yfinance=%s TZ=%s",
+            symbol, kind, _traceback_count, _TRACEBACK_BUDGET,
+            sys.version.split()[0], platform.platform(),
+            getattr(yf, "__version__", "?"), os.environ.get("TZ", "unset"),
+            exc_info=True,
+        )
+    else:
+        logger.error("%s: %s fetch failed: %s", symbol, kind, exc)
 
 
 def fetch_ticker_info(symbol: str) -> dict | None:
@@ -157,7 +190,7 @@ def fetch_prices(symbol: str, period: str = "5d") -> list[dict]:
         return rows
 
     except Exception as exc:
-        logger.error("%s: price fetch failed: %s", symbol, exc)
+        _log_fetch_failure("price", symbol, exc)
         return []
 
 
