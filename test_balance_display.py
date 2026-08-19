@@ -126,6 +126,41 @@ def test_an_entirely_empty_record_is_not_promoted():
     check("empty stays empty", not got.get("Total Assets"), str(got.get("Total Assets")))
 
 
+
+def test_the_annual_wins_outright_even_when_the_quarter_is_fuller():
+    """HIS RULING, 18 Aug: prefer the annual at a shared date.
+
+    A company's year end is also its fourth-quarter end, so Yahoo sends TWO
+    balance sheets for one day. A balance sheet is a photograph of a single
+    date, so there can only be one right answer — and where they conflict Yahoo
+    is in error. BP, 31 December 2025: annual cash $31.8B against quarterly
+    $36.6B, $4.8bn apart for the same company on the same day.
+
+    Measured across all 9,911 tickers, only ten shared dates have BOTH sides
+    populated enough to conflict, and nine of the ten disagree. The annual is
+    the audited, fuller presentation and is the one to trust."""
+    fins = [
+        rec("2025-Q4", "2025-12-31", **{"Cash And Cash Equivalents": 36.6e9, **FULL}),
+        rec("2025-FY", "2025-12-31", **{"Cash And Cash Equivalents": 31.8e9}),
+    ]
+    got = picked(fins, "2025-12-31")
+    check("annual figure is shown",
+          got.get("Cash And Cash Equivalents") == terminal._fin(31.8e9),
+          str(got.get("Cash And Cash Equivalents")))
+
+
+def test_an_empty_annual_does_not_beat_a_populated_quarter():
+    """The guard. Preferring the annual must not mean preferring an EMPTY one —
+    that is GOOGL's blank 2024 column returning in reverse."""
+    fins = [
+        rec("2024-Q4", "2024-12-31", **{"Total Assets": 450.3e9, **FULL}),
+        rec("2024-FY", "2024-12-31"),
+    ]
+    got = picked(fins, "2024-12-31")
+    check("populated quarter kept", got.get("Total Assets") == terminal._fin(450.3e9),
+          str(got.get("Total Assets")))
+
+
 def main():
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

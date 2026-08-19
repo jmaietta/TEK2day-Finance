@@ -1330,9 +1330,28 @@ def balance_sheet_periods(all_fins, limit=8):
     wrong in the terminal.
     """
     def weight(financial):
+        """Rank two records closing the same day.
+
+        ⚠️ THE ANNUAL WINS OUTRIGHT — his ruling, 18 Aug. A company's year end is
+        also its fourth-quarter end, so Yahoo sends TWO balance sheets for that
+        one day. A balance sheet is a photograph of a single date, so there can
+        only be one right answer, and where they conflict Yahoo is in error:
+
+            BP, 31 December 2025    annual cash $31.8B
+                                 quarterly cash $36.6B
+
+        $4.8bn apart for the same company on the same day. The annual figure is
+        the audited, fuller presentation and is the one to trust.
+
+        The first term is a GUARD, not a preference: an annual record that holds
+        no usable balance sheet must not beat a quarterly one that does, or
+        GOOGL's empty 2024-Q4 problem simply returns reversed and the column goes
+        blank again. So: a real sheet first, then the annual, then the fuller.
+        """
         block = financial.get("balance_sheet") or {}
         populated = sum(1 for v in block.values() if _to_float(v) is not None)
-        return (populated, 1 if str(financial.get("period") or "").endswith("-FY") else 0)
+        is_annual = 1 if str(financial.get("period") or "").endswith("-FY") else 0
+        return (1 if populated else 0, is_annual, populated)
 
     best = {}
     for financial in (all_fins or []):
