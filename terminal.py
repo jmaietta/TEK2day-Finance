@@ -76,17 +76,25 @@ _cik_cache = {}
 
 
 def _dollar(val):
+    """Money, in the accounting convention: a negative in brackets.
+
+    His call, 18 Aug — consistent across every financial figure, so a loss never
+    depends on a reader catching a minus sign at 12px.
+    """
     if val is None:
         return "N/A"
     try:
         v = float(val)
-        if abs(v) >= 1e12:
-            return f"${v / 1e12:,.2f}T"
-        if abs(v) >= 1e9:
-            return f"${v / 1e9:,.2f}B"
-        if abs(v) >= 1e6:
-            return f"${v / 1e6:,.1f}M"
-        return f"${v:,.2f}"
+        a = abs(v)
+        if a >= 1e12:
+            out = f"${a / 1e12:,.2f}T"
+        elif a >= 1e9:
+            out = f"${a / 1e9:,.2f}B"
+        elif a >= 1e6:
+            out = f"${a / 1e6:,.1f}M"
+        else:
+            out = f"${a:,.2f}"
+        return out if v >= 0 else f"({out})"
     except (ValueError, TypeError):
         return "N/A"
 
@@ -117,6 +125,12 @@ def _pct(val):
 
 
 def _ratio(val):
+    """A multiple. Keeps the minus sign — brackets are for currency.
+
+    His call, 18 Aug: dollar figures follow the accounting convention, ratios do
+    not. A negative multiple is not an accounting entry, and "(2.2x)" reads more
+    like a footnote marker than a number.
+    """
     if val is None:
         return "N/A"
     try:
@@ -141,10 +155,13 @@ def _safe_ratio(num, denom):
 
 
 def _num(val, decimals=2):
+    """A plain number, negative in brackets."""
     if val is None:
         return "N/A"
     try:
-        return f"{float(val):,.{decimals}f}"
+        v = float(val)
+        out = f"{abs(v):,.{decimals}f}"
+        return out if v >= 0 else f"({out})"
     except (ValueError, TypeError):
         return str(val) if val else "N/A"
 
@@ -158,20 +175,86 @@ def _price(val):
         return "N/A"
 
 
+# Which share count belongs with which reported EPS line.
+EPS_SHARE_COUNT = {
+    "Basic EPS": "Basic Average Shares",
+    "Diluted EPS": "Diluted Average Shares",
+}
+
+
+def computed_eps(income, field="Diluted EPS"):
+    """Earnings per share from the record's OWN components, or None.
+
+    COMPUTED RATHER THAN STORED, for two reasons that compound.
+
+    1. The stored figure can be missing its minus sign. SQNS 2025-Q4 holds
+       +5.62 against a net loss of $87,127,000 over 15,504,809 shares: the
+       company lost $5.62 a share and the record reads as a profit.
+    2. Share counts now track Yahoo's current basis (see
+       storage.SHARE_COUNT_FIELDS), so a stored EPS frozen on an older basis
+       would openly contradict the share count sitting beside it. Deriving it
+       keeps the two consistent by construction.
+
+    SAFE TO COMPUTE — the units were proven first, across all 9,911 tickers:
+    |EPS x shares| / |net income| lands at ~1 for 56,274 of 56,778 records
+    (99.1%). A denomination fault would show a fat cluster at 1,000x; there are
+    ten scattered records there, so net income and share counts are in the same
+    units everywhere that matters.
+
+    Net income to COMMON where stated, after preferred holders are paid. Using
+    total net income instead fails every company with preferred stock, by exactly
+    its preferred dividends, in every period.
+
+    Returns None when a component is absent, so the caller keeps whatever was
+    reported rather than inventing a figure.
+    """
+    if not isinstance(income, dict):
+        return None
+    shares = _to_float(income.get(EPS_SHARE_COUNT.get(field, "Diluted Average Shares")))
+    if not shares:
+        return None
+    ni_common = _to_float(income.get("Net Income Common Stockholders"))
+    net_income = ni_common if ni_common is not None else _to_float(income.get("Net Income"))
+    if net_income is None:
+        return None
+    return net_income / shares
+
+
+def _eps(val):
+    """A per-share figure in the accounting convention: a loss in parentheses.
+
+    His call, 18 Aug: positive shows as $x.xx, negative as ($x.xx). A leading
+    minus is easy to miss at 12px in a table of forty rows; brackets are not.
+    """
+    v = _to_float(val)
+    if v is None:
+        return ""
+    return f"${v:,.2f}" if v >= 0 else f"(${abs(v):,.2f})"
+
+
 def _fin(val):
+    """A statement figure, negative in brackets.
+
+    Income statements and cash flow statements are full of negatives — capex,
+    interest expense, a loss-making quarter. A leading minus is easy to miss in
+    a table of forty rows; brackets are not.
+    """
     if val is None:
         return ""
     try:
         v = float(val)
         if v != v:
             return ""
-        if abs(v) >= 1e9:
-            return f"{v / 1e9:,.1f}B"
-        if abs(v) >= 1e6:
-            return f"{v / 1e6:,.1f}M"
-        if abs(v) >= 1e3:
-            return f"{v / 1e3:,.0f}K"
-        return f"{v:,.2f}"
+        a = abs(v)
+        if a >= 1e9:
+            out = f"{a / 1e9:,.1f}B"
+        elif a >= 1e6:
+            out = f"{a / 1e6:,.1f}M"
+        elif a >= 1e3:
+            out = f"{a / 1e3:,.0f}K"
+        else:
+            out = f"{a:,.2f}"
+        return out if v >= 0 else f"({out})"
     except (ValueError, TypeError):
         return str(val)
 
@@ -1204,11 +1287,11 @@ def _show_financials(symbol, section, fields, title, snapshot=False):
                 key, label = field
             else:
                 key, label = field, field
-            vals = [p.get(section, {}).get(key) for p in periods]
+            vals = [statement_cell(p, section, key) for p in periods]
             if not any(v is not None for v in vals):
                 continue
             has_data = True
-            row = [label] + [_fin(v) for v in vals]
+            row = [label] + [statement_display(section, key, v) for v in vals]
             t.add_row(*row)
 
         if not has_data:
@@ -1223,6 +1306,66 @@ def _show_financials(symbol, section, fields, title, snapshot=False):
         console.print(t)
 
 
+def balance_sheet_periods(all_fins, limit=8):
+    """One column per DATE for a balance sheet, choosing the fuller record.
+
+    A balance sheet is point-in-time, so an annual and a quarterly record
+    closing the same day describe the same sheet — but they are routinely NOT
+    equivalent, because Yahoo posts a skeleton within hours of a release and
+    fills it in later.
+
+        GOOGL 2024-12-31   2024-FY  63 fields, Total Assets $450.3B
+                           2024-Q4   4 fields, Total Assets missing
+
+    Keeping whichever came first showed an almost empty 2024 column while we
+    held everything. Measured 18 Aug 2026: 281 of 700 companies (40%) gain data
+    from this, 14,166 figures recovered, no period worse. JPM was discarding
+    $4,002.8B of total assets.
+
+    Ties on field count go to the ANNUAL — GOOGL 2025-FY carries Total Debt at
+    $59.3B where 2025-Q4, with the same field count, carries none.
+
+    ⚠️ SHARED BY THE TERMINAL AND THE WEBSITE ON PURPOSE. Both had their own copy
+    of this loop and only one was fixed, so /GOOGL bal was right on the site and
+    wrong in the terminal.
+    """
+    def weight(financial):
+        block = financial.get("balance_sheet") or {}
+        populated = sum(1 for v in block.values() if _to_float(v) is not None)
+        return (populated, 1 if str(financial.get("period") or "").endswith("-FY") else 0)
+
+    best = {}
+    for financial in (all_fins or []):
+        period_end = str(financial.get("period_end", ""))
+        if period_end not in best or weight(financial) > weight(best[period_end]):
+            best[period_end] = financial
+    ordered = sorted(best.values(), key=lambda f: str(f.get("period_end", "")))
+    return ordered[-limit:] if limit else ordered
+
+
+def statement_cell(period, section, key):
+    """The value a statement row should show — derived where we can do better.
+
+    EPS is computed from net income and the share count rather than read, so a
+    stored figure missing its minus sign cannot reach a reader, and so a
+    per-share number cannot contradict the share count beside it now that share
+    counts follow Yahoo's current basis. Everything else is read as stored.
+    """
+    block = (period or {}).get(section) or {}
+    if section == "income" and key in EPS_SHARE_COUNT:
+        derived = computed_eps(block, key)
+        if derived is not None:
+            return derived
+    return block.get(key)
+
+
+def statement_display(section, key, value):
+    """Render one statement cell. Per-share figures use the accounting form."""
+    if section == "income" and key in EPS_SHARE_COUNT:
+        return _eps(value)
+    return _fin(value)
+
+
 def cmd_income(symbol):
     _show_financials(symbol, "income", INCOME_FIELDS, "Income Statement")
 
@@ -1235,14 +1378,7 @@ def cmd_balance(symbol):
     if not all_fins:
         console.print(f"[yellow]No financials stored for {symbol}[/yellow]")
         return
-    seen = set()
-    unique = []
-    for f in sorted(all_fins, key=lambda f: f.get("period_end", "")):
-        dt = f.get("period_end", "")
-        if dt not in seen:
-            seen.add(dt)
-            unique.append(f)
-    periods = unique[-8:]
+    periods = balance_sheet_periods(all_fins)
     t = Table(
         title=f"{symbol} — Balance Sheet",
         box=box.SIMPLE_HEAVY, border_style="green", title_style="bold",
@@ -1752,8 +1888,8 @@ def cmd_compare(symbols):
         ("Revenue (TTM)", lambda i: _dollar(i.get("revenue"))),
         ("EBITDA (TTM)", lambda i: _dollar(i.get("ebitda"))),
         ("Net Income (TTM)", lambda i: _dollar(i.get("net_income"))),
-        ("EPS (TTM)", lambda i: _num(i.get("eps_ttm"))),
-        ("EPS (Fwd)", lambda i: _num(i.get("forward_eps"))),
+        ("EPS (TTM)", lambda i: _eps(i.get("eps_ttm"))),
+        ("EPS (Fwd)", lambda i: _eps(i.get("forward_eps"))),
         ("P/E TTM (GAAP)", lambda i: _ratio(i.get("pe_ttm"))),
         ("Fwd P/E (Est)", lambda i: _ratio(i.get("forward_pe"))),
         ("P/S (TTM)", lambda i: _ratio(i.get("ps_ttm"))),

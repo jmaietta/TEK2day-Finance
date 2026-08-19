@@ -97,6 +97,35 @@ def is_stub(doc: dict) -> bool:
     return False
 
 
+def share_count_changed(stored: dict, incoming: dict) -> bool:
+    """Whether Yahoo now reports a different share count than we hold.
+
+    ⚠️ WITHOUT THIS THE SHARE-COUNT FLEX NEVER FIRES ON A COMPLETE RECORD.
+    review_and_populate returns early for anything that is not a stub, so
+    merge_financial_doc — which is where share counts are allowed to update —
+    was never reached for the records that need it most.
+
+    SQNS is the case: its records are complete and its stored counts are 10x and
+    100x Yahoo's, left behind by reverse splits we ingested either side of. Every
+    per-share figure for that company was out by the same factor, and no amount
+    of stub repair would ever have touched it.
+
+    Only a finite, non-zero incoming value counts as a change, so a blank from
+    Yahoo can never drag a record into being rewritten.
+    """
+    for section in storage.STATEMENT_SECTIONS:
+        old_block = (stored or {}).get(section) or {}
+        new_block = (incoming or {}).get(section) or {}
+        for field in storage.SHARE_COUNT_FIELDS:
+            fresh = new_block.get(field)
+            if not finite(fresh) or not fresh:
+                continue
+            held = old_block.get(field)
+            if finite(held) and held != fresh:
+                return True
+    return False
+
+
 def is_recent(doc: dict, days: int = RECENT_DAYS) -> bool:
     try:
         end = datetime.strptime(str(doc.get("period_end")), "%Y-%m-%d").replace(tzinfo=timezone.utc)
@@ -312,8 +341,8 @@ def review_and_populate(symbol: str, period: str, incoming: dict, db=None) -> di
         return None  # a new period; write_financials already handled it
 
     stored = snap.to_dict() or {}
-    if not is_stub(stored):
-        return None  # complete record, nothing to review
+    if not is_stub(stored) and not share_count_changed(stored, incoming):
+        return None  # complete record and the share count still agrees
 
     merged, filled = storage.merge_financial_doc(stored, incoming)
     if not filled:

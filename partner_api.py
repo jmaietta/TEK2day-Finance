@@ -423,9 +423,9 @@ def _display(data: dict) -> dict:
                 if not isinstance(by_period, dict):
                     continue
                 if metric in ("avg", "high", "low", "yearagorevenue"):
-                    f = terminal._dollar if section == "revenue" else terminal._price
+                    f = terminal._dollar if section == "revenue" else terminal._eps
                 elif metric == "yearagoeps":
-                    f = terminal._price
+                    f = terminal._eps
                 elif metric == "growth":
                     f = terminal._pct
                 elif metric == "numberofanalysts":
@@ -468,8 +468,9 @@ def _display(data: dict) -> dict:
             "revenue": fmt(fundamentals.get("revenue"), terminal._dollar),
             "ebitda": fmt(fundamentals.get("ebitda"), terminal._dollar),
             "net_income": fmt(fundamentals.get("net_income"), terminal._dollar),
-            "eps_ttm": fmt(fundamentals.get("eps_ttm"), terminal._price),
-            "forward_eps": fmt(fundamentals.get("forward_eps"), terminal._price),
+            # Same accounting convention as every other per-share figure.
+            "eps_ttm": fmt(fundamentals.get("eps_ttm"), terminal._eps),
+            "forward_eps": fmt(fundamentals.get("forward_eps"), terminal._eps),
             "diluted_shares": fmt(fundamentals.get("diluted_shares"), terminal._count),
             "beta": fmt(fundamentals.get("beta"), terminal._num),
             # NOT terminal._pct — that multiplies by 100, and this value is
@@ -761,7 +762,9 @@ def equity_financials(
 
     rows = []
     for key, label in _field_pairs(fields):
-        values = [(r.get(section) or {}).get(key) for r in selected]
+        # The SAME helper the website and the terminal use, so all three
+        # surfaces cannot render one company differently.
+        values = [terminal.statement_cell(r, section, key) for r in selected]
         # A row nothing reports is noise, not information.
         if not any(envelope.finite(v) for v in values):
             continue
@@ -807,7 +810,8 @@ def _fin_display(statement: str, field: str, value):
     import terminal  # noqa: PLC0415
     try:
         if "EPS" in field:
-            return terminal._price(value)
+            # Accounting convention, matching the website: ($x.xx) for a loss.
+            return terminal._eps(value)
         return terminal._fin(value) if hasattr(terminal, "_fin") else terminal._dollar(value)
     except Exception:
         return None
@@ -841,11 +845,16 @@ _COMPARE_METRICS = [
 ]
 
 
-def _compare_display(kind: str, value):
+def _compare_display(kind: str, value, field: str = ""):
     if not envelope.finite(value):
         return None
     import terminal  # noqa: PLC0415
     try:
+        # A per-share figure follows the accounting convention everywhere it
+        # appears — ($5.62) for a loss — so the comp card, the summary card and
+        # the income statement cannot render the same company differently.
+        if "eps" in field:
+            return terminal._eps(value)
         if kind == "price":
             return terminal._price(value)
         if kind == "ratio":
@@ -965,7 +974,7 @@ def comparisons(request: Request, symbols: str = Query(..., min_length=1)):
         for _, _, snap in loaded:
             value = (snap or {}).get(key)
             values.append(envelope.clean(value) if envelope.finite(value) else None)
-            display.append(_compare_display(kind, value))
+            display.append(_compare_display(kind, value, key))
         # Unlike a single-company statement, a row is KEPT even when every value
         # is missing: the metric list is the comparison's frame, and a row that
         # vanishes for one set of companies and appears for another makes two

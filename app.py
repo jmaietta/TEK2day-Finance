@@ -394,15 +394,21 @@ def _field_parts(field) -> tuple[str, str]:
 
 
 def _statement_rows(periods: list[dict], section: str, fields: list) -> list[dict]:
+    """Rows for one statement, using the SHARED cell and display helpers.
+
+    ⚠️ terminal.statement_cell / statement_display are shared with the terminal
+    on purpose. Both surfaces used to carry their own copy of this loop, so the
+    EPS fix landed on the website and missed the terminal entirely.
+    """
     rows = []
     for field in fields:
         key, label = _field_parts(field)
-        values = [p.get(section, {}).get(key) for p in periods]
+        values = [terminal.statement_cell(p, section, key) for p in periods]
         if not any(v is not None for v in values):
             continue
         rows.append({
             "label": label,
-            "values": [terminal._fin(v) for v in values],
+            "values": [terminal.statement_display(section, key, v) for v in values],
         })
 
     if rows:
@@ -412,10 +418,10 @@ def _statement_rows(periods: list[dict], section: str, fields: list) -> list[dic
     for period in periods:
         all_keys.update(period.get(section, {}).keys())
     for key in sorted(all_keys):
-        values = [p.get(section, {}).get(key) for p in periods]
+        values = [period.get(section, {}).get(key) for period in periods]
         rows.append({
             "label": key,
-            "values": [terminal._fin(v) for v in values],
+            "values": [terminal.statement_display(section, key, v) for v in values],
         })
     return rows
 
@@ -427,42 +433,9 @@ def _financial_payload(symbol: str, section: str, fields: list, title: str) -> d
 
     sections = []
     if section == "balance_sheet":
-        # A balance sheet is point-in-time, so one column per DATE — an annual
-        # and a quarterly record closing the same day describe the same sheet.
-        #
-        # ⚠️ BUT WHICH ONE IS KEPT MATTERS, AND THIS USED TO KEEP WHICHEVER CAME
-        # FIRST. Yahoo posts a skeleton within hours of a release and fills it in
-        # later, so the two records are routinely NOT equivalent:
-        #
-        #     GOOGL 2024-12-31   2024-FY  63 fields, Total Assets $450.3B
-        #                        2024-Q4   4 fields, Total Assets missing
-        #
-        # The 4-field skeleton won, and /GOOGL bal showed an almost empty column
-        # for 2024 — every figure blank except Total Debt, which happened to be
-        # one of the four. Measured 18 Aug 2026: 133 of 521 sampled companies
-        # (26%) carry this collision, JPM among them, where $4,002.8B of total
-        # assets was being discarded.
-        #
-        # Keep the record holding more of the statement, and break a genuine tie
-        # toward the ANNUAL: it is the audited, fuller presentation, and it is
-        # the one carrying Total Debt when the quarter does not (GOOGL 2025-FY
-        # has $59.3B; 2025-Q4, same field count, has none).
-        #
-        # Same rule as terminal._balance_period, which already does this for
-        # enterprise value. This is the display path catching up with the
-        # calculation path.
-        def _sheet_weight(financial):
-            block = financial.get("balance_sheet") or {}
-            populated = sum(1 for v in block.values() if terminal._to_float(v) is not None)
-            return (populated, 1 if str(financial.get("period") or "").endswith("-FY") else 0)
-
-        best: dict[str, dict] = {}
-        for financial in all_fins:
-            period_end = str(financial.get("period_end", ""))
-            if period_end not in best or _sheet_weight(financial) > _sheet_weight(best[period_end]):
-                best[period_end] = financial
-        unique = sorted(best.values(), key=lambda f: str(f.get("period_end", "")))
-        periods = unique[-8:]
+        # Shared with the terminal — see terminal.balance_sheet_periods. Both
+        # had their own copy of this and only one was fixed.
+        periods = terminal.balance_sheet_periods(all_fins)
         if periods:
             sections.append({
                 "title": "Recent Periods",

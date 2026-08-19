@@ -173,11 +173,41 @@ def _is_empty_value(value) -> bool:
     return False
 
 
+# Share counts are the ONE exception to write-once, because they legitimately
+# CHANGE rather than merely arrive late. A split, a reverse merger or a
+# restatement makes the stored figure wrong, not just older — and Yahoo rewrites
+# every past period onto the new basis when one happens.
+#
+# Measured 18 Aug 2026 across 150 companies: 59 of 430 stored counts (13.7%,
+# spanning 53 companies) no longer match Yahoo. GIPR is the clear case — stored
+# at exactly 10x Yahoo across four consecutive quarters, a 1-for-10 reverse
+# split we ingested either side of, leaving the whole series on the pre-split
+# basis. Everything per-share for that company was out by a factor of ten.
+# CP, ALK, RJF and CSL show the milder version: 2-5% off after buybacks and
+# revisions.
+#
+# Frozen share counts are worse than a stale figure: they silently contradict
+# the prices, which ARE refreshed daily on a split-adjusted basis.
+SHARE_COUNT_FIELDS = frozenset({
+    "Diluted Average Shares",
+    "Basic Average Shares",
+    "Share Issued",
+    "Ordinary Shares Number",
+    "Treasury Shares Number",
+})
+
+
 def merge_financial_doc(existing: dict, incoming: dict) -> tuple[dict, list[str]]:
-    """Fill only the gaps in `existing` from `incoming`. Pure function — no I/O.
+    """Fill the gaps in `existing` from `incoming`. Pure function — no I/O.
 
     THE RULE: a populated value is never overwritten. Only fields that are
     absent, None, NaN or Inf are filled.
+
+    ⚠️ ONE EXCEPTION — SHARE COUNTS, see SHARE_COUNT_FIELDS. Those track Yahoo's
+    current basis, because a split makes the old number WRONG rather than
+    merely old. Guarded so the exception cannot become a hole: the incoming
+    value must be finite AND non-zero, so a blank or a zero can never wipe a
+    real count. His ruling, 18 Aug.
 
     This is not caution for its own sake. Yahoo's own history regresses: for
     BRK.B 2024-12-31 Yahoo now returns 2 of 48 cash-flow fields, while our
@@ -208,7 +238,12 @@ def merge_financial_doc(existing: dict, incoming: dict) -> tuple[dict, list[str]
             if _is_empty_value(new_value):
                 continue  # incoming has nothing better to offer
             if field in old_block and not _is_empty_value(old_block[field]):
-                continue  # existing value is real — leave it alone
+                # The single exception: a share count follows Yahoo's current
+                # basis. Only ever replaced by a real, non-zero number.
+                if field in SHARE_COUNT_FIELDS and new_value and new_value != old_block[field]:
+                    old_block[field] = new_value
+                    filled.append(f"{section}.{field}")
+                continue  # otherwise the existing value is real — leave it alone
             old_block[field] = new_value
             filled.append(f"{section}.{field}")
 
