@@ -1257,7 +1257,14 @@ def cmd_estimates(symbol):
                 elif prefix == "rev" and mk in ("avg", "high", "low", "yearagorevenue"):
                     row.append(_dollar(val))
                 elif prefix == "eps" and mk in ("avg", "high", "low", "yearagoeps"):
-                    row.append(_price(val))
+                    # ⚠️ _eps, NOT _price. An estimate is still a per-share
+                    # figure, so it follows the accounting convention like every
+                    # other one — ($0.58), not $-0.58. This table was the last
+                    # surface calling _price for earnings, which is why AAPG read
+                    # `$-0.58` here and `($0.58)` on the income statement and the
+                    # comp card for the same company. `or "N/A"` because _eps
+                    # returns blank for a missing value and these cells say N/A.
+                    row.append(_eps(val) or "N/A")
                 else:
                     row.append(_num(val))
             t.add_row(*row)

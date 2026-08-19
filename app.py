@@ -328,7 +328,8 @@ def _estimates_payload(symbol: str) -> dict | None:
                 elif prefix == "rev" and metric_key in ("avg", "high", "low", "yearagorevenue"):
                     values.append(terminal._dollar(val))
                 elif prefix == "eps" and metric_key in ("avg", "high", "low", "yearagoeps"):
-                    values.append(terminal._price(val))
+                    # _eps, not _price — see the note in terminal.cmd_estimates.
+                    values.append(terminal._eps(val) or "N/A")
                 else:
                     values.append(terminal._num(val))
             rows.append({
