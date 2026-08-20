@@ -27,6 +27,10 @@ rich==15.0.0
 requests==2.34.2
 plotext==5.3.2
 xlsxwriter==3.2.9
+# Read by architecture_check.py, which verifies architecture.yaml still
+# describes reality. Added deliberately on 20 Aug 2026, not pulled in as a
+# transitive dependency.
+PyYAML==6.0.3
 
 # -- transitive, pinned so a rebuild cannot move them ------------------------
 annotated-doc==0.0.5

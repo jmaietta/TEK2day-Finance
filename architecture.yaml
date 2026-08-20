@@ -1,0 +1,90 @@
+# THE TEK2day ARCHITECTURE, AS FACTS THAT CAN BE CHECKED.
+#
+# ⚠️ THIS FILE IS NOT DOCUMENTATION. It is an assertion about reality that
+# `architecture_check.py` verifies against the live Google Cloud project and
+# against this repo. If they disagree, the check fails and an email is sent.
+#
+# WHY IT EXISTS: the same architectural facts were re-derived, badly, across a
+# whole session on 19-20 Aug 2026 — how many images there are, which workflow
+# builds them, whether a repair job exists, why a build ran twice. His words:
+# "I had really hoped that you would know my TEK2day and Kilby repos inside and
+# out by now... So much time wasted reviewing the same things over and over."
+#
+# ⚠️ A STALE MAP IS WORSE THAN NO MAP — it is confidently wrong, and it will be
+# believed. The `deploy-jobs.yml` comment that misled an entire investigation on
+# 19 Aug was accurate when written. That is why this file is CHECKED, not
+# trusted.
+#
+# WHEN SOMETHING CHANGES ON PURPOSE: update this file in the same commit. The
+# check failing is the point — it means reality moved and nobody said so.
+
+project: yfinance-cli
+region: us-central1
+registry: us-central1-docker.pkg.dev/yfinance-cli/tek2day
+
+# ── containers ───────────────────────────────────────────────────────────────
+# Five Dockerfiles, FOUR images. The fifth is dead scaffolding, kept only
+# because deleting it is a decision nobody has made.
+dockerfiles:
+  Dockerfile.api:                   {image: api,                  built_by: deploy-api.yml}
+  Dockerfile.daily-prices:          {image: daily-prices,         built_by: deploy-jobs.yml}
+  Dockerfile.weekly-estimates:      {image: weekly-estimates,     built_by: deploy-jobs.yml}
+  Dockerfile.quarterly-financials:  {image: quarterly-financials, built_by: deploy-jobs.yml}
+  Dockerfile.repair-proposals:      {image: null,                 built_by: null,
+                                     note: "NEVER BUILT. repair_financials.py --scan was
+                                            containerised and never deployed. There is NO
+                                            separate repair job - the repair that fills
+                                            ORCL's blank column runs INSIDE
+                                            pull_quarterly_financials.py via
+                                            proposals.is_stub."}
+
+# ── scheduled work ───────────────────────────────────────────────────────────
+cloud_run_jobs:
+  daily-price-pull:
+    image: daily-prices
+    tag: latest
+    task_count: 6
+    max_retries: 0        # ⚠️ 0 ON PURPOSE (19 Aug). Exiting non-zero with retries
+                          # enabled would make a failing night hit Yahoo TWICE
+                          # (~19,800 requests). "I don't want it to auto-run as I
+                          # do not want Yahoo to throttle us." DO NOT RAISE THIS.
+  weekly-estimate-pull:
+    image: weekly-estimates
+    tag: latest
+    task_count: 1
+    max_retries: 1
+  quarterly-financial-pull:
+    image: quarterly-financials
+    tag: latest
+    task_count: 1
+    max_retries: 1
+  full-data-pull-v2:
+    image: full-onboard
+    tag: v2-fixed
+    note: "A ONE-TIME JOB FROM THE INITIAL TEK2day BUILD (his words). Pinned to a
+           hand-made tag, built from no Dockerfile in this repo. NOT part of the
+           running pipeline and cannot pick up code changes. Left alone."
+
+# ── who builds ───────────────────────────────────────────────────────────────
+# ⚠️ ONE BUILD SYSTEM. Until 20 Aug 2026 GitHub Actions AND four Cloud Build
+# triggers both fired on every push, both pushed the same :latest tag, and
+# whichever finished last won. The data jobs resolve :latest at EXECUTION time,
+# so the nightly pull ran whichever won the race - and before requirements.txt
+# was pinned the two builds could resolve DIFFERENT package versions.
+build_authority: github-actions
+cloud_build_triggers_must_be_disabled:
+  - tek2day-api
+  - build-daily-prices
+  - build-weekly-estimates
+  - build-quarterly-financials
+
+# ── dependency safety ────────────────────────────────────────────────────────
+# Every package pinned exactly. `yfinance>=0.2.31` with no pandas or numpy at all
+# is how a rebuild on 13 Aug 2026 left the price pull failing on all 9,911
+# tickers for a week.
+requirements_must_be_fully_pinned: true
+
+# GitHub actions pinned to commit SHAs so a maintainer cannot repoint a tag.
+# ⚠️ Does NOT protect against GitHub retiring a runner runtime - the runs already
+# log "Node 20 is being deprecated". That is what broke TEK2day Pulse.
+github_actions_must_be_sha_pinned: true
