@@ -12,6 +12,7 @@ Designed to run as a Cloud Run Job triggered by Cloud Scheduler, Mon–Fri.
 import logging
 import os
 import random
+import sys
 import time
 from datetime import datetime, timezone
 
@@ -33,6 +34,24 @@ MAX_FIRESTORE_RETRIES = 5
 
 # Override for catch-up runs after an outage, e.g. PRICE_PULL_PERIOD=1mo.
 PERIOD = os.environ.get("PRICE_PULL_PERIOD", "5d")
+
+# ⚠️ A RUN THAT WRITES NOTHING MUST NOT REPORT SUCCESS.
+#
+# 13-19 Aug 2026: every one of 9,911 tickers failed, this job exited 0 every
+# night, and Cloud Run recorded SIX SUCCESSES per run for a week while
+# Firestore's prices sat frozen. The bug itself was one line; the SILENCE is
+# what turned one bad night into seven. Nothing here was unrecoverable — not
+# noticing was.
+#
+# THE FLOOR IS MEASURED, NOT GUESSED. On healthy days ~87% of tickers return
+# data (many of the rest are delisted shells, warrants and thin OTC lines that
+# legitimately have no bar). During the outage it was 0.0%. Anything from ~20%
+# to ~50% separates those two with a wide margin on both sides, so 50% trips
+# hard on a wipeout and cannot be reached by an ordinary night's dead tickers.
+#
+# ⚠️ DELIBERATELY A FLOOR, NOT A DELTA against yesterday. A delta needs state,
+# and state that is itself stale is how this class of bug hides.
+MIN_SUCCESS_RATE = float(os.environ.get("PRICE_PULL_MIN_SUCCESS_RATE", "0.5"))
 
 
 def call_with_retry(fn, label):
@@ -114,6 +133,17 @@ def main():
 
     elapsed = (datetime.now(timezone.utc) - start).total_seconds() / 60
     logger.info("Daily price pull complete: %d success, %d failed, %.1f minutes", success, failed, elapsed)
+
+    rate = (success / total) if total else 0.0
+    if total and rate < MIN_SUCCESS_RATE:
+        logger.error(
+            "PRICE PULL FAILED: only %d of %d tickers returned data (%.1f%%, "
+            "floor is %.0f%%). Nothing useful was written. Exiting non-zero so "
+            "this execution is recorded as FAILED.",
+            success, total, rate * 100, MIN_SUCCESS_RATE * 100,
+        )
+        sys.exit(1)
+    return 0
 
 
 if __name__ == "__main__":
