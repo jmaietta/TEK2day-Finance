@@ -1,3 +1,18 @@
+# ⚠️ INERT SINCE 20 AUG 2026 — ITS CLOUD BUILD TRIGGER IS DISABLED.
+#
+# GitHub Actions (.github/workflows/) is the single build authority. This file
+# and its trigger duplicated it: BOTH systems fired on every push to main and
+# BOTH pushed the same :latest tag, so whichever finished last won the race.
+#
+# That was not cosmetic. The three data jobs run :latest, resolved fresh at
+# execution time, so the nightly pull ran whichever system won — and before
+# requirements.txt was pinned (84e7d5c) the two builds could resolve DIFFERENT
+# package versions. The API was unaffected: deploy-api.yml deploys
+# $IMAGE:<git-sha>, never :latest.
+#
+# Kept, not deleted, so the trigger has a config if it is ever re-enabled.
+# To re-enable:  gcloud builds triggers import --source=<exported yaml>
+#                (with `disabled: false`)
 steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: ['build', '-f', 'Dockerfile.weekly-estimates', '-t', 'us-central1-docker.pkg.dev/yfinance-cli/tek2day/weekly-estimates:latest', '.']
