@@ -1,5 +1,25 @@
 name: Build Data Pull Job Images
 
+# ⚠️ THIRD-PARTY ACTIONS ARE PINNED TO COMMIT SHAs, NOT TAGS.
+#
+# `@v4` and `@v2` are MOVING tags: the maintainer can repoint them overnight and
+# this workflow silently runs different code tomorrow. A commit SHA cannot move.
+# The comment beside each pin records which tag it came from, so upgrading stays
+# a deliberate act.
+#
+# ⚠️ WHAT THIS DOES NOT PROTECT AGAINST, and it is the bigger risk: GitHub
+# retiring a RUNNER RUNTIME. These runs already log "Node 20 is being
+# deprecated. This workflow is running with Node 24 by default." A SHA-pinned
+# action breaks too when the runner refuses its runtime - nothing in this repo
+# can prevent that. The only complete protection is building off GitHub
+# entirely; the Cloud Build configs and their (disabled) triggers are kept for
+# exactly that reason. He has been bitten by this before on TEK2day Pulse.
+#
+# NOTE: actions/checkout is pinned at the v4 line while v7 is current. Pinning
+# today's behaviour was deliberate - zero change now - but being three majors
+# behind is itself deprecation risk. Upgrade as its own commit, not as a
+# side effect.
+
 # Rebuilds the Cloud Run job images whenever their code changes.
 # The scheduled jobs (daily prices, weekly estimates, quarterly
 # financials) always run :latest, so the next scheduled run picks up
@@ -44,16 +64,24 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed  # v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
+      # Settles a question rather than leaving it as an assumption: is the
+      # Google Cloud SDK already on the runner, making setup-gcloud one
+      # dependency we could drop entirely? Cannot fail the build.
+      - name: Is gcloud already present?
+        run: |
+          which gcloud && gcloud --version | head -2 || echo "gcloud NOT preinstalled"
+        continue-on-error: true
+
       - name: Set up gcloud
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f  # v2
 
       - name: Configure Docker auth
         run: gcloud auth configure-docker $REGION-docker.pkg.dev --quiet
