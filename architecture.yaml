@@ -58,6 +58,17 @@ cloud_run_jobs:
     tag: latest
     task_count: 1
     max_retries: 1
+  architecture-check:
+    image: daily-prices          # reuses an existing image, no new Dockerfile
+    tag: latest
+    task_count: 1
+    max_retries: 0               # a drift report is not worth a second run
+    note: "Runs architecture_check.py daily via Cloud Scheduler. Overrides the
+           image's entrypoint rather than building anything new. The repo files
+           it needs are NOT in the image (COPY *.py only), so it fetches them
+           from the public repo; if GitHub is unreachable those checks are
+           SKIPPED, never reported as drift, so an outage cannot email at 3am."
+
   full-data-pull-v2:
     image: full-onboard
     tag: v2-fixed

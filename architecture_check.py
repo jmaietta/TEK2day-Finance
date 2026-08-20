@@ -36,9 +36,55 @@ import yaml
 
 ROOT = pathlib.Path(__file__).parent
 TIMEOUT = 30
+RAW = "https://raw.githubusercontent.com/jmaietta/TEK2day-Finance/main"
 
 drift = []
 checked = 0
+skipped = []
+
+
+def repo_file(relpath):
+    """A repo file's text, from disk if present, else from GitHub raw.
+
+    ⚠️ THE CONTAINERS ONLY `COPY *.py`, so architecture.yaml, the Dockerfiles,
+    requirements.txt and the workflows are NOT in the image. When this runs as a
+    Cloud Run job it therefore fetches them. The repo is public, so no auth.
+
+    ⚠️ AND A GITHUB OUTAGE MUST NOT PAGE HIM AT 3AM. If a file cannot be read the
+    check is SKIPPED and reported as skipped — never counted as drift. Silence
+    about a check that did not run is its own failure, so it is printed, but it
+    does not match the alert filter.
+    """
+    local = ROOT / relpath
+    if local.exists():
+        return local.read_text(encoding="utf-8")
+    try:
+        r = requests.get(f"{RAW}/{relpath}", timeout=TIMEOUT)
+        if r.ok:
+            return r.text
+        skipped.append(f"{relpath} (HTTP {r.status_code})")
+    except Exception as exc:  # noqa: BLE001
+        skipped.append(f"{relpath} ({type(exc).__name__})")
+    return None
+
+
+def repo_listing(pattern):
+    """Names matching a glob, from disk if the repo is present, else GitHub."""
+    local = sorted(p.name for p in ROOT.glob(pattern))
+    if local:
+        return local
+    try:
+        r = requests.get(
+            "https://api.github.com/repos/jmaietta/TEK2day-Finance/contents/",
+            timeout=TIMEOUT)
+        if r.ok:
+            import fnmatch
+            return sorted(e["name"] for e in r.json()
+                          if fnmatch.fnmatch(e["name"], pattern))
+        skipped.append(f"repo listing for {pattern} (HTTP {r.status_code})")
+    except Exception as exc:  # noqa: BLE001
+        skipped.append(f"repo listing for {pattern} ({type(exc).__name__})")
+    return None
 
 
 def note(what, detail=""):
@@ -86,7 +132,10 @@ def api(url, tok):
 
 def check_dockerfiles(spec):
     declared = set(spec["dockerfiles"])
-    actual = {p.name for p in ROOT.glob("Dockerfile.*")}
+    listing = repo_listing("Dockerfile.*")
+    if listing is None:
+        return
+    actual = set(listing)
     for missing in sorted(declared - actual):
         note(f"Dockerfile declared but MISSING from the repo: {missing}")
     for extra in sorted(actual - declared):
@@ -99,11 +148,10 @@ def check_dockerfiles(spec):
         built_by = meta.get("built_by")
         if not built_by:
             continue
-        wf = ROOT / ".github" / "workflows" / built_by
-        if not wf.exists():
-            note(f"{name} says it is built by {built_by}, which does not exist")
+        text = repo_file(f".github/workflows/{built_by}")
+        if text is None:
             continue
-        if name not in wf.read_text(encoding="utf-8"):
+        if name not in text:
             note(f"{built_by} no longer mentions {name}")
     ok("workflow-builds-dockerfile")
 
@@ -111,7 +159,9 @@ def check_dockerfiles(spec):
 def check_requirements(spec):
     if not spec.get("requirements_must_be_fully_pinned"):
         return
-    text = (ROOT / "requirements.txt").read_text(encoding="utf-8")
+    text = repo_file("requirements.txt")
+    if text is None:
+        return
     loose = [ln.strip() for ln in text.splitlines()
              if ln.strip() and not ln.strip().startswith("#") and "==" not in ln]
     if loose:
@@ -122,8 +172,12 @@ def check_requirements(spec):
 def check_action_pins(spec):
     if not spec.get("github_actions_must_be_sha_pinned"):
         return
-    for wf in sorted((ROOT / ".github" / "workflows").glob("*.yml")):
-        for lineno, line in enumerate(wf.read_text(encoding="utf-8").splitlines(), 1):
+    for name in ("deploy-api.yml", "deploy-jobs.yml"):
+        text = repo_file(f".github/workflows/{name}")
+        if text is None:
+            continue
+        wf = pathlib.Path(name)
+        for lineno, line in enumerate(text.splitlines(), 1):
             m = re.search(r"uses:\s*([^\s#]+)", line)
             if not m:
                 continue
@@ -213,7 +267,11 @@ def check_images(spec, tok):
 
 def main():
     quiet = "--quiet" in sys.argv
-    spec = yaml.safe_load((ROOT / "architecture.yaml").read_text(encoding="utf-8"))
+    raw = repo_file("architecture.yaml")
+    if raw is None:
+        print("cannot read architecture.yaml from disk or GitHub", file=sys.stderr)
+        return 2
+    spec = yaml.safe_load(raw)
 
     check_dockerfiles(spec)
     check_requirements(spec)
@@ -237,6 +295,12 @@ def main():
               "changed that nobody intended. Both are worth knowing.")
         return 1
 
+    if skipped:
+        # NOT drift, and deliberately does not match the alert filter: a GitHub
+        # outage must not email him. But a check that did not run is still worth
+        # saying out loud.
+        print(f"NOTE: {len(skipped)} check(s) skipped, files unreadable: "
+              + ", ".join(skipped))
     if not quiet:
         print(f"architecture.yaml matches reality ({checked} checks)")
     return 0
