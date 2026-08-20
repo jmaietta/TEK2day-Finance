@@ -32,20 +32,10 @@ verified against Yahoo directly. Nothing here can or should fill those.
 """
 import sys
 
+from testkit import check, run_all
+
 import app
 import terminal
-
-_passed = 0
-_failed = []
-
-
-def check(name, condition, detail=""):
-    global _passed
-    if condition:
-        _passed += 1
-    else:
-        _failed.append(f"{name}{(' — ' + detail) if detail else ''}")
-
 
 def rec(period, period_end, **balance):
     return {"period": period, "period_end": period_end,
@@ -162,17 +152,7 @@ def test_an_empty_annual_does_not_beat_a_populated_quarter():
 
 
 def main():
-    for name, fn in sorted(globals().items()):
-        if name.startswith("test_") and callable(fn):
-            fn()
-    total = _passed + len(_failed)
-    if _failed:
-        print(f"FAILED {len(_failed)}/{total}")
-        for f in _failed:
-            print(f"  - {f}")
-        return 1
-    print(f"{_passed}/{total} tests pass")
-    return 0
+    return run_all(globals())
 
 
 if __name__ == "__main__":

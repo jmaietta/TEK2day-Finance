@@ -16,20 +16,10 @@ No network, no Firestore. Two things are pinned here:
 """
 import sys
 
+from testkit import check, run_all
+
 import envelope
 import proposals
-
-_passed = 0
-_failed = []
-
-
-def check(name, condition, detail=""):
-    global _passed
-    if condition:
-        _passed += 1
-    else:
-        _failed.append(f"{name}{(' — ' + detail) if detail else ''}")
-
 
 def eps_check(eps, shares, ni, ni_common=None):
     """Run the checks and return the EPS one, or None if it did not run."""
@@ -505,17 +495,7 @@ def test_complete_admits_its_own_limit():
 
 
 def main():
-    for name, fn in sorted(globals().items()):
-        if name.startswith("test_") and callable(fn):
-            fn()
-    total = _passed + len(_failed)
-    if _failed:
-        print(f"FAILED {len(_failed)}/{total}")
-        for f in _failed:
-            print(f"  - {f}")
-        return 1
-    print(f"{_passed}/{total} tests pass")
-    return 0
+    return run_all(globals())
 
 
 if __name__ == "__main__":

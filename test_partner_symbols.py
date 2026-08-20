@@ -13,23 +13,13 @@ endpoint trusts the symbol this one hands it.
 import json
 import sys
 
+from testkit import check, run_all
+
 import envelope
 import partner_api
 import storage
 
 # ── harness ──────────────────────────────────────────────────────────────────
-
-_passed = 0
-_failed = []
-
-
-def check(name, condition, detail=""):
-    global _passed
-    if condition:
-        _passed += 1
-    else:
-        _failed.append(f"{name}{(' — ' + detail) if detail else ''}")
-
 
 class FakeRequest:
     headers: dict = {}
@@ -95,6 +85,42 @@ def reset():
     firestore_raises = False
     yahoo_calls.clear()
     partner_api._unknown_symbols.clear()
+
+
+# ⚠️ PYTEST NEVER CALLS main(), SO IT NEVER CALLED install_stubs().
+#
+# This file is a standalone script; `python test_partner_symbols.py` passes
+# 126/126. Under pytest it ran with NO stubs — no fake Firestore, no fake auth —
+# and failed 13 of 14 in isolation. In the full suite only 3 failed, because
+# five OTHER test modules assign `partner_api.require_kilby` at import and that
+# patch leaks across the session. So ten of these tests were passing on a stub
+# some unrelated file happened to leave lying around.
+#
+# ⚠️ AND THE STUBS MUST BE TORN DOWN. install_stubs() puts a FAKE `terminal`
+# into sys.modules; leaving it there would poison every module imported after
+# it — the same cross-file contamination this fixture exists to end. Install,
+# yield, restore.
+try:  # pragma: no cover - absent when run as a plain script
+    import pytest as _pytest
+except ImportError:  # pragma: no cover
+    _pytest = None
+
+if _pytest is not None:
+    @_pytest.fixture(autouse=True)
+    def _stubs_under_pytest():
+        saved_meta = storage.get_ticker_meta
+        saved_auth = partner_api.require_kilby
+        saved_terminal = sys.modules.get("terminal")
+        install_stubs()
+        try:
+            yield
+        finally:
+            storage.get_ticker_meta = saved_meta
+            partner_api.require_kilby = saved_auth
+            if saved_terminal is None:
+                sys.modules.pop("terminal", None)
+            else:
+                sys.modules["terminal"] = saved_terminal
 
 
 # ── tests ────────────────────────────────────────────────────────────────────
@@ -252,18 +278,7 @@ def test_no_cross_symbol_bleed():
 
 
 def main():
-    install_stubs()
-    for name, fn in sorted(globals().items()):
-        if name.startswith("test_") and callable(fn):
-            fn()
-    total = _passed + len(_failed)
-    if _failed:
-        print(f"FAILED {len(_failed)}/{total}")
-        for f in _failed:
-            print(f"  - {f}")
-        return 1
-    print(f"{_passed}/{total} tests pass")
-    return 0
+    return run_all(globals(), setup=install_stubs)
 
 
 if __name__ == "__main__":
