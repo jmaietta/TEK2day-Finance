@@ -1116,3 +1116,176 @@ def equity_estimates(request: Request, symbol: str):
         as_of=as_of,
         warnings=warnings,
     )
+
+
+# ── macro dashboard ──────────────────────────────────────────────────────────
+#
+# Serves the same 24-row macro snapshot the website renders at /macro, so Kilby
+# can draw the same dashboard in its own design language rather than reinventing
+# the layout or the source rules.
+#
+# ⚠️ NO NEW STORAGE. The snapshot is written twice daily by a SEPARATE repo and
+# GCP project (jmaietta/TEK2day-Macro-Data, macro-data-222cd) into
+# macro_snapshots/current. This endpoint reads what the website reads, through
+# the website's own cached reader. Kilby must not reach that Firestore itself —
+# that boundary is the reason this API exists.
+#
+# ⚠️ WHY THERE IS A SECOND CACHE HERE, AND IT IS ABOUT YAHOO.
+# app._macro_payload() caches the Firestore read for 120s, but
+# app._overlay_live_macro_yahoo_latest() runs PER REQUEST and is not cached: it
+# fetches ^GSPC, ^IXIC and ^VIX live so the Market rows stay current. On the
+# website that is one page load by one person. Through a partner API it would be
+# three Yahoo requests per Kilby USER, scaling with Kilby's traffic — and being
+# throttled by Yahoo is an existential risk to this product, not an annoyance.
+#
+# So the OVERLAID result is cached too. Yahoo load becomes a function of the
+# clock (at most three requests per TTL per instance) rather than a function of
+# how many people use Kilby.
+#
+# MACRO_PARTNER_TTL_SECONDS=0 disables the cache and fetches on every request.
+# That is a deliberate dial, not a default: it trades bounded Yahoo traffic for
+# sub-minute freshness on three indices whose snapshot base is twice-daily
+# anyway. Set it on the service; it needs no code change.
+try:
+    MACRO_PARTNER_TTL_SECONDS = max(0, int(os.getenv("MACRO_PARTNER_TTL_SECONDS", "120")))
+except ValueError:
+    MACRO_PARTNER_TTL_SECONDS = 120
+
+_MACRO_PARTNER_CACHE: dict[str, object] = {"expires": 0.0, "data": None}
+_MACRO_PARTNER_LOCK = threading.Lock()
+
+# Growth rows use prior_period; every other section uses prior_month. Both are
+# read so a consumer never has to know which sections differ.
+_MACRO_COLUMN_KEYS = ("latest", "prior_month", "prior_period", "prior_year")
+
+
+def _macro_snapshot() -> dict | None:
+    """The overlaid macro snapshot, cached. None when Firestore has nothing."""
+    now = time.monotonic()
+    if MACRO_PARTNER_TTL_SECONDS > 0:
+        with _MACRO_PARTNER_LOCK:
+            cached = _MACRO_PARTNER_CACHE.get("data")
+            expires = float(_MACRO_PARTNER_CACHE.get("expires") or 0.0)
+            if cached is not None and now < expires:
+                return cached
+
+    import app  # noqa: PLC0415
+
+    snapshot = app._macro_payload()
+    if not isinstance(snapshot, dict):
+        return None
+    overlaid = app._overlay_live_macro_yahoo_latest(snapshot)
+
+    if MACRO_PARTNER_TTL_SECONDS > 0:
+        with _MACRO_PARTNER_LOCK:
+            _MACRO_PARTNER_CACHE["data"] = overlaid
+            _MACRO_PARTNER_CACHE["expires"] = now + MACRO_PARTNER_TTL_SECONDS
+    return overlaid
+
+
+def _macro_cell(cell: dict) -> dict:
+    """One cell as raw values.
+
+    ⚠️ The snapshot carries BOTH a number and a display string, and the display
+    string is the literal "N/A" when a value is missing. A partner receiving
+    "N/A" cannot tell it from data (FS7), so the value here is a number or null,
+    and the reason it is absent is stated separately.
+    """
+    params = cell.get("request_params") if isinstance(cell.get("request_params"), dict) else {}
+    value = envelope.clean(cell.get("numeric_value"))
+    if not envelope.finite(value):
+        value = None
+    return {
+        "value": value,
+        "source_date": cell.get("source_date") or None,
+        "source_provider": cell.get("source_provider") or None,
+        "source_code": cell.get("source_code") or cell.get("source_symbol") or None,
+        # Whether this figure was computed at request time or read from the
+        # twice-daily snapshot. A consumer that cannot tell them apart will
+        # assume the whole dashboard is as fresh as its freshest cell.
+        "live": bool(params.get("overlay")),
+        "unavailable_reason": (cell.get("audit_reason") or None) if value is None else None,
+    }
+
+
+def _macro_display(cell: dict) -> str | None:
+    """The website's own rendering of this cell, or null when absent.
+
+    Formatted by the macro pipeline, so a figure Kilby shows is
+    character-for-character what finance.tek2dayholdings.com shows. "N/A" drops
+    to null: how to draw an absent value is Kilby's call.
+    """
+    text = cell.get("formatted") or cell.get("formatted_value")
+    text = str(text).strip() if text is not None else ""
+    return None if not text or text.upper() == "N/A" else text
+
+
+def _macro_row(row: dict) -> dict:
+    cells = row.get("cells") if isinstance(row.get("cells"), dict) else {}
+    present = [key for key in _MACRO_COLUMN_KEYS if isinstance(cells.get(key), dict)]
+    return {
+        "item_id": row.get("item_id") or None,
+        "label": row.get("label") or None,
+        "source_provider": row.get("source_provider") or None,
+        "source_code": row.get("source_code") or None,
+        "methodology": row.get("methodology") or None,
+        "cells": {key: _macro_cell(cells[key]) for key in present},
+        "display": {key: _macro_display(cells[key]) for key in present},
+    }
+
+
+def _macro_section(section: dict) -> dict:
+    items = section.get("items") if isinstance(section.get("items"), list) else []
+    return {
+        "id": section.get("id") or None,
+        "title": section.get("title") or None,
+        "source": section.get("source") or None,
+        "columns": envelope.clean(section.get("columns")) or [],
+        "items": [_macro_row(row) for row in items if isinstance(row, dict)],
+    }
+
+
+@router.get("/macro")
+def macro(request: Request):
+    """The macro dashboard: 24 indicators across six sections, raw values.
+
+    The same data the website renders at /macro, including the live Yahoo
+    overlay on the Market rows. Every cell states its own provider, source date
+    and whether it was computed live, because this response mixes a twice-daily
+    snapshot with request-time quotes and the two must stay distinguishable.
+    """
+    require_kilby(request)
+    requested: dict = {}
+
+    snapshot = _macro_snapshot()
+    if snapshot is None:
+        raise HTTPException(status_code=503, detail="Macro snapshot unavailable")
+
+    sections = snapshot.get("sections") if isinstance(snapshot.get("sections"), list) else []
+    data = {
+        "contract_version": snapshot.get("contract_version") or None,
+        "schema_version": snapshot.get("schema_version") or None,
+        "row_count": snapshot.get("row_count") or None,
+        "generated_at": snapshot.get("generated_at") or None,
+        "sections": [_macro_section(s) for s in sections if isinstance(s, dict)],
+    }
+
+    warnings: list[dict] = []
+    counted = sum(len(s["items"]) for s in data["sections"])
+    declared = data.get("row_count")
+    if isinstance(declared, int) and counted != declared:
+        # The snapshot's own audit enforces 24 rows before it is written, so a
+        # mismatch here means the document changed shape under us.
+        warnings.append({
+            "code": "row_count_mismatch",
+            "note": f"Snapshot declares {declared} rows; {counted} were served.",
+        })
+
+    return envelope.build(
+        "macro", data, requested,
+        {"dataset": "macro_snapshot"},
+        as_of=str(snapshot.get("asOf") or snapshot.get("as_of") or "") or None,
+        # Market rows are refreshed from Yahoo at request time.
+        live=True,
+        warnings=warnings,
+    )
