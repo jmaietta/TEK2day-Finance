@@ -99,3 +99,83 @@ requirements_must_be_fully_pinned: true
 # ⚠️ Does NOT protect against GitHub retiring a runner runtime - the runs already
 # log "Node 20 is being deprecated". That is what broke TEK2day Pulse.
 github_actions_must_be_sha_pinned: true
+
+# ── the macro data layer: A SEPARATE REPO AND A SEPARATE GCP PROJECT ─────────
+# ⚠️ NOT COVERED BY architecture_check.py. That checker reads the yfinance-cli
+# project only. This section is documentation, verified by hand on 20 Aug 2026.
+#
+# ⚠️ THE SEPARATION IS DELIBERATE AND IS ABOUT WRITE ACCESS, not tidiness:
+# "Safer than putting macro data in the existing finance Firestore because macro
+# ingestion jobs cannot overwrite existing ticker/watchlist/session datasets."
+# The macro service account has NO access to the finance Firestore.
+macro:
+  repo: jmaietta/TEK2day-Macro-Data      # private; clone at C:/Users/jmaie/TEK2day-Macro-Data
+  gcp_project: macro-data-222cd          # project number 187056798094
+  firestore_doc: macro_snapshots/current # ONE document, 6 sections, 24 rows, served whole
+  cloud_run_job: tek2day-macro-refresh
+  build: cloudbuild.yaml, tagged by commit SHA, and it DEPLOYS the job
+  trigger: tek2day-macro-deploy-main     # created 22 Jun 2026; ONE trigger - see gotchas
+  build_service_account: macro-cloud-build-deploy@macro-data-222cd
+  runtime_service_account: macro-refresh-runtime@macro-data-222cd
+  alerts:
+    - "TEK2day macro: daily refresh job failed"   # -> jmaietta@tek2day.com
+    - "TEK2day macro: Cloud Build failed"         # -> jmaietta@tek2day.com
+
+  # ⚠️ THINGS THAT COST TIME ON 20 AUG 2026. Read before touching this repo.
+  gotchas:
+    - "TESTS ARE unittest, NOT pytest. CI runs `python -m unittest discover -s tests`
+       and pytest is NOT installed on the runner. Pytest-style tests pass locally
+       and fail CI."
+    - "BUILDS ARE REGIONAL (us-central1). `gcloud builds list` without --region
+       shows an EMPTY list and looks like nothing ran."
+    - "`gcloud builds submit` runs as the DEFAULT COMPUTE account, which has no
+       Cloud Run permission, and uploads a tarball the deploy account cannot read.
+       Let the TRIGGER build; do not submit by hand."
+    - "SHORT_SHA is only populated by a trigger. A manual submit produces an empty
+       image tag and fails with 'could not parse reference'."
+    - "⚠️ CORRECTED 21 Aug 2026. This entry used to read 'until 20 Aug there was
+       NO trigger; the pipeline existed, nothing invoked it, and the job ran a
+       22 June image for two months.' THAT WAS WRONG. Trigger
+       tek2day-macro-deploy-main was created 22 Jun 2026 at 08:01 UTC and fired
+       the SAME DAY (builds c7cb286 at 08:08, 655c9ae at 14:19, both SUCCESS).
+       There were then ZERO commits to main between 22 Jun and 20 Aug. The job
+       ran a 22 June image because THE CODE WAS FROM 22 JUNE. Acting on the wrong
+       diagnosis, a second trigger (macro-refresh-deploy) was created on 20 Aug,
+       so every push built and deployed TWICE until it was deleted 21 Aug.
+       An old image is not proof that a pipeline is broken - check for commits."
+    - "The surviving trigger has an includedFiles filter (Dockerfile,
+       pyproject.toml, src/**, jobs/**, data/macro_registry.json, cloudbuild.yaml),
+       so a DOCS-ONLY push does not rebuild or redeploy. That is deliberate. It
+       also means a change outside those paths will NOT reach production."
+    - "⚠️ CORRECTED 21 Aug 2026. This entry used to say the daily job's audit
+       checks section labels, columns and row counts 'NOT per-cell providers'.
+       THAT WAS WRONG and it matters: snapshot.audit_snapshot calls
+       _audit_method_contract (snapshot.py:401), which checks EVERY CELL's
+       provider and request params. On 20 Aug that is exactly what failed - cells
+       claiming Yahoo while carrying FRED's series_id - and because refresh
+       returns 1 BEFORE the Firestore write, nothing published and the dashboard
+       froze at a stale snapshot while still serving happily.
+       audit.verify_snapshot_sources is a separate, stricter MANUAL command that
+       re-fetches each cell from its provider and compares the value."
+    - "Firestore writes require TEK2DAY_MACRO_ALLOW_CLOUD_WRITES=1 AND an explicit
+       --confirm-project macro-data-222cd. Both guards, every time."
+
+  # ⚠️ THE RULE THAT KEEPS BEING RESTATED WRONG - THIRD VERSION, 21 Aug 2026.
+  # It said "never FRED", then "FRED for the prior columns only". Both are now
+  # superseded. If you are about to restate it a fourth time, read
+  # TEK2day-Macro-Data/docs/TREASURY_MIGRATION.md first.
+  treasury_source_rule: >
+    ALL THREE COLUMNS of the three rate rows come from the US TREASURY feed -
+    13wk ROUND_B1_CLOSE_13WK_2 (data=daily_treasury_bill_rates), 10Y BC_10YEAR
+    and 30Y BC_30YEAR (data=daily_treasury_yield_curve). Neither Yahoo nor FRED.
+    Ruling 2026-08-21, superseding 2026-06-21 and 2026-08-20 for these rows.
+    WHY: Yahoo caps ^IRX daily history at ~20 rows permanently and ^TYX
+    intermittently, so the prior columns could only come from FRED - two
+    providers in one row, which macro-data-contract.txt has ALWAYS forbidden
+    ("do not mix providers inside a row") and which the per-cell audit rejects.
+    The 2026-06-21 concern was that FRED LAGS; Treasury does not - it publishes
+    same-day after the close and is where FRED gets the number.
+    MEASURED 21 Aug 2026 before changing anything: Treasury matched every
+    FRED-backfilled cell EXACTLY and every Yahoo cell to within 1 bp.
+    ⚠️ ROUND_B1_YIELD_13WK_2 is the COUPON EQUIVALENT and runs 9-10 bp high.
+    The bank discount field is the right one.
