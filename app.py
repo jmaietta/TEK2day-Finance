@@ -316,6 +316,27 @@ def _estimates_payload(symbol: str) -> dict | None:
         metric_order = terminal.METRIC_ORDER_REV if prefix == "rev" else terminal.METRIC_ORDER_EPS
         rows = []
 
+        # ⚠️ THE UNIT BELONGS TO THE SECTION HERE, NOT THE PANEL. His call,
+        # 22 Aug 2026: revenue estimates follow the same convention as the
+        # statements. But this panel holds TWO sections — EPS estimates are per
+        # share, and growth and analyst counts are neither — so a single unit
+        # over the whole panel would be false for most of it. Only the revenue
+        # section is scaled, and only its money rows.
+        #
+        # `statement_scale` is reused rather than copied: passing a section name
+        # with no per-share keys means nothing is exempted, which is correct
+        # here because the per-share figures live in the OTHER section.
+        _REV_MONEY = ("avg", "high", "low", "yearagorevenue")
+        unit_label = divisor = None
+        decimals = 0
+        if prefix == "rev":
+            unit_label, divisor, decimals = terminal.statement_scale(
+                "revenue_estimates",
+                ((key, metric_map[key].get(period))
+                 for key in _REV_MONEY if key in metric_map
+                 for period in periods),
+            )
+
         for metric_key in metric_order:
             if metric_key not in metric_map:
                 continue
@@ -326,8 +347,11 @@ def _estimates_payload(symbol: str) -> dict | None:
                     values.append(terminal._pct(val))
                 elif metric_key == "numberofanalysts":
                     values.append(terminal._analyst_count(val))
-                elif prefix == "rev" and metric_key in ("avg", "high", "low", "yearagorevenue"):
-                    values.append(terminal._dollar(val))
+                elif prefix == "rev" and metric_key in _REV_MONEY:
+                    # At the section's single scale, no suffix — the unit is
+                    # stated once above the table.
+                    values.append(terminal.statement_display(
+                        "revenue_estimates", metric_key, val, divisor, decimals))
                 elif prefix == "eps" and metric_key in ("avg", "high", "low", "yearagoeps"):
                     # _eps, not _price — see the note in terminal.cmd_estimates.
                     values.append(terminal._eps(val) or "N/A")
@@ -342,6 +366,9 @@ def _estimates_payload(symbol: str) -> dict | None:
             "title": title,
             "periods": [terminal.PERIOD_LABELS.get(p, p) for p in periods],
             "rows": rows,
+            # None on the EPS section: per-share figures carry their own dollar
+            # sign and are not in millions of anything.
+            "unit": unit_label,
         })
 
     return {
@@ -402,30 +429,25 @@ def _statement_rows(periods: list[dict], section: str, fields: list) -> list[dic
     on purpose. Both surfaces used to carry their own copy of this loop, so the
     EPS fix landed on the website and missed the terminal entirely.
     """
-    rows = []
+    collected = []
     for field in fields:
         key, label = _field_parts(field)
         values = [terminal.statement_cell(p, section, key) for p in periods]
         if not any(v is not None for v in values):
             continue
-        rows.append({
-            "label": label,
-            "values": [terminal.statement_display(section, key, v) for v in values],
-        })
+        collected.append((key, label, values))
 
-    if rows:
-        return rows
+    if not collected:
+        # No known field matched, so show whatever the record holds.
+        all_keys = set()
+        for period in periods:
+            all_keys.update(period.get(section, {}).keys())
+        collected = [
+            (key, key, [period.get(section, {}).get(key) for period in periods])
+            for key in sorted(all_keys)
+        ]
 
-    all_keys = set()
-    for period in periods:
-        all_keys.update(period.get(section, {}).keys())
-    for key in sorted(all_keys):
-        values = [period.get(section, {}).get(key) for period in periods]
-        rows.append({
-            "label": key,
-            "values": [terminal.statement_display(section, key, v) for v in values],
-        })
-    return rows
+    return collected
 
 
 def _financial_payload(symbol: str, section: str, fields: list, title: str) -> dict | None:
@@ -433,17 +455,20 @@ def _financial_payload(symbol: str, section: str, fields: list, title: str) -> d
     if not all_fins:
         return None
 
-    sections = []
+    # ⚠️ CELLS FIRST, THEN ONE SCALE ACROSS ALL OF THEM, THEN RENDER.
+    #
+    # The unit has to be chosen from every figure the card will show — both
+    # Quarterly and Annual — before any cell is formatted. Scaling each section
+    # on its own would print two different units under one heading, because
+    # annual figures run roughly 4x quarterly and a company can straddle the
+    # boundary.
+    collected = []
     if section == "balance_sheet":
         # Shared with the terminal — see terminal.balance_sheet_periods. Both
         # had their own copy of this and only one was fixed.
         periods = terminal.balance_sheet_periods(all_fins)
         if periods:
-            sections.append({
-                "title": "Recent Periods",
-                "periods": [str(p.get("period_end", p.get("period", ""))) for p in periods],
-                "rows": _statement_rows(periods, section, fields),
-            })
+            collected.append(("Recent Periods", periods, _statement_rows(periods, section, fields)))
     else:
         quarterly = sorted(
             [f for f in all_fins if f.get("freq") != "FY"],
@@ -456,19 +481,44 @@ def _financial_payload(symbol: str, section: str, fields: list, title: str) -> d
         for label, periods in [("Quarterly", quarterly), ("Annual", annual)]:
             if not periods:
                 continue
-            sections.append({
-                "title": label,
-                "periods": [str(p.get("period_end", p.get("period", ""))) for p in periods],
-                "rows": _statement_rows(periods, section, fields),
-            })
+            collected.append((label, periods, _statement_rows(periods, section, fields)))
 
-    if not sections:
+    if not collected:
         return None
+
+    unit_label, divisor, decimals = terminal.statement_scale(
+        section,
+        ((key, value)
+         for _title, _periods, rows in collected
+         for key, _label, values in rows
+         for value in values),
+    )
+
+    sections = [
+        {
+            "title": title_,
+            "periods": [str(p.get("period_end", p.get("period", ""))) for p in periods],
+            "rows": [
+                {
+                    "label": label,
+                    "values": [terminal.statement_display(section, key, v, divisor, decimals)
+                               for v in values],
+                }
+                for key, label, values in rows
+            ],
+        }
+        for title_, periods, rows in collected
+    ]
+
     return {
         "type": "financials",
         "symbol": symbol,
         "title": title,
         "source": "TEK2day Firestore",
+        # Stated once, in the panel corner. Per-share rows keep their own form,
+        # which is why the note says so — the 10-Q convention.
+        "unit": unit_label,
+        "unit_note": terminal.PER_SHARE_NOTE,
         "sections": sections,
     }
 

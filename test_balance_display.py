@@ -45,14 +45,31 @@ def rec(period, period_end, **balance):
 FULL = {f"Field {i}": float(i) for i in range(60)}
 
 
+# ⚠️ These tests are about WHICH RECORD WINS, not about formatting — they only
+# read a rendered string because that is what the payload holds. So expected
+# values are rendered through the payload's OWN unit rather than hard-coded,
+# and a change to the display scale cannot make them fail for the wrong reason.
+# They failed exactly that way on 22 Aug 2026, when statements moved to a single
+# stated unit and "450.3B" became "450,300".
+_UNIT_DIVISORS = {"$K": 1e3, "$M": 1e6, "$B": 1e9}
+_LAST_UNIT = {"label": "$M"}
+
+
 def picked(all_fins, period_end):
     """The record whose values land in that column."""
     payload = app._financial_payload.__wrapped__ if hasattr(app._financial_payload, "__wrapped__") else app._financial_payload
     terminal._all_financials = lambda s: all_fins
     out = payload("TEST", "balance_sheet", terminal.BALANCE_FIELDS, "Balance Sheet")
+    _LAST_UNIT["label"] = out.get("unit") or "$M"
     sec = out["sections"][0]
     idx = sec["periods"].index(period_end)
     return {r["label"]: r["values"][idx] for r in sec["rows"]}
+
+
+def shown(value, key="Total Assets"):
+    """What that figure looks like at the unit the payload just used."""
+    divisor = _UNIT_DIVISORS.get(_LAST_UNIT["label"], 1e6)
+    return terminal.statement_display("balance_sheet", key, value, divisor, 0)
 
 
 def test_the_fuller_record_wins():
@@ -63,7 +80,7 @@ def test_the_fuller_record_wins():
         rec("2024-FY", "2024-12-31", **{"Total Assets": 450.3e9, "Total Debt": 22.6e9, **FULL}),
     ]
     got = picked(fins, "2024-12-31")
-    check("annual sheet is used", got.get("Total Assets") == terminal._fin(450.3e9),
+    check("annual sheet is used", got.get("Total Assets") == shown(450.3e9),
           str(got.get("Total Assets")))
 
 
@@ -74,7 +91,7 @@ def test_order_does_not_decide_it():
     thin = rec("2024-Q4", "2024-12-31", **{"Total Debt": 22.6e9})
     for order in ([thin, full], [full, thin]):
         got = picked(list(order), "2024-12-31")
-        check("order-independent", got.get("Total Assets") == terminal._fin(450.3e9),
+        check("order-independent", got.get("Total Assets") == shown(450.3e9),
               f"order={[r['period'] for r in order]} got={got.get('Total Assets')}")
 
 
@@ -85,14 +102,14 @@ def test_a_tie_on_field_count_goes_to_the_annual():
     annual = rec("2025-FY", "2025-12-31", **{"Total Debt": 59.3e9},
                  **{k: v for k, v in list(FULL.items())[:-1]})
     got = picked([quarterly, annual], "2025-12-31")
-    check("annual wins the tie", got.get("Total Debt") == terminal._fin(59.3e9),
+    check("annual wins the tie", got.get("Total Debt") == shown(59.3e9, "Total Debt"),
           str(got.get("Total Debt")))
 
 
 def test_a_quarter_with_no_annual_twin_is_untouched():
     fins = [rec("2026-Q1", "2026-03-31", **{"Total Assets": 703.9e9, **FULL})]
     got = picked(fins, "2026-03-31")
-    check("lone quarterly kept", got.get("Total Assets") == terminal._fin(703.9e9),
+    check("lone quarterly kept", got.get("Total Assets") == shown(703.9e9),
           str(got.get("Total Assets")))
 
 
@@ -105,7 +122,7 @@ def test_a_newer_quarterly_still_beats_an_older_annual():
     ]
     got = picked(fins, "2026-06-30")
     check("newest period keeps its own record",
-          got.get("Total Assets") == terminal._fin(922.0e9), str(got.get("Total Assets")))
+          got.get("Total Assets") == shown(922.0e9), str(got.get("Total Assets")))
 
 
 def test_an_entirely_empty_record_is_not_promoted():
@@ -135,7 +152,7 @@ def test_the_annual_wins_outright_even_when_the_quarter_is_fuller():
     ]
     got = picked(fins, "2025-12-31")
     check("annual figure is shown",
-          got.get("Cash And Cash Equivalents") == terminal._fin(31.8e9),
+          got.get("Cash And Cash Equivalents") == shown(31.8e9, "Cash And Cash Equivalents"),
           str(got.get("Cash And Cash Equivalents")))
 
 
@@ -147,7 +164,7 @@ def test_an_empty_annual_does_not_beat_a_populated_quarter():
         rec("2024-FY", "2024-12-31"),
     ]
     got = picked(fins, "2024-12-31")
-    check("populated quarter kept", got.get("Total Assets") == terminal._fin(450.3e9),
+    check("populated quarter kept", got.get("Total Assets") == shown(450.3e9),
           str(got.get("Total Assets")))
 
 

@@ -1322,15 +1322,27 @@ def _show_financials(symbol, section, fields, title, snapshot=False):
     quarterly = sorted([f for f in all_fins if f.get("freq") != "FY"], key=lambda f: f.get("period_end", ""))[-4:]
     annual = sorted([f for f in all_fins if f.get("freq") == "FY"], key=lambda f: f.get("period_end", ""))[-4:]
 
+    # ⚠️ ONE SCALE FOR BOTH TABLES, chosen before either is drawn. Quarterly and
+    # Annual are two views of one statement, and printing them at different
+    # units would invite exactly the comparison the reader should be able to
+    # make at a glance. Matches the website — his call, 22 Aug 2026: the CLI's
+    # units follow finance.tek2dayholdings.com.
+    scale_cells = []
+    for field in fields:
+        key = field[0] if isinstance(field, tuple) else field
+        for period in quarterly + annual:
+            scale_cells.append((key, statement_cell(period, section, key)))
+    unit_label, divisor, decimals = statement_scale(section, scale_cells)
+
     for freq_label, periods in [("Quarterly", quarterly), ("Annual", annual)]:
         if not periods:
             continue
 
         if snapshot:
             latest_date = periods[0].get("period_end", "")
-            heading = f"{symbol} — {title} as of {latest_date}"
+            heading = f"{symbol} — {title} as of {latest_date}  ({unit_label})"
         else:
-            heading = f"{symbol} — {freq_label} {title}"
+            heading = f"{symbol} — {freq_label} {title}  ({unit_label})"
         t = Table(
             title=heading,
             box=box.SIMPLE_HEAVY, border_style="green", title_style="bold",
@@ -1351,7 +1363,8 @@ def _show_financials(symbol, section, fields, title, snapshot=False):
             if not any(v is not None for v in vals):
                 continue
             has_data = True
-            row = [label] + [statement_display(section, key, v) for v in vals]
+            row = [label] + [statement_display(section, key, v, divisor, decimals)
+                             for v in vals]
             t.add_row(*row)
 
         if not has_data:
@@ -1360,7 +1373,8 @@ def _show_financials(symbol, section, fields, title, snapshot=False):
                 all_keys.update(p.get(section, {}).keys())
             for field in sorted(all_keys):
                 vals = [p.get(section, {}).get(field) for p in periods]
-                row = [field] + [_fin(v) for v in vals]
+                row = [field] + [statement_display(section, field, v, divisor, decimals)
+                                 for v in vals]
                 t.add_row(*row)
 
         console.print(t)
@@ -1438,10 +1452,90 @@ def statement_cell(period, section, key):
     return block.get(key)
 
 
-def statement_display(section, key, value):
-    """Render one statement cell. Per-share figures use the accounting form."""
-    if section == "income" and key in EPS_SHARE_COUNT:
+def is_per_share(section, key):
+    """Whether a row is a per-share figure, and so exempt from a card's scale."""
+    return section == "income" and key in EPS_SHARE_COUNT
+
+
+# ⚠️ ONE UNIT PER CARD, STATED ONCE. His call, 22 Aug 2026.
+#
+# Formatting every figure independently puts these in the same column:
+#
+#     Total Revenue       46.7B   57.0B   68.1B   81.6B
+#     Interest Expense    62.0M   61.0M   73.0M  102.0M
+#     Tax Provision        4.8B    6.0B    7.4B   11.6B
+#
+# A statement is read DOWN a column as much as across a row, so the reader
+# re-scales three times in three lines. Choosing one unit and saying so at the
+# top is the convention that exists to prevent exactly that.
+#
+# ⚠️ THE SCALE IS PER (TICKER, STATEMENT), NOT GLOBAL. Companies differ by orders
+# of magnitude, and so do a single company's statements — total assets dwarf
+# quarterly capex. It is derived from the figures actually shown, so nothing has
+# to be configured per company.
+#
+# ⚠️ AND ONE SCALE ACROSS BOTH FREQUENCIES ON A CARD. Annual figures are roughly
+# 4x quarterly, so a company can straddle the boundary — $0.9B a quarter and
+# $3.6B a year. Scaling each table on its own would print millions above
+# billions under a single heading, which is worse than no heading. Callers pass
+# the cells of BOTH tables.
+#
+# ⚠️ PER-SHARE ROWS ARE EXEMPT AND MUST BE. EPS at a billions scale is 0.0. Real
+# statements read "($ in billions, except per share data)" for this reason, and
+# they are excluded from the scale decision too — a $1.08 EPS must not drag a
+# whole statement down to millions.
+PER_SHARE_NOTE = "except per share"
+
+
+def statement_scale(section, cells):
+    """Pick one unit for a statement from its own figures.
+
+    ⚠️ MILLIONS, LIKE THE 10-Q. His call, 22 Aug 2026. An earlier draft chose the
+    unit from the LARGEST figure, which put NVDA in billions — and there interest
+    expense of $102M collapses to `0.1`, while a $4M line reads `0.0` and cannot
+    be told from a real zero or from a line the company never reported. That is
+    information loss, not a formatting preference.
+
+    NVIDIA's own 10-Q presents in millions despite $81B of revenue: the headline
+    reads 81,615 and the small lines stay legible. This follows the filing.
+
+    Returns (label, divisor, decimals). Thousands is kept for a company whose
+    every figure is under a million, where millions would round the entire
+    statement to zero — so the scale is still per (ticker, statement), it is just
+    that millions is the answer for anything of a normal size.
+    """
+    largest = 0.0
+    for key, value in cells:
+        if is_per_share(section, key):
+            continue
+        number = _to_float(value)
+        if number is not None:
+            largest = max(largest, abs(number))
+    if largest < 1e6:
+        return ("$K", 1e3, 0)
+    return ("$M", 1e6, 0)
+
+
+def statement_display(section, key, value, divisor=None, decimals=0):
+    """Render one statement cell. Per-share figures use the accounting form.
+
+    With `divisor`, the figure is rendered at the card's single scale and carries
+    NO suffix, because the unit is stated once at the top instead — 81,615 rather
+    than 81.6B, as the 10-Q does it. Without one, the per-number form is used and
+    the output is byte-identical to before, which is what keeps this change from
+    disturbing a caller that has not opted in.
+
+    Negatives stay bracketed either way: a statement is full of them, and a
+    leading minus is easy to miss in a table of forty rows.
+    """
+    if is_per_share(section, key):
         return _eps(value)
+    if divisor:
+        number = _to_float(value)
+        if number is None:
+            return _fin(value)
+        out = f"{abs(number) / divisor:,.{decimals}f}"
+        return f"({out})" if number < 0 else out
     return _fin(value)
 
 
@@ -1466,6 +1560,14 @@ def cmd_balance(symbol):
     t.add_column("", style="bold", no_wrap=True)
     for p in periods:
         t.add_column(str(p.get("period_end", p["period"])), justify="right", no_wrap=True)
+
+    # ⚠️ THIS LOOP USED TO CALL _fin() DIRECTLY, bypassing statement_display and
+    # so bypassing anything that helper learns. That is the same shape as the
+    # bug _statement_rows records in its own docstring — an EPS fix that landed
+    # on the website and missed the terminal, because both carried their own
+    # copy. Routed through the shared helper so the balance sheet cannot be the
+    # one surface that quietly misses a change again.
+    collected = []
     for field in BALANCE_FIELDS:
         if isinstance(field, tuple):
             key, label = field
@@ -1474,7 +1576,16 @@ def cmd_balance(symbol):
         vals = [p.get("balance_sheet", {}).get(key) for p in periods]
         if not any(v is not None for v in vals):
             continue
-        t.add_row(label, *[_fin(v) for v in vals])
+        collected.append((key, label, vals))
+
+    unit_label, divisor, decimals = statement_scale(
+        "balance_sheet", ((key, v) for key, _label, vals in collected for v in vals)
+    )
+    if collected:
+        t.title = f"{symbol} — Balance Sheet  ({unit_label})"
+    for key, label, vals in collected:
+        t.add_row(label, *[statement_display("balance_sheet", key, v, divisor, decimals)
+                           for v in vals])
     console.print(t)
 
 

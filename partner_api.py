@@ -787,7 +787,10 @@ def equity_financials(
     section, title = _STATEMENTS[statement]
     fields = getattr(terminal, _STATEMENT_FIELDS[statement])
 
-    rows = []
+    # ⚠️ CELLS FIRST, THEN ONE SCALE, THEN RENDER — the same two-pass shape the
+    # website uses, and for the same reason: the unit has to be chosen from
+    # every figure the consumer will show before any of them is formatted.
+    collected = []
     for key, label in _field_pairs(fields):
         # The SAME helper the website and the terminal use, so all three
         # surfaces cannot render one company differently.
@@ -795,12 +798,22 @@ def equity_financials(
         # A row nothing reports is noise, not information.
         if not any(envelope.finite(v) for v in values):
             continue
-        rows.append({
+        collected.append((key, label, values))
+
+    unit_label, divisor, decimals = terminal.statement_scale(
+        section, ((key, v) for key, _label, values in collected for v in values)
+    )
+
+    rows = [
+        {
             "field": key,
             "label": label,
             "values": [envelope.clean(v) for v in values],
-            "display": [_fin_display(statement, key, v) for v in values],
-        })
+            "display": [_fin_display(statement, key, v, divisor, decimals)
+                        for v in values],
+        }
+        for key, label, values in collected
+    ]
 
     periods = [
         envelope.period_block(r.get("period"), str(r.get("period_end") or "") or None)
@@ -812,6 +825,12 @@ def equity_financials(
         "statement": statement,
         "title": title,
         "frequency": frequency,
+        # ⚠️ ONE UNIT FOR THE WHOLE STATEMENT, so a consumer states it once
+        # rather than reading a suffix off every figure. Millions, as the 10-Q
+        # does it — at billions a $62M line collapses to 0.1 and a $4M line to
+        # 0.0, which cannot be told from a real zero.
+        "unit": unit_label,
+        "unit_note": terminal.PER_SHARE_NOTE,
         "periods": periods,
         "rows": rows,
     }
@@ -830,16 +849,20 @@ def equity_financials(
     )
 
 
-def _fin_display(statement: str, field: str, value):
-    """Rendered string for a statement figure, by the same rules the site uses."""
+def _fin_display(statement: str, field: str, value, divisor=None, decimals=0):
+    """Rendered string for a statement figure, by the same rules the site uses.
+
+    With `divisor`, the figure is at the statement's single scale and carries no
+    suffix — the `unit` block on the response says what that scale is. Per-share
+    rows keep the accounting form regardless, which is why the unit block also
+    carries a note saying so.
+    """
     if not envelope.finite(value):
         return None
     import terminal  # noqa: PLC0415
     try:
-        if "EPS" in field:
-            # Accounting convention, matching the website: ($x.xx) for a loss.
-            return terminal._eps(value)
-        return terminal._fin(value) if hasattr(terminal, "_fin") else terminal._dollar(value)
+        section = _STATEMENTS[statement][0]
+        return terminal.statement_display(section, field, value, divisor, decimals)
     except Exception:
         return None
 

@@ -750,6 +750,17 @@
       text-transform: uppercase;
     }
 
+    /* ⚠️ The scale, stated once for the whole panel — the 10-Q convention.
+       Right-aligned so it sits over the figures it describes rather than over
+       the row labels, which are not in millions. */
+    .unit-line {
+      padding: 8px 12px 0;
+      color: var(--muted);
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      text-align: right;
+    }
+
     /* tables */
     .table-scroll { overflow-x: auto; }
 
@@ -1596,8 +1607,13 @@
         panelNote(panel, "No estimate data.");
         return;
       }
+      // ⚠️ THE UNIT IS PER SECTION HERE, unlike the statement panel. Revenue
+      // estimates are money at one scale; EPS estimates are per share, and the
+      // analyst counts and growth rates are neither — so only the section that
+      // has a unit prints one.
       panel.body.innerHTML = estimates.sections.map((section, index) => `
         ${estimates.sections.length > 1 ? `<div class="sub-title">${escapeHtml(section.title || `Section ${index + 1}`)}</div>` : ""}
+        ${section.unit ? `<div class="unit-line">(${escapeHtml(section.unit)})</div>` : ""}
         ${matrixTableHtml(section)}
       `).join("") + sourceLineHtml(`As of ${estimates.asOf || "unknown"} | Source: ${estimates.source || "Yahoo Finance, TEK2day"}`);
       if (window.TableExport) {
@@ -1625,7 +1641,13 @@
         fillPlainOutput(panel, result);
         return;
       }
-      panel.body.innerHTML = data.sections.map((section, index) => `
+      // ⚠️ THE UNIT, STATED ONCE. Every figure below is at one scale — the 10-Q
+      // convention — so "62" is 62 million rather than a number that needs its
+      // own suffix. Per-share rows keep their dollar form, hence the note.
+      const unitLine = data.unit
+        ? `<div class="unit-line">(${escapeHtml(data.unit)}${data.unit_note ? ", " + escapeHtml(data.unit_note) : ""})</div>`
+        : "";
+      panel.body.innerHTML = unitLine + data.sections.map((section, index) => `
         ${data.sections.length > 1 ? `<div class="sub-title">${escapeHtml(section.title || `Section ${index + 1}`)}</div>` : ""}
         ${matrixTableHtml(section)}
       `).join("") + sourceLineHtml(`Source: ${data.source || "Yahoo Finance, TEK2day"}`);
