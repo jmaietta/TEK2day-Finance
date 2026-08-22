@@ -35,6 +35,7 @@ around. Hence the context manager and the pytest fixture below.
 """
 import contextlib
 import sys
+import threading
 
 from testkit import check, run_all
 
@@ -150,16 +151,34 @@ class _FakeApp:
         self.snapshot = snapshot if snapshot is not None else _snapshot()
         self.payload_calls = 0
         self.overlay_calls = 0
+        self.fail_next = False
+        # When set, the overlay blocks until the event fires. Without this the
+        # background refresh finishes before the test can observe that the
+        # request returned WITHOUT waiting for it -- the assertion would race
+        # the thread and pass or fail by luck.
+        self.block_on = None
 
     def _macro_payload(self):
         self.payload_calls += 1
+        if self.fail_next:
+            self.fail_next = False
+            raise RuntimeError("firestore unavailable")
         return self.snapshot
 
     def _overlay_live_macro_yahoo_latest(self, snapshot):
         # The real one fetches ^GSPC, ^IXIC and ^VIX from Yahoo. Counting calls
         # here is counting Yahoo requests.
+        if self.block_on is not None:
+            self.block_on.wait(5.0)
         self.overlay_calls += 1
         return snapshot
+
+
+def _join_refresh(timeout=5.0):
+    """Wait for the background refresh thread, so assertions are deterministic."""
+    for thread in threading.enumerate():
+        if thread.name == "macro-refresh":
+            thread.join(timeout)
 
 
 _REAL_AUTH = partner_api.require_kilby
@@ -169,6 +188,7 @@ _REAL_TTL = partner_api.MACRO_PARTNER_TTL_SECONDS
 def _reset_cache():
     partner_api._MACRO_PARTNER_CACHE["data"] = None
     partner_api._MACRO_PARTNER_CACHE["expires"] = 0.0
+    partner_api._MACRO_PARTNER_CACHE["refreshing"] = False
 
 
 @contextlib.contextmanager
@@ -320,6 +340,94 @@ def test_ttl_zero_fetches_every_time():
         partner_api.macro(Req())
         overlay_calls = fake.overlay_calls
     check("overlay ran each time", overlay_calls == 2, f"{overlay_calls} overlays")
+
+
+# ── stale-while-revalidate: nobody waits for a refresh ────────────────────────
+#
+# ⚠️ WHY THIS IS NOT A SPEED OPTIMISATION. Measured 21 Aug 2026: warm 0.3 ms,
+# cold ~2.2 s. Under a plain TTL cache, one user per TTL window pays the whole
+# cold cost -- and /macro has NO fallback in Kilby, so that user waits with
+# nothing to show. His ceiling is 1-2 s. Serving stale and refreshing behind the
+# request is what makes that ceiling hold.
+
+def test_a_stale_hit_is_served_without_rebuilding_on_the_request():
+    """The whole point: an expired entry must NOT block the caller.
+
+    The gate holds the background refresh open so this asserts the property
+    rather than winning a race against a thread that finishes in microseconds.
+    """
+    gate = threading.Event()
+    with _fake_app(ttl=120) as fake:
+        partner_api.macro(Req())                            # populates
+        fake.block_on = gate                                # refresh will stall
+        partner_api._MACRO_PARTNER_CACHE["expires"] = 0.0   # now stale
+        before = fake.overlay_calls
+        body = partner_api.macro(Req())                     # must serve stale
+        during = fake.overlay_calls
+        served_while_blocked = bool(body["data"]["sections"])
+        gate.set()
+        _join_refresh()
+    check("no rebuild on the request path", during == before,
+          f"{before} -> {during} overlays during the call")
+    check("a full dashboard was served anyway", served_while_blocked, "empty body")
+
+
+def test_the_background_refresh_actually_refreshes():
+    """Serving stale forever would be worse than a slow call, not better."""
+    with _fake_app(ttl=120) as fake:
+        partner_api.macro(Req())
+        partner_api._MACRO_PARTNER_CACHE["expires"] = 0.0
+        partner_api.macro(Req())
+        _join_refresh()
+        after = fake.overlay_calls
+    check("refresh ran behind the request", after == 2, f"{after} overlays")
+
+
+def test_a_burst_starts_only_one_refresh():
+    """⚠️ Each refresh is three Yahoo requests. Ten concurrent readers must not
+    become thirty Yahoo calls -- a self-inflicted throttle."""
+    with _fake_app(ttl=120) as fake:
+        partner_api.macro(Req())
+        partner_api._MACRO_PARTNER_CACHE["expires"] = 0.0
+        for _ in range(10):
+            partner_api.macro(Req())
+        _join_refresh()
+        total = fake.overlay_calls
+    check("one refresh, not ten", total == 2, f"{total} overlays for 11 calls")
+
+
+def test_a_failed_refresh_keeps_serving_the_last_good_copy():
+    """A blank dashboard reads as calm markets. Stale beats empty."""
+    with _fake_app(ttl=120) as fake:
+        first = partner_api.macro(Req())["data"]
+        fake.fail_next = True
+        partner_api._MACRO_PARTNER_CACHE["expires"] = 0.0
+        served = partner_api.macro(Req())["data"]
+        _join_refresh()
+        again = partner_api.macro(Req())["data"]
+    check("still served", served["contract_version"] == first["contract_version"],
+          repr(served.get("contract_version")))
+    check("still served after the failure", again["contract_version"] is not None,
+          repr(again.get("contract_version")))
+
+
+def test_a_failed_refresh_retries_rather_than_pinning_stale_for_a_full_ttl():
+    with _fake_app(ttl=120) as fake:
+        partner_api.macro(Req())
+        fake.fail_next = True
+        partner_api._MACRO_PARTNER_CACHE["expires"] = 0.0
+        partner_api.macro(Req())
+        _join_refresh()
+        expires = float(partner_api._MACRO_PARTNER_CACHE["expires"])
+    check("marked for immediate retry", expires == 0.0, repr(expires))
+
+
+def test_the_first_call_after_a_cold_start_still_builds():
+    """There is nothing truthful to serve instead, so this one pays."""
+    with _fake_app(ttl=120) as fake:
+        partner_api.macro(Req())
+        calls = fake.overlay_calls
+    check("cold start builds once", calls == 1, f"{calls} overlays")
 
 
 # ── envelope contract ────────────────────────────────────────────────────────

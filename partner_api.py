@@ -1151,7 +1151,7 @@ try:
 except ValueError:
     MACRO_PARTNER_TTL_SECONDS = 120
 
-_MACRO_PARTNER_CACHE: dict[str, object] = {"expires": 0.0, "data": None}
+_MACRO_PARTNER_CACHE: dict[str, object] = {"expires": 0.0, "data": None, "refreshing": False}
 _MACRO_PARTNER_LOCK = threading.Lock()
 
 # Growth rows use prior_period; every other section uses prior_month. Both are
@@ -1159,28 +1159,88 @@ _MACRO_PARTNER_LOCK = threading.Lock()
 _MACRO_COLUMN_KEYS = ("latest", "prior_month", "prior_period", "prior_year")
 
 
-def _macro_snapshot() -> dict | None:
-    """The overlaid macro snapshot, cached. None when Firestore has nothing."""
-    now = time.monotonic()
-    if MACRO_PARTNER_TTL_SECONDS > 0:
-        with _MACRO_PARTNER_LOCK:
-            cached = _MACRO_PARTNER_CACHE.get("data")
-            expires = float(_MACRO_PARTNER_CACHE.get("expires") or 0.0)
-            if cached is not None and now < expires:
-                return cached
-
+def _macro_build() -> dict | None:
+    """Read Firestore and apply the live Yahoo overlay. The expensive path."""
     import app  # noqa: PLC0415
 
     snapshot = app._macro_payload()
     if not isinstance(snapshot, dict):
         return None
-    overlaid = app._overlay_live_macro_yahoo_latest(snapshot)
+    return app._overlay_live_macro_yahoo_latest(snapshot)
 
-    if MACRO_PARTNER_TTL_SECONDS > 0:
-        with _MACRO_PARTNER_LOCK:
-            _MACRO_PARTNER_CACHE["data"] = overlaid
-            _MACRO_PARTNER_CACHE["expires"] = now + MACRO_PARTNER_TTL_SECONDS
-    return overlaid
+
+def _macro_refresh_in_background() -> None:
+    """Rebuild the cache off the request path. Never raises into the caller."""
+    try:
+        rebuilt = _macro_build()
+    except Exception:  # noqa: BLE001 - a failed refresh must not kill the thread
+        logger.warning("macro background refresh failed", exc_info=False)
+        rebuilt = None
+
+    with _MACRO_PARTNER_LOCK:
+        _MACRO_PARTNER_CACHE["refreshing"] = False
+        if rebuilt is not None:
+            _MACRO_PARTNER_CACHE["data"] = rebuilt
+            _MACRO_PARTNER_CACHE["expires"] = time.monotonic() + MACRO_PARTNER_TTL_SECONDS
+        else:
+            # Keep serving the copy we have rather than blanking the dashboard,
+            # but retry on the next request instead of pinning a stale copy for
+            # a full TTL because one refresh failed.
+            _MACRO_PARTNER_CACHE["expires"] = 0.0
+
+
+def _macro_snapshot() -> dict | None:
+    """The overlaid macro snapshot. Stale-while-revalidate.
+
+    ⚠️ NOBODY WAITS FOR A REFRESH. Measured 21 Aug 2026: warm 0.3 ms, cold
+    ~2.2 s, of which the Yahoo overlay is 559 ms. A plain TTL cache means one
+    unlucky user in every TTL window pays the whole cold cost -- and since this
+    endpoint has NO fallback in Kilby, that user waits with nothing to show.
+    An institutional reader will not accept that, and should not have to.
+
+    So an expired entry is served IMMEDIATELY and refreshed on a background
+    thread. The only request that ever pays full price is the first one after a
+    container start. The cost is that a served copy can occasionally be older
+    than the TTL -- on three market indices whose underlying snapshot is written
+    twice a day, which is a trade worth making.
+
+    ⚠️ ONE REFRESH AT A TIME. The `refreshing` flag stops a burst of traffic
+    starting a thread each and turning three Yahoo requests into thirty. Yahoo
+    throttling TEK2day is existential; a stampede here would be self-inflicted.
+    """
+    if MACRO_PARTNER_TTL_SECONDS <= 0:
+        return _macro_build()
+
+    now = time.monotonic()
+    with _MACRO_PARTNER_LOCK:
+        cached = _MACRO_PARTNER_CACHE.get("data")
+        expires = float(_MACRO_PARTNER_CACHE.get("expires") or 0.0)
+        refreshing = bool(_MACRO_PARTNER_CACHE.get("refreshing"))
+        stale = cached is not None and now >= expires
+        if stale and not refreshing:
+            _MACRO_PARTNER_CACHE["refreshing"] = True
+            start_refresh = True
+        else:
+            start_refresh = False
+
+    if cached is not None:
+        if start_refresh:
+            threading.Thread(
+                target=_macro_refresh_in_background,
+                name="macro-refresh",
+                daemon=True,
+            ).start()
+        return cached
+
+    # Nothing cached at all: the first call after a container start. This one
+    # request pays, because there is nothing truthful to serve instead.
+    built = _macro_build()
+    if built is None:
+        return None
+    with _MACRO_PARTNER_LOCK:
+        _MACRO_PARTNER_CACHE["data"] = built
+        _MACRO_PARTNER_CACHE["expires"] = time.monotonic() + MACRO_PARTNER_TTL_SECONDS
+    return built
 
 
 def _macro_cell(cell: dict) -> dict:
