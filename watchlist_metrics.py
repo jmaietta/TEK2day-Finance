@@ -84,6 +84,43 @@ def _lookback_close(series: list[tuple[str, float]], sessions: int) -> float | N
     return series[-(sessions + 1)][1]
 
 
+# The house definition of "forward", matching terminal._latest_forward_eps: next
+# fiscal year's consensus, falling back to the current year. Deviating here would
+# put a different multiple under the same label as the terminal and the website.
+FORWARD_EPS_PERIODS = ("+1y", "plus1y", "0y")
+
+
+def forward_eps_from_row(row: Any) -> float | None:
+    """Forward EPS out of one stored estimate document.
+
+    `eps_avg` is NOT a scalar. It is a map keyed by period — `0q`, `+1q`, `0y`,
+    `+1y` — and reading it as a number is exactly the bug this replaced: every
+    multiple came back null because a dict is not finite.
+
+    Both shapes Yahoo has produced are handled, the same way terminal does it:
+    a metric map keyed by period, or per-period maps keyed by metric.
+    """
+    if not isinstance(row, dict):
+        return None
+
+    metric_map = row.get("eps_avg")
+    if isinstance(metric_map, dict):
+        for period in FORWARD_EPS_PERIODS:
+            value = metric_map.get(period)
+            if _finite(value):
+                return float(value)
+    elif _finite(metric_map):
+        return float(metric_map)
+
+    for period in FORWARD_EPS_PERIODS:
+        period_map = row.get(f"eps_{period}")
+        if isinstance(period_map, dict):
+            value = period_map.get("avg")
+            if _finite(value):
+                return float(value)
+    return None
+
+
 def _estimate_on_or_before(estimate_rows: list[dict], date: str) -> float | None:
     """Forward EPS consensus in effect on `date`.
 
@@ -97,11 +134,13 @@ def _estimate_on_or_before(estimate_rows: list[dict], date: str) -> float | None
         if not isinstance(row, dict):
             continue
         row_date = row.get("date")
-        eps = row.get("eps_avg")
-        if not isinstance(row_date, str) or not row_date or not _finite(eps):
+        if not isinstance(row_date, str) or not row_date:
+            continue
+        eps = forward_eps_from_row(row)
+        if eps is None:
             continue
         if row_date <= date and row_date >= best_date:
-            best_date, best_eps = row_date, float(eps)
+            best_date, best_eps = row_date, eps
     return best_eps
 
 

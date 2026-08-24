@@ -90,6 +90,47 @@ def test_forward_pe_uses_the_estimate_in_effect_at_the_time():
     assert row["forward_pe_change_q_pct"] == -20.0
 
 
+def test_eps_avg_is_a_period_keyed_map_not_a_number():
+    """The bug this replaced: eps_avg is a dict, so every multiple came back null.
+
+    Stored rows look like {"eps_avg": {"0q": .., "+1q": .., "0y": .., "+1y": ..}}.
+    Forward means +1y, matching terminal._latest_forward_eps, so the same label
+    does not carry a different multiple here than on the terminal or the website.
+    """
+    prices = _prices([100.0] * 12)
+    estimates = [{
+        "date": prices[-1]["date"],
+        "eps_avg": {"0q": 2.083, "+1q": 2.352, "0y": 8.996, "+1y": 12.890},
+    }]
+
+    row = wm.build_row("T", "Test", prices, estimates)
+
+    assert row["forward_eps"] == 12.890
+    assert round(row["forward_pe"], 4) == round(100.0 / 12.890, 4)
+
+
+def test_forward_eps_falls_back_to_the_current_year():
+    prices = _prices([100.0] * 12)
+    estimates = [{"date": prices[-1]["date"], "eps_avg": {"0q": 1.0, "0y": 5.0}}]
+
+    assert wm.build_row("T", "T", prices, estimates)["forward_eps"] == 5.0
+
+
+def test_forward_eps_reads_the_plus_spelled_key():
+    """Yahoo has produced 'plus1y' as well as '+1y'; terminal handles both."""
+    prices = _prices([100.0] * 12)
+    estimates = [{"date": prices[-1]["date"], "eps_avg": {"plus1y": 4.0, "0y": 9.0}}]
+
+    assert wm.build_row("T", "T", prices, estimates)["forward_eps"] == 4.0
+
+
+def test_forward_eps_reads_per_period_maps():
+    prices = _prices([100.0] * 12)
+    estimates = [{"date": prices[-1]["date"], "eps_+1y": {"avg": 6.0}}]
+
+    assert wm.build_row("T", "T", prices, estimates)["forward_eps"] == 6.0
+
+
 def test_a_loss_making_forward_estimate_reports_no_multiple():
     prices = _prices([100.0] * 12)
     estimates = [{"symbol": "T", "date": prices[-1]["date"], "eps_avg": -2.0}]
