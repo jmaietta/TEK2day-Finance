@@ -1174,9 +1174,18 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1)):
             "forward_pe_prior_y": "The same multiple 252 sessions ago, using the consensus in effect THEN",
             "forward_pe_change_q_pct": "Direction of the multiple over a quarter; read it beside change_3m_pct",
             "annual_diluted_eps": (
-                "Annual fully diluted EPS, oldest first, up to five fiscal years. "
+                "REPORTED annual fully diluted EPS, oldest first, up to five fiscal years. "
                 "Split-adjusted on the same basis as the prices here, so a historical "
-                "multiple built from the two is valid."
+                "multiple built from the two is valid. A fiscal year appears only once "
+                "the company has filed it."
+            ),
+            "annual_eps_outlook": (
+                "Consensus EPS for the fiscal years NOT yet reported, continuing straight on "
+                "from annual_diluted_eps. Yahoo's current year is the year in progress, so the "
+                "first entry is always last-reported plus one - Costco's FY2026 is an estimate "
+                "because its year ends in August, while Microsoft's FY2026 is filed. "
+                "fiscal_year is INFERRED from the last reported period and is null when nothing "
+                "has been reported. Every entry carries estimated: true."
             ),
         },
     }

@@ -125,6 +125,68 @@ def forward_eps_from_row(row: Any) -> float | None:
     return None
 
 
+def _period_eps(row: Any, period: str) -> float | None:
+    """One period's consensus EPS out of a stored estimate document."""
+    if not isinstance(row, dict):
+        return None
+    metric_map = row.get("eps_avg")
+    if isinstance(metric_map, dict):
+        for key in (period, period.replace("+", "plus")):
+            value = metric_map.get(key)
+            if _finite(value):
+                return float(value)
+    for key in (period, period.replace("+", "plus")):
+        period_map = row.get(f"eps_{key}")
+        if isinstance(period_map, dict) and _finite(period_map.get("avg")):
+            return float(period_map["avg"])
+    return None
+
+
+def annual_eps_outlook(
+    annual_history: list[dict],
+    estimate_rows: list[dict],
+) -> list[dict]:
+    """Consensus EPS for the fiscal years not yet reported, labelled by year.
+
+    Yahoo's `0y` is the fiscal year IN PROGRESS, which is by definition the first
+    year a company has not reported. So `0y` always belongs at last-reported plus
+    one, and `+1y` the year after — regardless of when a company's year ends.
+
+    That matters because fiscal years end in different months. Costco's ends in
+    August, so FY2026 is still open and its 20.59 is an estimate; Microsoft's
+    ended in June, so FY2026 is filed and its estimate is FY2027. Showing both
+    companies' estimates under one unlabelled "forward" heading put Costco's
+    FY2027 figure where its FY2026 belonged and left a year missing entirely.
+
+    The year label is INFERRED from the last reported period, not read from the
+    data. Where nothing has been reported there is nothing to count from, and
+    the estimate is returned unlabelled rather than guessed at.
+    """
+    latest = (estimate_rows or [None])[0]
+    if not isinstance(latest, dict):
+        return []
+
+    last_reported = None
+    if annual_history:
+        try:
+            last_reported = int(annual_history[-1]["fiscal_year"])
+        except (KeyError, TypeError, ValueError):
+            last_reported = None
+
+    out: list[dict] = []
+    for offset, period in enumerate(("0y", "+1y")):
+        eps = _period_eps(latest, period)
+        if eps is None:
+            continue
+        out.append({
+            "fiscal_year": str(last_reported + 1 + offset) if last_reported else None,
+            "period": period,
+            "diluted_eps": eps,
+            "estimated": True,
+        })
+    return out
+
+
 def _estimate_on_or_before(estimate_rows: list[dict], date: str) -> float | None:
     """Forward EPS consensus in effect on `date`.
 
@@ -189,7 +251,11 @@ def build_row(
         # Reported annual history, independent of price data — a company with no
         # stored closes can still have filed accounts.
         "annual_diluted_eps": annual_diluted_eps(financial_docs or []),
+        "annual_eps_outlook": [],
     }
+    row["annual_eps_outlook"] = annual_eps_outlook(
+        row["annual_diluted_eps"], estimate_rows or []
+    )
     if not series:
         return row
 

@@ -284,6 +284,68 @@ def test_annual_eps_survives_a_company_with_no_price_history():
     assert row["annual_diluted_eps"][0]["diluted_eps"] == 4.9
 
 
+def _est(zero_y, plus_one_y):
+    return [{"date": "2026-08-20", "eps_avg": {"0y": zero_y, "+1y": plus_one_y}}]
+
+
+def test_the_first_estimate_is_the_year_after_the_last_reported_one():
+    """Yahoo's 0y is the year in progress, which is the first unreported year."""
+    history = wm.annual_diluted_eps([_fy(2025, 18.21)])
+
+    out = wm.annual_eps_outlook(history, _est(20.59, 22.70))
+
+    assert [(r["fiscal_year"], r["diluted_eps"]) for r in out] == [
+        ("2026", 20.59), ("2027", 22.70)
+    ]
+
+
+def test_the_same_yahoo_keys_land_on_different_years_for_different_companies():
+    """Costco's year ends in August, Microsoft's in June — same keys, later years."""
+    costco = wm.annual_eps_outlook(
+        wm.annual_diluted_eps([_fy(2025, 18.21)]), _est(20.59, 22.70))
+    microsoft = wm.annual_eps_outlook(
+        wm.annual_diluted_eps([_fy(2026, 17.95)]), _est(19.71, 23.57))
+
+    assert costco[0]["fiscal_year"] == "2026"
+    assert microsoft[0]["fiscal_year"] == "2027"
+
+
+def test_estimates_leave_no_gap_after_the_reported_years():
+    history = wm.annual_diluted_eps([_fy(2024, 1.19), _fy(2025, 2.94), _fy(2026, 4.90)])
+    out = wm.annual_eps_outlook(history, _est(8.96, 12.80))
+
+    years = [int(r["fiscal_year"]) for r in history] + [int(r["fiscal_year"]) for r in out]
+    assert years == list(range(years[0], years[0] + len(years)))
+
+
+def test_every_estimate_is_flagged_as_one():
+    out = wm.annual_eps_outlook(wm.annual_diluted_eps([_fy(2026, 4.9)]), _est(8.96, 12.80))
+
+    assert all(row["estimated"] is True for row in out)
+
+
+def test_with_nothing_reported_the_year_is_left_null_rather_than_guessed():
+    out = wm.annual_eps_outlook([], _est(8.96, 12.80))
+
+    assert [row["fiscal_year"] for row in out] == [None, None]
+    assert [row["diluted_eps"] for row in out] == [8.96, 12.80]
+
+
+def test_a_missing_period_is_skipped_not_shifted_forward():
+    """Dropping 0y must not slide +1y into its year."""
+    out = wm.annual_eps_outlook(
+        wm.annual_diluted_eps([_fy(2026, 4.9)]),
+        [{"date": "2026-08-20", "eps_avg": {"+1y": 12.80}}],
+    )
+
+    # +1y stays two years past the last reported year. Sliding it up to 2027
+    # would put a two-year-out forecast under next year's heading, which is the
+    # mislabelling this whole change exists to correct.
+    assert len(out) == 1
+    assert out[0]["period"] == "+1y"
+    assert out[0]["fiscal_year"] == "2028"
+
+
 def test_malformed_financial_docs_never_raise():
     assert wm.annual_diluted_eps([None, {"period": "2026-FY"}, {"income": {}}]) == []
 
