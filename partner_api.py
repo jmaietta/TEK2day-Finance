@@ -30,6 +30,7 @@ from fastapi.responses import JSONResponse
 
 import envelope
 import storage
+import watchlist_metrics
 
 router = APIRouter(prefix="/partner/v1", tags=["partner"])
 
@@ -874,6 +875,12 @@ def _fin_display(statement: str, field: str, value, divisor=None, decimals=0):
 
 _MAX_COMPARE = 6
 
+# The metrics endpoint reads stored rows rather than live quotes, so it is not
+# bound by the comparison's six. This ceiling is only to keep one request from
+# monopolising the pool; it is well above any realistic watchlist.
+_MAX_METRICS_SYMBOLS = 250
+_METRICS_MAX_WORKERS = 12
+
 # The 15 metrics the website compares on, in its order. `kind` drives both the
 # rendered string and how a consumer should right-align it.
 _COMPARE_METRICS = [
@@ -1055,6 +1062,121 @@ def comparisons(request: Request, symbols: str = Query(..., min_length=1)):
         "comparison", data, requested,
         {"symbols": [c["symbol"] for c in companies]},
         live=True,
+        warnings=warnings,
+    )
+
+
+@router.get("/equities/metrics")
+def equity_metrics(request: Request, symbols: str = Query(..., min_length=1)):
+    """Price trend and forward-multiple trajectory for a set of companies.
+
+    Built for watchlist analysis, which is why it does NOT share `/comparisons`'
+    six-symbol cap. That cap exists because every comparison column is a live
+    `terminal._market_snapshot`, and six live quotes in series time a request
+    out. Nothing here is live: every figure comes from the nightly price pull
+    and the weekly estimate pull already on disk, so a hundred symbols cost a
+    hundred Firestore reads and no upstream calls at all.
+
+    Rows are SYMBOL-major, unlike the comparison's metric-major rows. A
+    comparison is read across by a person; this is read per company by a model
+    reasoning about one name at a time.
+
+    Every requested symbol is accounted for, in the order asked, whether or not
+    we hold it — same promise as `/comparisons`. A watchlist analysis that
+    quietly dropped a name would report coverage the caller does not have.
+    """
+    require_kilby(request)
+    requested_raw = [s for s in str(symbols or "").replace(" ", ",").split(",") if s]
+    requested = {"symbols": requested_raw}
+
+    if not requested_raw:
+        return _not_found(requested, "No symbols requested")
+    if len(requested_raw) > _MAX_METRICS_SYMBOLS:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "api_version": API_VERSION,
+                "request_id": _request_id(),
+                "error": "too_many_symbols",
+                "detail": (
+                    f"Maximum {_MAX_METRICS_SYMBOLS} symbols at a time; "
+                    f"{len(requested_raw)} requested"
+                ),
+                "requested": requested,
+                "retrieved_at": _now_iso(),
+            },
+        )
+
+    seen, ordered = set(), []
+    for raw in requested_raw:
+        norm = envelope.normalize_symbol(raw)
+        if norm and norm not in seen:
+            seen.add(norm)
+            ordered.append(norm)
+
+    if not ordered:
+        return _not_found(requested, "No usable symbols requested")
+
+    def load(norm):
+        """Read one symbol's history. Never raises — a symbol that cannot be
+        read is an uncovered row, not a failed request for the whole set."""
+        if not envelope.valid_symbol(norm):
+            return watchlist_metrics.build_row(norm, None, [], [])
+        try:
+            meta = storage.get_ticker_meta(norm)
+        except Exception:
+            meta = None
+        try:
+            prices = storage.get_prices_history(
+                norm, limit=watchlist_metrics.PRICE_HISTORY_LIMIT
+            )
+        except Exception:
+            prices = []
+        try:
+            estimates = storage.get_estimate_history(
+                norm, limit=watchlist_metrics.ESTIMATE_HISTORY_LIMIT
+            )
+        except Exception:
+            estimates = []
+        return watchlist_metrics.build_row(
+            norm, (meta or {}).get("name"), prices, estimates
+        )
+
+    # Bounded rather than one worker per symbol: these are Firestore reads and a
+    # watchlist can be long, so the pool is capped instead of scaling with the
+    # request the way the six-symbol comparison safely can.
+    workers = min(len(ordered), _METRICS_MAX_WORKERS)
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        rows = list(pool.map(load, ordered))
+
+    missing = [row["symbol"] for row in rows if not row.get("covered")]
+
+    data = {
+        "companies": rows,
+        "not_covered": missing,
+        "definitions": {
+            "ma_10": "Mean of the last 10 daily closes; null when fewer than 10 sessions are held",
+            "trend": "Whether the last close sits above or below that 10-day average",
+            "change_1m_pct": "Close versus 21 trading sessions earlier",
+            "change_3m_pct": "Close versus 63 trading sessions earlier",
+            "forward_pe": "Last close divided by the current forward EPS consensus",
+            "forward_pe_prior_q": "The same multiple 63 sessions ago, using the consensus in effect THEN",
+            "forward_pe_prior_y": "The same multiple 252 sessions ago, using the consensus in effect THEN",
+            "forward_pe_change_q_pct": "Direction of the multiple over a quarter; read it beside change_3m_pct",
+        },
+    }
+
+    warnings = []
+    if missing:
+        warnings.append({
+            "code": "not_covered",
+            "note": "Not covered by TEK2day Finance: " + ", ".join(missing) + ".",
+        })
+
+    return envelope.build(
+        "equity_metrics", data, requested,
+        {"symbols": [row["symbol"] for row in rows]},
+        live=False,
         warnings=warnings,
     )
 

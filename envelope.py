@@ -35,6 +35,10 @@ UPSTREAM = {
     "estimates": "Yahoo Finance",
     "prices": "Yahoo Finance",
     "comparison": "Yahoo Finance",
+    # Stored closes and stored consensus estimates — both originally Yahoo, and
+    # both read from disk rather than fetched, which is why the response is
+    # marked stored rather than live.
+    "equity_metrics": "Yahoo Finance",
     "news": "Yahoo Finance",
     "filings": "SEC EDGAR",
     "management": "CEORater, Yahoo Finance",
@@ -388,7 +392,7 @@ def build(
         envelope["period"] = period
     if record is not None or coverage is not None:
         envelope["completeness"] = completeness_block(record, coverage)
-    if dataset in ("prices", "company_summary", "comparison"):
+    if dataset in ("prices", "company_summary", "comparison", "equity_metrics"):
         envelope["adjustment_basis"] = ADJUSTED
 
     return envelope
