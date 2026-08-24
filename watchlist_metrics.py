@@ -165,6 +165,7 @@ def build_row(
     name: str | None,
     price_rows: list[dict],
     estimate_rows: list[dict],
+    financial_docs: list[dict] | None = None,
 ) -> dict[str, Any]:
     """One watchlist row. Never raises; thin data yields nulls, not an error."""
     series = _closes(price_rows)
@@ -185,6 +186,9 @@ def build_row(
         "forward_pe_prior_y": None,
         "forward_pe_change_q_pct": None,
         "forward_pe_change_y_pct": None,
+        # Reported annual history, independent of price data — a company with no
+        # stored closes can still have filed accounts.
+        "annual_diluted_eps": annual_diluted_eps(financial_docs or []),
     }
     if not series:
         return row
@@ -227,6 +231,49 @@ def build_row(
             row[change_key] = _pct_change(row["forward_pe"], prior_pe)
 
     return row
+
+
+# Reported annual periods to carry. Five gives a trajectory without turning the
+# row into a filing.
+ANNUAL_YEARS = 5
+
+# Yahoo's line name inside the stored income statement.
+_DILUTED_EPS_KEY = "Diluted EPS"
+
+
+def annual_diluted_eps(financial_docs: list[dict], limit: int = ANNUAL_YEARS) -> list[dict]:
+    """Reported annual fully diluted EPS, oldest-first.
+
+    As REPORTED, not adjusted. Stored prices are auto-adjusted for splits, so
+    dividing an adjusted price by an as-reported EPS across years would produce
+    a historical multiple that is wrong and looks plausible. These figures are
+    for reading the earnings trajectory and comparing EPS with EPS; anyone
+    deriving a past multiple from them has to reconcile the split basis first.
+
+    Periods are keyed `YYYY-FY`; quarters are ignored.
+    """
+    out: list[dict] = []
+    for doc in financial_docs or []:
+        if not isinstance(doc, dict):
+            continue
+        period = str(doc.get("period") or "")
+        if not period.endswith("-FY"):
+            continue
+        income = doc.get("income")
+        if not isinstance(income, dict):
+            continue
+        eps = income.get(_DILUTED_EPS_KEY)
+        if not _finite(eps):
+            continue
+        out.append({
+            "fiscal_year": period[:-3],
+            "period": period,
+            "period_end": doc.get("period_end"),
+            "diluted_eps": float(eps),
+        })
+
+    out.sort(key=lambda row: row["period"])
+    return out[-limit:]
 
 
 def align_series(rows: list[dict]) -> list[str]:

@@ -238,6 +238,56 @@ def test_the_raw_series_is_removed_once_aligned():
     assert "closes" in row
 
 
+def _fy(year, eps):
+    return {"period": f"{year}-FY", "period_end": f"{year}-01-31",
+            "income": {"Diluted EPS": eps}}
+
+
+def test_annual_diluted_eps_is_oldest_first_and_capped():
+    docs = [_fy(y, float(y) - 2020) for y in range(2019, 2027)]
+
+    out = wm.annual_diluted_eps(docs)
+
+    assert len(out) == wm.ANNUAL_YEARS
+    assert [row["fiscal_year"] for row in out] == ["2022", "2023", "2024", "2025", "2026"]
+    assert out[-1]["diluted_eps"] == 6.0
+
+
+def test_quarters_are_ignored():
+    docs = [_fy(2026, 4.9), {"period": "2026-Q2", "income": {"Diluted EPS": 1.2}}]
+
+    out = wm.annual_diluted_eps(docs)
+
+    assert [row["period"] for row in out] == ["2026-FY"]
+
+
+def test_a_period_without_a_diluted_eps_line_is_skipped_not_zeroed():
+    docs = [_fy(2025, 3.0), {"period": "2026-FY", "income": {"Basic EPS": 4.93}}]
+
+    out = wm.annual_diluted_eps(docs)
+
+    assert [row["fiscal_year"] for row in out] == ["2025"]
+
+
+def test_diluted_is_taken_never_basic():
+    docs = [{"period": "2026-FY",
+             "income": {"Basic EPS": 4.93, "Diluted EPS": 4.90}}]
+
+    assert wm.annual_diluted_eps(docs)[0]["diluted_eps"] == 4.90
+
+
+def test_annual_eps_survives_a_company_with_no_price_history():
+    """Accounts are filed independently of whether we hold closes."""
+    row = wm.build_row("T", "T", [], [], [_fy(2026, 4.9)])
+
+    assert row["covered"] is False
+    assert row["annual_diluted_eps"][0]["diluted_eps"] == 4.9
+
+
+def test_malformed_financial_docs_never_raise():
+    assert wm.annual_diluted_eps([None, {"period": "2026-FY"}, {"income": {}}]) == []
+
+
 def test_malformed_rows_never_raise():
     row = wm.build_row("T", "Test", [None, {"close": "abc"}, {"date": 5}], [None, {"eps_avg": "x"}])
 
