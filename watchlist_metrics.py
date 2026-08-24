@@ -242,13 +242,12 @@ _DILUTED_EPS_KEY = "Diluted EPS"
 
 
 def annual_diluted_eps(financial_docs: list[dict], limit: int = ANNUAL_YEARS) -> list[dict]:
-    """Reported annual fully diluted EPS, oldest-first.
+    """Annual fully diluted EPS, oldest-first, split-adjusted.
 
-    As REPORTED, not adjusted. Stored prices are auto-adjusted for splits, so
-    dividing an adjusted price by an as-reported EPS across years would produce
-    a historical multiple that is wrong and looks plausible. These figures are
-    for reading the earnings trajectory and comparing EPS with EPS; anyone
-    deriving a past multiple from them has to reconcile the split basis first.
+    Yahoo back-adjusts this series the same way it adjusts prices. NVDA's
+    FY2023 reads 0.174, which is the as-filed $1.74 restated through the 2024
+    ten-for-one split — so EPS and the stored closes share one basis and a
+    historical multiple built from the two is valid.
 
     Periods are keyed `YYYY-FY`; quarters are ignored.
     """

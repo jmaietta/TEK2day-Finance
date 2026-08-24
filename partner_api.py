@@ -1174,10 +1174,9 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1)):
             "forward_pe_prior_y": "The same multiple 252 sessions ago, using the consensus in effect THEN",
             "forward_pe_change_q_pct": "Direction of the multiple over a quarter; read it beside change_3m_pct",
             "annual_diluted_eps": (
-                "Reported annual fully diluted EPS, oldest first, up to five fiscal years. "
-                "AS REPORTED, not split-adjusted, while prices here are auto-adjusted - "
-                "compare EPS with EPS, and reconcile the split basis before deriving any "
-                "historical multiple from the two together."
+                "Annual fully diluted EPS, oldest first, up to five fiscal years. "
+                "Split-adjusted on the same basis as the prices here, so a historical "
+                "multiple built from the two is valid."
             ),
         },
     }
