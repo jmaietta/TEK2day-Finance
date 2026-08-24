@@ -172,6 +172,72 @@ def test_estimates_dated_after_the_price_are_ignored():
     assert row["forward_pe"] is None
 
 
+def test_the_series_is_the_last_month_of_closes_oldest_first():
+    row = wm.build_row("T", "T", _prices([float(i) for i in range(1, 41)]), [])
+
+    assert len(row["series"]) == wm.SERIES_SESSIONS
+    assert row["series"][0]["close"] == 40 - wm.SERIES_SESSIONS + 1
+    assert row["series"][-1]["close"] == 40.0
+
+
+def test_the_series_holds_raw_closes_not_percentages():
+    """Rebasing depends on the window drawn, so it belongs at render time."""
+    row = wm.build_row("T", "T", _prices([100.0] * 12), [])
+
+    assert all(point["close"] == 100.0 for point in row["series"])
+
+
+def test_align_series_builds_one_axis_and_positions_every_row_against_it():
+    a = wm.build_row("A", "A", _prices([10.0, 11.0, 12.0]), [])
+    b = wm.build_row("B", "B", _prices([20.0, 21.0, 22.0]), [])
+
+    dates = wm.align_series([a, b])
+
+    assert dates == ["2026-01-01", "2026-01-02", "2026-01-03"]
+    assert a["closes"] == [10.0, 11.0, 12.0]
+    assert b["closes"] == [20.0, 21.0, 22.0]
+
+
+def test_a_day_a_company_did_not_trade_is_a_gap_not_a_value():
+    """A false point on a chart is worse than a missing one: it looks like data."""
+    full = wm.build_row("FULL", "F", _prices([10.0, 11.0, 12.0]), [])
+    late = wm.build_row("LATE", "L", _prices([50.0, 51.0], start_day=2), [])
+
+    dates = wm.align_series([full, late])
+
+    assert dates == ["2026-01-01", "2026-01-02", "2026-01-03"]
+    assert late["closes"] == [None, 50.0, 51.0]
+    assert full["closes"] == [10.0, 11.0, 12.0]
+
+
+def test_alignment_puts_the_same_date_at_the_same_position_for_every_row():
+    a = wm.build_row("A", "A", _prices([1.0, 2.0, 3.0]), [])
+    b = wm.build_row("B", "B", _prices([9.0], start_day=3), [])
+
+    dates = wm.align_series([a, b])
+    position = dates.index("2026-01-03")
+
+    assert a["closes"][position] == 3.0
+    assert b["closes"][position] == 9.0
+
+
+def test_an_uncovered_row_aligns_to_all_nulls_rather_than_shortening_the_axis():
+    covered = wm.build_row("A", "A", _prices([1.0, 2.0]), [])
+    empty = wm.build_row("B", "B", [], [])
+
+    dates = wm.align_series([covered, empty])
+
+    assert empty["closes"] == [None] * len(dates)
+
+
+def test_the_raw_series_is_removed_once_aligned():
+    row = wm.build_row("A", "A", _prices([1.0, 2.0]), [])
+    wm.align_series([row])
+
+    assert "series" not in row
+    assert "closes" in row
+
+
 def test_malformed_rows_never_raise():
     row = wm.build_row("T", "Test", [None, {"close": "abc"}, {"date": 5}], [None, {"eps_avg": "x"}])
 

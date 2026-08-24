@@ -34,6 +34,10 @@ ONE_YEAR = 252
 # Enough history for the one-year lookback with room for holidays and halts.
 PRICE_HISTORY_LIMIT = 300
 
+# Sessions returned as a plottable series. One month, matching the window the
+# one-month change already reports, so the chart and the number agree.
+SERIES_SESSIONS = 21
+
 # The estimate pull is weekly, so this is comfortably more than a year.
 ESTIMATE_HISTORY_LIMIT = 90
 
@@ -196,6 +200,13 @@ def build_row(
         row["price_vs_ma_10_pct"] = _pct_change(last_close, average)
         row["trend"] = "above" if last_close >= average else "below"
 
+    # The plottable window, oldest-first. Raw closes rather than percentages:
+    # rebasing depends on which window is being drawn, so a series pre-rebased
+    # for one month would be wrong the moment anyone asked for three.
+    row["series"] = [
+        {"date": date, "close": close} for date, close in series[-SERIES_SESSIONS:]
+    ]
+
     row["change_1m_pct"] = _pct_change(last_close, _lookback_close(series, ONE_MONTH))
     row["change_3m_pct"] = _pct_change(last_close, _lookback_close(series, THREE_MONTHS))
 
@@ -216,6 +227,38 @@ def build_row(
             row[change_key] = _pct_change(row["forward_pe"], prior_pe)
 
     return row
+
+
+def align_series(rows: list[dict]) -> list[str]:
+    """One shared date axis across every row, oldest-first.
+
+    Each row's `series` is then replaced by a `closes` list positioned against
+    this axis, with null where that company did not trade. Sending every symbol
+    its own dates would leave the chart to reconcile eighteen slightly different
+    calendars — holidays, halts, a company that listed mid-window — and a chart
+    that gets that wrong plots one company's Tuesday above another's Wednesday
+    while looking perfectly reasonable.
+    """
+    axis: set[str] = set()
+    for row in rows:
+        for point in (row.get("series") or []):
+            date = point.get("date")
+            if isinstance(date, str) and date:
+                axis.add(date)
+
+    dates = sorted(axis)[-SERIES_SESSIONS:]
+    index = {date: position for position, date in enumerate(dates)}
+
+    for row in rows:
+        closes: list[float | None] = [None] * len(dates)
+        for point in (row.get("series") or []):
+            position = index.get(point.get("date"))
+            if position is not None:
+                closes[position] = point.get("close")
+        row["closes"] = closes
+        row.pop("series", None)
+
+    return dates
 
 
 def _pct_change_or_none(current, prior):

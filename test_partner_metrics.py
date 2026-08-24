@@ -177,6 +177,28 @@ def test_price_derived_response_declares_its_adjustment_basis():
     check("adjustment_basis present", "adjustment_basis" in body, str(sorted(body.keys())))
 
 
+def test_the_response_carries_one_shared_date_axis():
+    install()
+    _, body = call("NVDA,AMD,INTC")
+
+    dates = body["data"]["dates"]
+    assert dates == sorted(dates)
+    for company in body["data"]["companies"]:
+        check(f"{company['symbol']} closes match the axis",
+              len(company["closes"]) == len(dates),
+              f"{len(company['closes'])} vs {len(dates)}")
+
+
+def test_a_symbol_with_no_history_is_all_nulls_not_a_short_row():
+    install()
+    _, body = call("NVDA,VOO")
+
+    voo = _row(body, "VOO")
+    dates = body["data"]["dates"]
+    check("VOO padded to the axis", len(voo["closes"]) == len(dates))
+    check("VOO all null", all(value is None for value in voo["closes"]))
+
+
 def test_empty_request_is_a_clean_miss():
     install()
     status, body = call(",,,")

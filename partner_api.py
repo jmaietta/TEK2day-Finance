@@ -1151,8 +1151,14 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1)):
 
     missing = [row["symbol"] for row in rows if not row.get("covered")]
 
+    # One axis for the whole response; each row's closes sit against it, null
+    # where that company did not trade. Alignment becomes structural rather than
+    # something the consumer has to work out per symbol.
+    dates = watchlist_metrics.align_series(rows)
+
     data = {
         "companies": rows,
+        "dates": dates,
         "not_covered": missing,
         "definitions": {
             "ma_10": "Mean of the last 10 daily closes; null when fewer than 10 sessions are held",
