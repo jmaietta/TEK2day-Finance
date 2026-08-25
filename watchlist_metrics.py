@@ -316,26 +316,33 @@ _DILUTED_EPS_KEY = "Diluted EPS"
 
 
 def latest_diluted_shares(financial_docs: list[dict]) -> float | None:
-    """Diluted average shares from the most recent filed annual period.
+    """Diluted average shares from the most recently ENDED period, any frequency.
 
-    An AVERAGE over that fiscal year, not the count outstanding today, so a
-    market cap built from it is approximate — good enough to weight a list by
-    size, not a substitute for a live share count. Buybacks and issuance since
-    the year end are not reflected.
+    Quarters count, and are preferred when they are more recent. Taking the last
+    annual period instead means a share count that can be nearly a year stale,
+    which for a company buying back stock steadily is the difference between a
+    weighting that reflects the company today and one that reflects it last
+    winter.
+
+    Still an average over its period rather than the count outstanding right
+    now, so a market cap built from it stays approximate. Ordered by period_end,
+    the date the figures actually cover, not by the period label.
     """
-    best_period, best_shares = "", None
+    best_end, best_shares = "", None
     for doc in financial_docs or []:
         if not isinstance(doc, dict):
-            continue
-        period = str(doc.get("period") or "")
-        if not period.endswith("-FY"):
             continue
         income = doc.get("income")
         if not isinstance(income, dict):
             continue
         shares = income.get("Diluted Average Shares")
-        if _finite(shares) and shares > 0 and period >= best_period:
-            best_period, best_shares = period, float(shares)
+        if not _finite(shares) or shares <= 0:
+            continue
+        period_end = str(doc.get("period_end") or "")
+        if not period_end:
+            continue
+        if period_end >= best_end:
+            best_end, best_shares = period_end, float(shares)
     return best_shares
 
 

@@ -346,6 +346,54 @@ def test_a_missing_period_is_skipped_not_shifted_forward():
     assert out[0]["fiscal_year"] == "2028"
 
 
+def _period(period, end, shares):
+    return {"period": period, "period_end": end,
+            "income": {"Diluted Average Shares": shares}}
+
+
+def test_the_share_count_comes_from_the_most_recent_period_of_any_frequency():
+    """An annual-only rule leaves a count nearly a year stale for a buyback."""
+    docs = [
+        _period("2026-FY", "2026-01-31", 24_514_000_000),
+        _period("2026-Q2", "2026-07-31", 24_100_000_000),
+    ]
+
+    assert wm.latest_diluted_shares(docs) == 24_100_000_000
+
+
+def test_an_older_quarter_does_not_beat_a_newer_year():
+    docs = [
+        _period("2025-Q4", "2025-10-31", 25_000_000_000),
+        _period("2026-FY", "2026-01-31", 24_514_000_000),
+    ]
+
+    assert wm.latest_diluted_shares(docs) == 24_514_000_000
+
+
+def test_a_period_without_a_share_count_is_skipped_not_treated_as_newest():
+    docs = [
+        _period("2026-FY", "2026-01-31", 24_514_000_000),
+        {"period": "2026-Q2", "period_end": "2026-07-31", "income": {}},
+    ]
+
+    assert wm.latest_diluted_shares(docs) == 24_514_000_000
+
+
+def test_market_cap_is_the_last_close_times_that_share_count():
+    row = wm.build_row("T", "T", _prices([10.0, 12.0]), [],
+                       [_period("2026-Q2", "2026-07-31", 1_000_000)])
+
+    assert row["diluted_shares"] == 1_000_000
+    assert row["market_cap"] == 12_000_000
+
+
+def test_no_share_count_means_no_market_cap_rather_than_zero():
+    row = wm.build_row("T", "T", _prices([10.0, 12.0]), [], [])
+
+    assert row["diluted_shares"] is None
+    assert row["market_cap"] is None
+
+
 def test_malformed_financial_docs_never_raise():
     assert wm.annual_diluted_eps([None, {"period": "2026-FY"}, {"income": {}}]) == []
 

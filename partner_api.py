@@ -1180,11 +1180,11 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1)):
                 "the company has filed it."
             ),
             "market_cap": (
-                "Last stored close times diluted average shares from the most recent filed "
-                "annual period. APPROXIMATE: those shares are a fiscal-year average, not the "
-                "count outstanding today, so buybacks and issuance since the year end are not "
-                "reflected. Intended for weighting a set of companies by size, not as a "
-                "substitute for a live market cap."
+                "Last stored close times diluted average shares from the most recently ended "
+                "filed period, quarterly or annual, whichever is more recent. APPROXIMATE: that "
+                "share count is an average over its period rather than the count outstanding "
+                "today. Intended for weighting a set of companies by size, not as a substitute "
+                "for a live market cap."
             ),
             "annual_eps_outlook": (
                 "Consensus EPS for the fiscal years NOT yet reported, continuing straight on "
