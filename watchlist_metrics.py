@@ -252,6 +252,8 @@ def build_row(
         # stored closes can still have filed accounts.
         "annual_diluted_eps": annual_diluted_eps(financial_docs or []),
         "annual_eps_outlook": [],
+        "diluted_shares": latest_diluted_shares(financial_docs or []),
+        "market_cap": None,
     }
     row["annual_eps_outlook"] = annual_eps_outlook(
         row["annual_diluted_eps"], estimate_rows or []
@@ -263,6 +265,12 @@ def build_row(
     last_date, last_close = series[-1]
     row["price"] = last_close
     row["price_date"] = last_date
+
+    # Stored close times filed diluted shares. Approximate by construction, and
+    # the definitions say so — but it lets a list be weighted by company size
+    # rather than by name count, which is what a reader actually wants to know.
+    if row["diluted_shares"]:
+        row["market_cap"] = last_close * row["diluted_shares"]
 
     average = moving_average(closes)
     if average is not None:
@@ -305,6 +313,30 @@ ANNUAL_YEARS = 5
 
 # Yahoo's line name inside the stored income statement.
 _DILUTED_EPS_KEY = "Diluted EPS"
+
+
+def latest_diluted_shares(financial_docs: list[dict]) -> float | None:
+    """Diluted average shares from the most recent filed annual period.
+
+    An AVERAGE over that fiscal year, not the count outstanding today, so a
+    market cap built from it is approximate — good enough to weight a list by
+    size, not a substitute for a live share count. Buybacks and issuance since
+    the year end are not reflected.
+    """
+    best_period, best_shares = "", None
+    for doc in financial_docs or []:
+        if not isinstance(doc, dict):
+            continue
+        period = str(doc.get("period") or "")
+        if not period.endswith("-FY"):
+            continue
+        income = doc.get("income")
+        if not isinstance(income, dict):
+            continue
+        shares = income.get("Diluted Average Shares")
+        if _finite(shares) and shares > 0 and period >= best_period:
+            best_period, best_shares = period, float(shares)
+    return best_shares
 
 
 def annual_diluted_eps(financial_docs: list[dict], limit: int = ANNUAL_YEARS) -> list[dict]:

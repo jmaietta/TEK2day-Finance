@@ -1179,6 +1179,13 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1)):
                 "multiple built from the two is valid. A fiscal year appears only once "
                 "the company has filed it."
             ),
+            "market_cap": (
+                "Last stored close times diluted average shares from the most recent filed "
+                "annual period. APPROXIMATE: those shares are a fiscal-year average, not the "
+                "count outstanding today, so buybacks and issuance since the year end are not "
+                "reflected. Intended for weighting a set of companies by size, not as a "
+                "substitute for a live market cap."
+            ),
             "annual_eps_outlook": (
                 "Consensus EPS for the fiscal years NOT yet reported, continuing straight on "
                 "from annual_diluted_eps. Yahoo's current year is the year in progress, so the "
