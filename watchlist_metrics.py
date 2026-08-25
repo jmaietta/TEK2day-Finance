@@ -34,9 +34,12 @@ ONE_YEAR = 252
 # Enough history for the one-year lookback with room for holidays and halts.
 PRICE_HISTORY_LIMIT = 300
 
-# Sessions returned as a plottable series. One month, matching the window the
-# one-month change already reports, so the chart and the number agree.
-SERIES_SESSIONS = 21
+# Sessions returned as a plottable series. Three months, so a consumer can plot
+# weekly points at the same visual density a month of daily points would give —
+# twenty-one daily marks across a wide chart is crowded, and four weekly marks
+# is not a line. Daily closes are still what is sent; how they are sampled is
+# the consumer's decision, and pre-aggregating here would remove that choice.
+SERIES_SESSIONS = 63
 
 # The estimate pull is weekly, so this is comfortably more than a year.
 ESTIMATE_HISTORY_LIMIT = 90

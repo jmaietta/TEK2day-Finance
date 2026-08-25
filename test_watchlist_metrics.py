@@ -172,12 +172,14 @@ def test_estimates_dated_after_the_price_are_ignored():
     assert row["forward_pe"] is None
 
 
-def test_the_series_is_the_last_month_of_closes_oldest_first():
-    row = wm.build_row("T", "T", _prices([float(i) for i in range(1, 41)]), [])
+def test_the_series_is_the_last_window_of_closes_oldest_first():
+    """Long enough that a consumer can plot weekly points without going sparse."""
+    total = wm.SERIES_SESSIONS + 20
+    row = wm.build_row("T", "T", _prices([float(i) for i in range(1, total + 1)]), [])
 
     assert len(row["series"]) == wm.SERIES_SESSIONS
-    assert row["series"][0]["close"] == 40 - wm.SERIES_SESSIONS + 1
-    assert row["series"][-1]["close"] == 40.0
+    assert row["series"][0]["close"] == total - wm.SERIES_SESSIONS + 1
+    assert row["series"][-1]["close"] == float(total)
 
 
 def test_the_series_holds_raw_closes_not_percentages():
