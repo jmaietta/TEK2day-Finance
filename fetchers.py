@@ -150,6 +150,33 @@ def yahoo_epoch_seconds(value):
     return None if seconds != seconds or seconds in (float("inf"), float("-inf")) else seconds
 
 
+def yahoo_observed_at(value):
+    """Actual provider observation as aware UTC ISO-8601, or None.
+
+    Do not apply the exchange offset (that is only for trading dates), infer
+    a timezone for naive datetimes, or manufacture a time from today's date.
+    Keep epoch conversion shared with the existing price pipeline.
+    """
+    if isinstance(value, str) and "T" in value:
+        try:
+            value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    if isinstance(value, datetime):
+        try:
+            if value.utcoffset() is None:
+                return None
+        except (ValueError, TypeError):
+            return None
+    seconds = yahoo_epoch_seconds(value)
+    if seconds is None or not math.isfinite(seconds) or seconds <= 0:
+        return None
+    try:
+        return datetime.fromtimestamp(seconds, tz=timezone.utc).isoformat()
+    except (OverflowError, OSError, ValueError):
+        return None
+
+
 def yahoo_local_date(timestamp, gmtoffset=0):
     """The exchange's LOCAL trading date for a Yahoo quote, or None.
 

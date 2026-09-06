@@ -348,7 +348,7 @@ def build(
     record: dict | None = None,
     period: dict | None = None,
     coverage: dict | None = None,
-    currency: str = "USD",
+    currency: str | None = "USD",
     scale: str = "units",
     warnings: list[dict] | None = None,
     as_of: str | None = None,

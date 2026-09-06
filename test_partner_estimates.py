@@ -31,6 +31,8 @@ resolve "current quarter" against the wrong date.
 """
 import json
 import sys
+from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 from testkit import check, run_all
 
@@ -62,8 +64,19 @@ def install(record=RECORD, covered=True):
     partner_api.require_kilby = lambda r: "test"
 
 
-def call(symbol="NVDA"):
-    result = partner_api.equity_estimates(Req(), symbol=symbol)
+TEST_NOW = datetime(2026, 8, 19, 12, tzinfo=timezone.utc)
+
+
+def call(symbol="NVDA", now=TEST_NOW):
+    # The fixture's date is historical evidence; advance an explicit test clock
+    # instead of changing it to today's date or weakening the freshness rule.
+    class FixedDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now.astimezone(tz) if tz is not None else now.replace(tzinfo=None)
+
+    with patch.object(partner_api, "datetime", FixedDatetime):
+        result = partner_api.equity_estimates(Req(), symbol=symbol)
     if hasattr(result, "body"):
         return result.status_code, json.loads(result.body)
     return 200, result
@@ -196,6 +209,25 @@ def test_an_unparseable_date_does_not_raise():
     install({**RECORD, "date": "not-a-date"})
     status, _body = call()
     check("still answers", status == 200, str(status))
+
+
+def test_freshness_boundary_is_fourteen_days_not_fifteen():
+    install()
+    captured = datetime(2026, 8, 13, tzinfo=timezone.utc)
+    _, fresh = call(now=captured + timedelta(days=14))
+    _, stale = call(now=captured + timedelta(days=15))
+    check("14 days is not stale", "stale_estimates" not in [
+        w["code"] for w in fresh["quality"]["warnings"]])
+    check("15 days is stale", "stale_estimates" in [
+        w["code"] for w in stale["quality"]["warnings"]])
+    check("record date stays fixed", fresh["as_of"] == stale["as_of"] == "2026-08-13")
+
+
+def test_the_test_clock_does_not_leak_into_other_endpoints():
+    install()
+    original_clock = partner_api.datetime
+    call()
+    check("clock restored", partner_api.datetime is original_clock)
 
 
 def main():

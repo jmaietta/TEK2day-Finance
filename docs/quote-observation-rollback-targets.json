@@ -1,0 +1,83 @@
+{
+  "recorded_at_utc": "2026-09-06T20:28:01Z",
+  "revalidated_before_release_at_utc": "2026-09-06T20:41:32Z",
+  "status": "pre-deployment read-only snapshot; revalidate immediately before push",
+  "account_used": "jmaietta@ceorater.com",
+  "project": "yfinance-cli",
+  "region": "us-central1",
+  "github_main": "3bd945b9f57e9f7603183e1949617d978ec60c51",
+  "api": {
+    "service": "tek2day-api",
+    "revision": "tek2day-api-00126-5xj",
+    "created_at": "2026-08-25T01:50:47.074141Z",
+    "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/api@sha256:e0fd3c02b7438c5713accc0d81fcde47e4c3ededbecf9e12f29e6bc53ff143a5",
+    "ready": true,
+    "service_generation": 128,
+    "observed_generation": 128,
+    "traffic": [{"revision": "tek2day-api-00126-5xj", "percent": 100, "latest_revision": true}]
+  },
+  "job_image_tags": [
+    {
+      "tag": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/daily-prices:latest",
+      "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/daily-prices@sha256:06ee8199eb975d627cd6bca1ca8314df2c08115fd2922c3f3479db24082f2fcd"
+    },
+    {
+      "tag": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/weekly-estimates:latest",
+      "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/weekly-estimates@sha256:ae52cf17f6c83975b89f4bb1cf4ae38a49dbe7c26aa752d84ccea89d61f75047"
+    },
+    {
+      "tag": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/quarterly-financials:latest",
+      "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/quarterly-financials@sha256:8acb4be47eb579b898853b855d5f2618f33bcce43ce8fa1ab788c08fded6f145"
+    }
+  ],
+  "jobs": [
+    {
+      "name": "daily-price-pull",
+      "configured_image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/daily-prices:latest",
+      "task_count": 6,
+      "max_retries": 0,
+      "latest_execution": "daily-price-pull-2h465",
+      "execution_completed_at": "2026-09-04T21:39:00.704446Z",
+      "execution_succeeded": true,
+      "execution_image_matches_recorded_tag_digest": true
+    },
+    {
+      "name": "weekly-estimate-pull",
+      "configured_image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/weekly-estimates:latest",
+      "task_count": 1,
+      "max_retries": 1,
+      "latest_execution": "weekly-estimate-pull-2tt47",
+      "execution_completed_at": "2026-09-05T12:57:25.516207Z",
+      "execution_succeeded": true,
+      "execution_image_matches_recorded_tag_digest": true
+    },
+    {
+      "name": "quarterly-financial-pull",
+      "configured_image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/quarterly-financials:latest",
+      "task_count": 1,
+      "max_retries": 1,
+      "latest_execution": "quarterly-financial-pull-kkfrz",
+      "execution_completed_at": "2026-09-05T19:51:11.956652Z",
+      "execution_succeeded": true,
+      "execution_image_matches_recorded_tag_digest": true
+    },
+    {
+      "name": "architecture-check",
+      "configured_image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/daily-prices:latest",
+      "task_count": 1,
+      "max_retries": 0,
+      "latest_execution": "architecture-check-2sjxs",
+      "execution_completed_at": "2026-09-06T11:03:00.452796Z",
+      "execution_succeeded": true,
+      "execution_image_matches_recorded_tag_digest": true
+    }
+  ],
+  "limitations": [
+    "Ready and successful execution status are control-plane evidence, not an independent live market-data audit.",
+    "No rollback operation, traffic change, tag mutation, deployment, job run or scheduler change was performed.",
+    "API traffic rollback alone does not restore the three mutable job image tags.",
+    "Image/traffic rollback does not undo data already written by an execution.",
+    "No claim is made that the recorded source SHA is embedded in these image digests.",
+    "Chatllm-test's prior revision must be recorded separately immediately before its authorized deployment."
+  ]
+}

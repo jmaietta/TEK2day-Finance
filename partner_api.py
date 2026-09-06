@@ -621,6 +621,8 @@ def equity_summary(request: Request, symbol: str):
         "description": snap.get("summary") or None,
         "quote": {
             "price": snap.get("price"),
+            "observed_at": snap.get("quote_observed_at"),
+            "currency": snap.get("quote_currency"),
             "change": snap.get("change"),
             "change_pct": snap.get("change_pct"),
             "volume": snap.get("volume"),
@@ -677,6 +679,14 @@ def equity_summary(request: Request, symbol: str):
             "diluted_shares": "Diluted Average Shares, most recent quarter, raw count",
             "eps_ttm": "Net income / diluted average shares, trailing twelve months",
             "market_cap": "Live price x diluted average shares, computed at request time",
+            "quote_observed_at": (
+                "Provider observation time of the selected price, in UTC; null when "
+                "unavailable. Preserved through caches, not the request time."
+            ),
+            "quote_currency": (
+                "Provider currency/unit of the selected price and market cap; "
+                "null when unknown. No currency conversion; GBp means pence, not GBP."
+            ),
             "enterprise_value": "Market cap + total debt - cash",
             "ttm_as_of": "Last day of the twelve months every TTM figure covers",
             "balance_sheet_as_of": "Period end of the balance sheet behind enterprise value",
@@ -691,10 +701,24 @@ def equity_summary(request: Request, symbol: str):
     # to render, and the two can never describe different numbers.
     data["display"] = _display(data)
 
+    warnings = []
+    if data["quote"]["observed_at"] is None:
+        warnings.append({"code": "quote_observation_unavailable",
+                         "note": "The selected price has no verified observation time."})
+    currency = data["quote"]["currency"]
+    if currency is None:
+        warnings.append({"code": "quote_currency_unavailable",
+                         "note": "The selected price's currency is unknown; USD is not assumed."})
+    elif currency != "USD":
+        warnings.append({"code": "summary_currency_unverified",
+                         "note": "Quote and market cap use the stated quote unit. Stored "
+                                 "fundamentals and mixed-currency valuations are not verified "
+                                 "in that unit; legacy display strings are not currency proof."})
+
     return envelope.build(
         "company_summary", data, requested,
         {"symbol": norm, "name": data["name"]},
-        live=True,
+        live=True, currency=currency, warnings=warnings,
     )
 
 

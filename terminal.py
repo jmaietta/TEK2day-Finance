@@ -485,6 +485,17 @@ def _fast_value(data, *keys):
     return None
 
 
+def _quote_currency(value):
+    """Provider quote unit, not a default or currency conversion.
+
+    Preserve case: Yahoo's GBp (pence) must not become GBP (pounds).
+    """
+    if not isinstance(value, str):
+        return None
+    value = value.strip()
+    return value if len(value) == 3 and value.isascii() and value.isalpha() else None
+
+
 @_ttl_cache(30, should_cache=lambda quote: quote.get("price") is not None)
 def _live_quote(symbol):
     """Return only live quote fields from Yahoo.
@@ -493,6 +504,9 @@ def _live_quote(symbol):
     quote (price, previous close, day high/low, volume) PLUS its date —
     one Yahoo read serves both the summary header and the chart's last
     point, so the two always agree.
+
+    observed_at/currency belong to the selected price, not to a later read
+    used to fill previous_close. Cache hits preserve this provenance unchanged.
     """
     quote = {
         "price": None,
@@ -503,6 +517,8 @@ def _live_quote(symbol):
         "fifty_two_week_high": None,
         "fifty_two_week_low": None,
         "date": None,
+        "observed_at": None,
+        "currency": None,
         "day_high": None,
         "day_low": None,
     }
@@ -512,6 +528,11 @@ def _live_quote(symbol):
         ticker.history(period="1d", auto_adjust=True)
         meta = ticker.history_metadata or {}
         quote["price"] = _to_float(meta.get("regularMarketPrice"))
+        if quote["price"] is not None:
+            from fetchers import yahoo_observed_at  # noqa: PLC0415
+
+            quote["observed_at"] = yahoo_observed_at(meta.get("regularMarketTime"))
+            quote["currency"] = _quote_currency(meta.get("currency"))
         quote["previous_close"] = _to_float(meta.get("previousClose"))
         quote["volume"] = _to_float(meta.get("regularMarketVolume"))
         quote["fifty_two_week_high"] = _to_float(meta.get("fiftyTwoWeekHigh"))
@@ -539,7 +560,16 @@ def _live_quote(symbol):
         try:
             ticker = _yf().Ticker(yahoo_symbol)
             fast = getattr(ticker, "fast_info", {}) or {}
-            quote["price"] = quote["price"] or _to_float(_fast_value(fast, "last_price", "lastPrice"))
+            if quote["price"] is None:
+                quote["price"] = _to_float(_fast_value(fast, "last_price", "lastPrice"))
+                # fast_info supplies no timestamp tied to last_price. Never
+                # borrow regularMarketTime from a different response.
+                quote["observed_at"] = None
+                quote["currency"] = (
+                    _quote_currency(_fast_value(fast, "currency"))
+                    if quote["price"] is not None else None
+                )
+                quote["date"] = None
             quote["previous_close"] = quote["previous_close"] or _to_float(_fast_value(
                 fast, "previous_close", "previousClose", "regularMarketPreviousClose"
             ))
@@ -556,9 +586,25 @@ def _live_quote(symbol):
     if quote["price"] is None or quote["previous_close"] is None:
         try:
             info = _yahoo(symbol)
-            quote["price"] = quote["price"] or _to_float(
-                info.get("regularMarketPrice") or info.get("currentPrice")
-            )
+            if quote["price"] is None:
+                from fetchers import yahoo_observed_at  # noqa: PLC0415
+
+                regular_price = _to_float(info.get("regularMarketPrice"))
+                quote["price"] = (
+                    regular_price if regular_price is not None
+                    else _to_float(info.get("currentPrice"))
+                )
+                # Only regularMarketPrice has a corresponding regularMarketTime.
+                # _yahoo's 600s cache retains this original observation unchanged.
+                quote["observed_at"] = (
+                    yahoo_observed_at(info.get("regularMarketTime"))
+                    if regular_price is not None else None
+                )
+                quote["currency"] = (
+                    _quote_currency(info.get("currency"))
+                    if quote["price"] is not None else None
+                )
+                quote["date"] = None
             quote["previous_close"] = quote["previous_close"] or _to_float(
                 info.get("regularMarketPreviousClose") or info.get("previousClose")
             )
@@ -1058,6 +1104,8 @@ def _market_snapshot(symbol):
         "summary": meta.get("summary") or meta.get("longBusinessSummary", ""),
         "beta": meta.get("beta"),
         "price": price,
+        "quote_observed_at": quote.get("observed_at"),
+        "quote_currency": quote.get("currency"),
         "change": quote.get("change"),
         "change_pct": quote.get("change_pct"),
         "volume": quote.get("volume"),

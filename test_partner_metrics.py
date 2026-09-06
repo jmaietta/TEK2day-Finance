@@ -14,6 +14,7 @@ quote; nothing here is live, so a real watchlist must go through in one request.
 That is the whole reason this endpoint exists rather than reusing /comparisons.
 """
 import sys
+from copy import deepcopy
 
 from testkit import check, run_all
 
@@ -55,10 +56,27 @@ ESTIMATES = {
 }
 
 
+FINANCIALS = {
+    "NVDA": [
+        {"symbol": "NVDA", "period": "2025-FY", "period_end": "2025-01-31",
+         "income": {"Diluted EPS": 2.0, "Diluted Average Shares": 100}},
+        {"symbol": "NVDA", "period": "2025-Q3", "period_end": "2025-10-31",
+         "income": {"Diluted EPS": 0.8, "Diluted Average Shares": 90}},
+    ],
+    "INTC": [
+        {"symbol": "INTC", "period": "2025-FY", "period_end": "2025-12-31",
+         "income": {"Diluted EPS": -1.0, "Diluted Average Shares": 20}},
+    ],
+}
+
+
 def install():
     storage.get_ticker_meta = lambda s: UNIVERSE.get(s)
     storage.get_prices_history = lambda s, limit=300: PRICES.get(s, [])
     storage.get_estimate_history = lambda s, limit=90: ESTIMATES.get(s, [])
+    # The endpoint now reads a fourth dataset. Exercise the real financial
+    # calculations with explicit fixtures, never an unstubbed Firestore read.
+    storage.get_all_financials = lambda s: deepcopy(FINANCIALS.get(s, []))
     partner_api.require_kilby = lambda r: "test"
 
 
@@ -203,6 +221,25 @@ def test_empty_request_is_a_clean_miss():
     install()
     status, body = call(",,,")
     check("not a 500", status in (200, 404), str(status))
+
+
+def test_financial_history_drives_market_cap_and_reported_eps():
+    install()
+    _, body = call("NVDA,INTC")
+    nvda, intc = _row(body, "NVDA"), _row(body, "INTC")
+    check("latest quarterly shares, not older annual shares", nvda["market_cap"] == 240 * 90)
+    check("second company's own shares", intc["market_cap"] == 90 * 20)
+    check("reported annual EPS, not quarterly EPS", nvda["annual_diluted_eps"] == [
+        {"fiscal_year": "2025", "period": "2025-FY", "period_end": "2025-01-31",
+         "diluted_eps": 2.0}])
+
+
+def test_absent_financial_history_is_explicitly_empty():
+    install()
+    _, body = call("AMD")
+    amd = _row(body, "AMD")
+    check("no assumed market cap", amd["market_cap"] is None)
+    check("no invented annual EPS", amd["annual_diluted_eps"] == [])
 
 
 if __name__ == "__main__":
