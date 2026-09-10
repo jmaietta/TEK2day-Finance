@@ -1,0 +1,147 @@
+{
+  "api": {
+    "spec": {
+      "template": {
+        "spec": {
+          "containers": [
+            {
+              "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/api:e08d5492e3ffb37ca1490e55ce515f8864d2094a"
+            }
+          ]
+        }
+      }
+    },
+    "status": {
+      "latestReadyRevisionName": "tek2day-api-00128-dvv",
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100,
+          "revisionName": "tek2day-api-00128-dvv"
+        }
+      ]
+    }
+  },
+  "api_revision": {
+    "status": {
+      "imageDigest": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/api@sha256:2d161cf6ff779d02c7cb45edbe42b82ee231bbd7f6f080dd04c080a42e2f568e"
+    }
+  },
+  "captured_at": "2026-09-10T14:38:57.735433+00:00",
+  "database_migration": "not executed; separate approval pending",
+  "deployed_commit": "e08d5492e3ffb37ca1490e55ce515f8864d2094a",
+  "images": {
+    "us-central1-docker.pkg.dev/yfinance-cli/tek2day/daily-prices:latest": {
+      "image_summary": {
+        "digest": "sha256:de68f254c160dcfbaa37d931d72ffda35e880e9ae187ef1b5721fdc042ff5886",
+        "fully_qualified_digest": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/daily-prices@sha256:de68f254c160dcfbaa37d931d72ffda35e880e9ae187ef1b5721fdc042ff5886"
+      }
+    },
+    "us-central1-docker.pkg.dev/yfinance-cli/tek2day/quarterly-financials:latest": {
+      "image_summary": {
+        "digest": "sha256:df91111cc50d8f559ad3da5cbf630f734808b8ed190ab4c05024327213c9ec90",
+        "fully_qualified_digest": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/quarterly-financials@sha256:df91111cc50d8f559ad3da5cbf630f734808b8ed190ab4c05024327213c9ec90"
+      }
+    },
+    "us-central1-docker.pkg.dev/yfinance-cli/tek2day/weekly-estimates:latest": {
+      "image_summary": {
+        "digest": "sha256:c50778e36b4fe4e787b6769b4688330aa1c05f76f8ac0b16de058b02b59a2b7e",
+        "fully_qualified_digest": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/weekly-estimates@sha256:c50778e36b4fe4e787b6769b4688330aa1c05f76f8ac0b16de058b02b59a2b7e"
+      }
+    }
+  },
+  "jobs": {
+    "architecture-check": {
+      "spec": {
+        "template": {
+          "spec": {
+            "taskCount": 1,
+            "template": {
+              "spec": {
+                "containers": [
+                  {
+                    "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/daily-prices:latest"
+                  }
+                ],
+                "maxRetries": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "daily-price-pull": {
+      "spec": {
+        "template": {
+          "spec": {
+            "taskCount": 6,
+            "template": {
+              "spec": {
+                "containers": [
+                  {
+                    "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/daily-prices:latest"
+                  }
+                ],
+                "maxRetries": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "quarterly-financial-pull": {
+      "spec": {
+        "template": {
+          "spec": {
+            "taskCount": 1,
+            "template": {
+              "spec": {
+                "containers": [
+                  {
+                    "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/quarterly-financials:latest"
+                  }
+                ],
+                "maxRetries": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "weekly-estimate-pull": {
+      "spec": {
+        "template": {
+          "spec": {
+            "taskCount": 1,
+            "template": {
+              "spec": {
+                "containers": [
+                  {
+                    "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/weekly-estimates:latest"
+                  }
+                ],
+                "maxRetries": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "live_partner_checks": "not performed locally; existing authorized Kilby path required",
+  "project": "yfinance-cli",
+  "region": "us-central1",
+  "validation": "Pinned image build, Cloud Run startup and existing workflow smoke test passed; active migration/native transaction and Kilby live acceptance pending",
+  "workflow_runs": {
+    "api": {
+      "conclusion": "success",
+      "id": 34489995005,
+      "url": "https://github.com/jmaietta/TEK2day-Finance/actions/runs/34489995005"
+    },
+    "maintenance_images": {
+      "conclusion": "success",
+      "id": 34489995022,
+      "url": "https://github.com/jmaietta/TEK2day-Finance/actions/runs/34489995022"
+    }
+  }
+}

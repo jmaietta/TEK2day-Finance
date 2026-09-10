@@ -1,4 +1,4 @@
-# Issue #3 closure record — OPEN, preflight only
+# Issue #3 closure record — OPEN, code deployed; migration pending
 
 This record is deliberately incomplete until the acceptance evidence exists.
 It must not be used as authorization to integrate or publish renamed securities.
@@ -6,18 +6,19 @@ It must not be used as authorization to integrate or publish renamed securities.
 | Item | Recorded state |
 | --- | --- |
 | GitHub source base | e39cdd98707974ba324a2d6ebb67a96353f48e07 |
-| Serving API revision | tek2day-api-00127-9z5; still the baseline |
-| Serving API immutable image | sha256:027dc8a355870158fa69176372a4cf72636d57426180766498984bb78a349d59 |
-| Implementation commit | 30d6b90646fade38609f3df21e4ab31af5066170; local only |
-| Candidate build | None; no candidate push/build/deploy |
-| Live database writes | None |
+| Serving API revision | tek2day-api-00128-dvv; 100% traffic, verified September 10 |
+| Serving API immutable image | sha256:2d161cf6ff779d02c7cb45edbe42b82ee231bbd7f6f080dd04c080a42e2f568e |
+| Implementation commit | 30d6b90646fade38609f3df21e4ab31af5066170; published |
+| Deployed commit | e08d5492e3ffb37ca1490e55ce515f8864d2094a |
+| Build/deploy runs | API 34489995005; maintenance images 34489995022; both successful |
+| Live repair/migration writes in this session | None; separate approval pending |
 | Migration status | Dry-run only, plan 17f04fb3c5f56030356764b271a6fb860531be71915849798d30f019d2ab3bfd |
 | Live partner checks | Not performed; existing authorized Kilby path required |
 | Offline validation | 439 verified tests across 21 isolated files; 22 pinned Kilby producer/consumer assertions |
-| Runtime validation limit | Workstation dependencies differ from deployment pins; pinned yfinance/Firestore source reviewed, container execution pending |
+| Runtime validation limit | Pinned image builds, Cloud Run startup and workflow smoke test passed; active migration/native transaction and Kilby live acceptance pending |
 | Corporate event | BK→BNY, ordinary common stock, 2026-05-21; issuer CIK 0001390777; CUSIP 064058100; NYSE/XNYS; provider-observed USD |
 | Known financial gap | Stored history ends 2026-Q1; Yahoo's 2026-Q2 response is incomplete; 2021-FY is incomplete |
-| API rollout mode | Proposed exact-symbol mode; BNY canonical, BK 409; no security_resolution or redirect payload |
+| API rollout mode | Code installed; route not activated. After approved migration: BNY canonical, BK 409; no security_resolution or redirect payload |
 | Issue #3 | OPEN; not ready for closure |
 | Chatllm #221 | Remains OPEN |
 | Chatllm #233 | Not reopened; no chatllm modification |
@@ -25,7 +26,10 @@ It must not be used as authorization to integrate or publish renamed securities.
 The [preflight](issue-3-identity-preflight.md) contains the primary evidence,
 bounded comparison, exact private-evidence locations, manifest, dependency
 review, rollback procedure and acceptance checks. The
-[rollback receipt](issue-3-rollout-rollback.json) records current job digests.
+[rollback receipt](issue-3-rollout-rollback.json) preserves the prior image
+digests; they were rechecked immediately before pushing. The
+[deployment receipt](issue-3-deployment-20260910.json) records the new API and
+maintenance image digests. No manual maintenance execution was triggered.
 
 Synthetic fixtures in `test_ticker_identity.py` and
 `scripts/check_kilby_identity_contract.py` are permitted offline compatibility
@@ -55,9 +59,11 @@ replace the pending receipt entries with verified final values first.
 > jmaietta/TEK2day-Finance. The preflight baseline was
 > e39cdd98707974ba324a2d6ebb67a96353f48e07 / tek2day-api-00127-9z5; it is not the
 > repaired build. Do not treat the dry-run manifest as an executed repair.
-> The reviewed preflight implementation was local commit
-> 30d6b90646fade38609f3df21e4ab31af5066170. Its existence does not establish that
-> GitHub or the serving deployment contains it; verify the final published receipt.
+> The reviewed implementation was 30d6b90646fade38609f3df21e4ab31af5066170,
+> included in deployed commit e08d5492e3ffb37ca1490e55ce515f8864d2094a on
+> September 10, revision tek2day-api-00128-dvv. Builds and the workflow smoke
+> test passed, but migration and live Kilby acceptance were still pending.
+> Verify the final published receipt; this code deployment alone is not closure.
 >
 > The verified event is the May 21, 2026 BK→BNY ticker change for The Bank of
 > New York Mellon Corporation common stock, $0.01 par, CUSIP 064058100, NYSE

@@ -1,12 +1,16 @@
 # Issue #3: verified diagnosis and staged correction
 
-Status: local implementation and dry run; **no push, deployment or database
-mutation**. Issue #3 remains OPEN. This is not a closure or a claim that Kilby
-already sees the candidate. Evidence was captured September 9, 2026 Eastern
-time (the rollback receipt is September 10 UTC).
+Status: **code deployed September 10, 2026; database migration remains a dry
+run**. Jonathan approved the push and existing build/deployment workflow.
+Commit `e08d5492e3ffb37ca1490e55ce515f8864d2094a` serves as
+`tek2day-api-00128-dvv`, with 100% traffic. Both workflows and the existing live
+smoke test passed. See the [deployment receipt](issue-3-deployment-20260910.json).
+Issue #3 remains OPEN. No migration was executed and no local partner API call
+was made. Kilby live acceptance remains pending through its authorized path.
+The diagnosis below was captured September 9 Eastern time.
 
 Reviewed implementation commit: `30d6b90646fade38609f3df21e4ab31af5066170`
-(local only; subsequent receipt documentation does not change runtime code).
+(included in the deployed commit; receipt documentation does not change runtime code).
 
 ## Source of truth and scope
 
@@ -67,7 +71,7 @@ reuse, conversion and ADR events are refused by the simple-rename rule.
 
 ## Actual database and bounded comparison
 
-The serving revision is `tek2day-api-00127-9z5`, 100% traffic, image tagged with
+At diagnosis the serving revision was `tek2day-api-00127-9z5`, 100% traffic, image tagged with
 GitHub commit e39cdd9. Its FIRESTORE_PROJECT is `yfinance-cli`; storage creates
 the default client database. Read-only database describe verified
 `projects/yfinance-cli/databases/(default)`, FIRESTORE_NATIVE, `us-east1`.
@@ -248,9 +252,11 @@ Code/image rollback does not undo data. **Once identity data is active, do not
 roll back to identity-unaware code while the route remains active.** Drain writes
 and perform the applicable data rollback/reverse plan first.
 
-No live action has been approved. The next proposed action is review/approval of
-the guarded code rollout and this bounded migration, with explicit incomplete
-financial-data status. Do not close issue #3 after that alone.
+The code rollout was approved and completed September 10. Database staging and
+publication still require separate approval of this bounded migration and a
+successful source recheck, with explicit incomplete financial-data status.
+Do not close issue #3 after that alone. Image publication does not establish a
+successful maintenance rerun; no manual maintenance execution was triggered.
 
 ## Validation and closure acceptance
 
@@ -277,7 +283,10 @@ serialization. It is not a live authorization/deployment test.
 Requirements pins and Dockerfiles remain unchanged. Existing Docker COPY *.py
 includes the new runtime modules; setuptools explicitly includes them too.
 The local migration scripts run from the repository, not from a new cloud job.
-No Docker image was built or deployed during diagnosis.
+No Docker image was built or deployed during diagnosis. The subsequently
+approved workflow built the pinned images and deployed the API successfully;
+startup and the existing live smoke test passed. This does not replace active
+identity/native transaction validation after migration approval.
 
 Local tests used Python 3.12.10 and the workstation's installed dependencies:
 
