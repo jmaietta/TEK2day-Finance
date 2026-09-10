@@ -270,7 +270,9 @@ def stock_page(symbol: str):
         return RedirectResponse(f"/stock/{upper}", status_code=301)
 
     now = time.time()
-    cached = _page_cache.get(upper)
+    upper = storage.public_symbol(upper)
+    key = storage.identity_cache_key(upper)
+    cached = _page_cache.get(key)
     if cached and cached[0] > now:
         return HTMLResponse(cached[1], headers={"Cache-Control": "public, max-age=3600"})
 
@@ -278,7 +280,7 @@ def stock_page(symbol: str):
     if html is None:
         raise HTTPException(status_code=404, detail="Unknown ticker")
 
-    _page_cache[upper] = (now + PAGE_TTL, html)
+    _page_cache[key] = (now + PAGE_TTL, html)
     return HTMLResponse(html, headers={"Cache-Control": "public, max-age=3600"})
 
 

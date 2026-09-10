@@ -331,8 +331,7 @@ def review_and_populate(symbol: str, period: str, incoming: dict, db=None) -> di
     """
     db = db or storage.get_db()
     ref = (
-        db.collection(storage.COLLECTION_ROOT)
-        .document(symbol)
+        storage.ticker_ref(symbol, db=db)
         .collection("financials")
         .document(period)
     )
@@ -353,7 +352,7 @@ def review_and_populate(symbol: str, period: str, incoming: dict, db=None) -> di
 
     stored_all = {
         d.id: (d.to_dict() or {})
-        for d in db.collection(storage.COLLECTION_ROOT).document(symbol).collection("financials").stream()
+        for d in storage.ticker_ref(symbol, db=db).collection("financials").stream()
     }
     checks = run_checks(merged, stored_all, period)
     warnings = [c for c in checks if not c["pass"]]
@@ -365,7 +364,8 @@ def review_and_populate(symbol: str, period: str, incoming: dict, db=None) -> di
         merged["data_warnings"] = [
             {"code": c["name"], "detail": c["detail"]} for c in warnings
         ]
-    ref.set(merged)
+    if not storage.identity_storage.guarded_write(db, symbol, [(f"/financials/{period}", merged)], expected=stored):
+        ref.set(merged)
 
     record = build_record(symbol, period, stored, incoming, merged, filled, checks)
     record["populated"] = True

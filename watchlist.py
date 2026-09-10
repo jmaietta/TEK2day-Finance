@@ -94,10 +94,11 @@ def _stored_quote_cached(sym: str) -> dict:
 
 
 def _stored_quote(sym: str) -> dict:
-    return dict(_stored_quote_cached(sym))
+    return dict(_stored_quote_cached(storage.public_symbol(sym)))
 
 
 def _apply_live_quote(sym: str, quote: dict) -> dict:
+    sym = storage.public_symbol(sym)
     try:
         live_quote = terminal._live_quote(sym) or {}
     except Exception:

@@ -51,16 +51,17 @@ def call_with_retry(fn, label):
 def firestore_write_with_retry(fn, label):
     for attempt in range(1, MAX_FIRESTORE_RETRIES + 1):
         try:
-            return fn()
+            fn()
+            return True
         except ResourceExhausted:
             wait = 60 * attempt
             logger.info("%s: Firestore quota hit, waiting %ds (attempt %d/%d)", label, wait, attempt, MAX_FIRESTORE_RETRIES)
             time.sleep(wait)
         except Exception as exc:
             logger.warning("%s: write error: %s", label, exc)
-            return None
+            return False
     logger.warning("%s: gave up after %d Firestore retries", label, MAX_FIRESTORE_RETRIES)
-    return None
+    return False
 
 
 # ── Data Review ──────────────────────────────────────────────────────────────
@@ -200,6 +201,8 @@ def main():
     populated = 0
     skipped = 0
     failed = 0
+    write_failed = 0
+    continuity_failed = []
 
     for i, symbol in enumerate(tickers, 1):
         _note_ticker(i, total)
@@ -211,9 +214,15 @@ def main():
             f"{symbol} quarterly",
         )
         if q_docs:
+            from security_identity import earnings_requirement
+            required = earnings_requirement(symbol)
+            if required and max((d.get("period_end") or "" for d in q_docs), default="") < required["period_end"]:
+                continuity_failed.append(symbol + ":reported_period_stale")
+            if required and any(d.get("period_end") == required["period_end"] and proposals.is_stub(d) for d in q_docs):
+                continuity_failed.append(symbol + ":reported_period_incomplete")
             for doc in q_docs:
                 doc["symbol"] = symbol
-                firestore_write_with_retry(
+                written = firestore_write_with_retry(
                     lambda s=symbol, d=doc: storage.write_financials(s, d["period"], d),
                     f"{symbol} quarterly {doc['period']}",
                 )
@@ -224,8 +233,14 @@ def main():
                 # Runs AFTER the normal write, uses the data already in hand (no
                 # extra Yahoo traffic), and cannot raise — the pull's job is
                 # ingestion and must not stop for this.
-                populated += _review(symbol, doc)
-            q_written += len(q_docs)
+                if written:
+                    populated += _review(symbol, doc)
+                    q_written += 1
+                else:
+                    failed += 1
+                    write_failed += 1
+        elif storage.event_for(symbol):
+            continuity_failed.append(symbol + ":quarterly")
         time.sleep(DELAY)
 
         # Annual financials
@@ -236,15 +251,21 @@ def main():
         if a_docs:
             for doc in a_docs:
                 doc["symbol"] = symbol
-                firestore_write_with_retry(
+                written = firestore_write_with_retry(
                     lambda s=symbol, d=doc: storage.write_financials(s, d["period"], d),
                     f"{symbol} annual {doc['period']}",
                 )
-            a_written += len(a_docs)
+                if written:
+                    a_written += 1
+                else:
+                    failed += 1
+                    write_failed += 1
         elif q_docs is None and a_docs is None:
             failed += 1
         else:
             skipped += 1
+        if not a_docs and storage.event_for(symbol):
+            continuity_failed.append(symbol + ":annual")
 
         if i % 100 == 0:
             elapsed = (datetime.now(timezone.utc) - start).total_seconds() / 3600
@@ -281,6 +302,9 @@ def main():
             logger.info("Data review: saved report %s with %d record(s)", pid, len(_records))
         except Exception as exc:  # noqa: BLE001
             logger.warning("Data review: could not save the run report: %s", exc)
+    if total and (q_written == 0 or a_written == 0 or write_failed or continuity_failed):
+        logger.error("Incomplete reviewed-security financials: %s; failed writes=%d", continuity_failed, write_failed)
+        raise RuntimeError("Financial maintenance incomplete; inspect per-period logs")
 
 
 if __name__ == "__main__":

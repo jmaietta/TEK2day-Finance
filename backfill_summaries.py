@@ -49,13 +49,9 @@ def fetch_summary(symbol: str) -> str | None:
 def write_summary(symbol: str, text: str) -> None:
     """Merge-write ONLY the summary field; nothing else in the doc changes."""
     db = storage.get_db()
-    db.collection(COLLECTION_ROOT).document(symbol).set(
-        {
-            "summary": text,
-            "summary_updated_at": datetime.now(timezone.utc).isoformat(),
-        },
-        merge=True,
-    )
+    data = {"summary": text, "summary_updated_at": datetime.now(timezone.utc).isoformat()}
+    if not storage.identity_storage.guarded_write(db, symbol, [("", data)], merge=True):
+        db.collection(COLLECTION_ROOT).document(symbol).set(data, merge=True)
 
 
 def main() -> None:

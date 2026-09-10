@@ -16,6 +16,8 @@ from datetime import datetime, timezone
 from google.cloud import firestore
 
 from config import FIRESTORE_PROJECT, COLLECTION_ROOT
+import identity_storage
+from security_identity import event_for
 
 _db = None
 
@@ -35,18 +37,39 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def ticker_ref(symbol, db=None):
+    return identity_storage.context(db or get_db(), symbol)[1]
+
+
+def public_symbol(symbol):
+    """First-party lookup only. Partner callers retain exact-symbol semantics."""
+    if event_for(symbol) is None:
+        return symbol
+    return identity_storage.context(get_db(), symbol, public=True)[0]
+
+
+def identity_cache_key(symbol):
+    if event_for(symbol) is None:
+        return symbol
+    _, ref, _, state = identity_storage.context(get_db(), symbol)
+    return (symbol, ref.path, (state or {}).get("status"))
+
+
 # ── Ticker metadata ──────────────────────────────────────────────────────────
 
 def write_ticker_meta(symbol: str, meta: dict) -> None:
     db = get_db()
+    meta = copy.deepcopy(meta)
     meta["updated_at"] = _now_iso()
+    if identity_storage.guarded_write(db, symbol, [("", meta)], merge=True):
+        return
     db.collection(COLLECTION_ROOT).document(symbol).set(meta, merge=True)
 
 
 def get_ticker_meta(symbol: str) -> dict | None:
     db = get_db()
-    doc = db.collection(COLLECTION_ROOT).document(symbol).get()
-    return doc.to_dict() if doc.exists else None
+    doc = ticker_ref(symbol, db=db).get()
+    return identity_storage.reject_tombstone(doc.to_dict()) if doc.exists else None
 
 
 def list_active_tickers() -> list[str]:
@@ -56,11 +79,20 @@ def list_active_tickers() -> list[str]:
         .where("active", "==", True)
         .stream()
     )
-    return sorted([doc.id for doc in docs])
+    symbols = set()
+    for doc in docs:
+        if event_for(doc.id):
+            canonical = identity_storage.context(db, doc.id, public=True)[0]
+            symbols.add(canonical)
+        else:
+            symbols.add(doc.id)
+    return sorted(symbols)
 
 
 def deactivate_ticker(symbol: str) -> None:
     db = get_db()
+    if identity_storage.guarded_write(db, symbol, [("", {"active": False, "deactivated_at": _now_iso()})], merge=True):
+        return
     db.collection(COLLECTION_ROOT).document(symbol).update({
         "active": False,
         "deactivated_at": _now_iso(),
@@ -71,7 +103,10 @@ def deactivate_ticker(symbol: str) -> None:
 
 def write_estimates(symbol: str, date_str: str, data: dict) -> None:
     db = get_db()
+    data = copy.deepcopy(data)
     data["fetched_at"] = _now_iso()
+    if identity_storage.guarded_write(db, symbol, [(f"/estimates/{date_str}", data)]):
+        return
     (
         db.collection(COLLECTION_ROOT)
         .document(symbol)
@@ -84,8 +119,7 @@ def write_estimates(symbol: str, date_str: str, data: dict) -> None:
 def get_estimates(symbol: str, date_str: str) -> dict | None:
     db = get_db()
     doc = (
-        db.collection(COLLECTION_ROOT)
-        .document(symbol)
+        ticker_ref(symbol, db=db)
         .collection("estimates")
         .document(date_str)
         .get()
@@ -96,8 +130,7 @@ def get_estimates(symbol: str, date_str: str) -> dict | None:
 def get_estimate_history(symbol: str, limit: int = 90) -> list[dict]:
     db = get_db()
     docs = (
-        db.collection(COLLECTION_ROOT)
-        .document(symbol)
+        ticker_ref(symbol, db=db)
         .collection("estimates")
         .order_by("date", direction=firestore.Query.DESCENDING)
         .limit(limit)
@@ -110,7 +143,10 @@ def get_estimate_history(symbol: str, limit: int = 90) -> list[dict]:
 
 def write_price(symbol: str, date_str: str, data: dict) -> None:
     db = get_db()
+    data = copy.deepcopy(data)
     data["fetched_at"] = _now_iso()
+    if identity_storage.guarded_write(db, symbol, [(f"/prices/{date_str}", data)]):
+        return
     (
         db.collection(COLLECTION_ROOT)
         .document(symbol)
@@ -122,8 +158,17 @@ def write_price(symbol: str, date_str: str, data: dict) -> None:
 
 def write_prices_batch(symbol: str, rows: list[dict]) -> None:
     db = get_db()
-    batch = db.batch()
+    rows = copy.deepcopy(rows)
     now = _now_iso()
+    for row in rows:
+        row["fetched_at"] = now
+    if event_for(symbol):
+        # Each existing price may also preserve an observation. Keep each
+        # guarded transaction below 500 writes, including history backfills.
+        for start in range(0, len(rows), 200):
+            identity_storage.guarded_write(db, symbol, [(f"/prices/{r['date']}", r) for r in rows[start:start + 200]])
+        return
+    batch = db.batch()
     for row in rows:
         row["fetched_at"] = now
         ref = (
@@ -140,6 +185,10 @@ def write_prices_batch(symbol: str, rows: list[dict]) -> None:
 
 def write_financials(symbol: str, period: str, data: dict) -> None:
     db = get_db()
+    data = copy.deepcopy(data)
+    data["fetched_at"] = _now_iso()
+    if identity_storage.guarded_write(db, symbol, [(f"/financials/{period}", data)], write_once=True):
+        return
     ref = (
         db.collection(COLLECTION_ROOT)
         .document(symbol)
@@ -261,8 +310,7 @@ def backfill_financials(symbol: str, period: str, incoming: dict, db=None) -> li
     """
     db = db or get_db()
     ref = (
-        db.collection(COLLECTION_ROOT)
-        .document(symbol)
+        ticker_ref(symbol, db=db)
         .collection("financials")
         .document(period)
     )
@@ -278,15 +326,15 @@ def backfill_financials(symbol: str, period: str, incoming: dict, db=None) -> li
     # original ingestion timestamp so provenance of the first write survives.
     merged["backfilled_at"] = _now_iso()
     merged["backfilled_fields"] = sorted(filled)
-    ref.set(merged)
+    if not identity_storage.guarded_write(db, symbol, [(f"/financials/{period}", merged)], expected=snap.to_dict()):
+        ref.set(merged)
     return filled
 
 
 def get_all_financials(symbol: str) -> list[dict]:
     db = get_db()
     docs = (
-        db.collection(COLLECTION_ROOT)
-        .document(symbol)
+        ticker_ref(symbol, db=db)
         .collection("financials")
         .order_by("period_end", direction=firestore.Query.DESCENDING)
         .stream()
@@ -299,8 +347,7 @@ def get_all_financials(symbol: str) -> list[dict]:
 def get_prices_history(symbol: str, limit: int = 1260) -> list[dict]:
     db = get_db()
     docs = (
-        db.collection(COLLECTION_ROOT)
-        .document(symbol)
+        ticker_ref(symbol, db=db)
         .collection("prices")
         .order_by("date", direction=firestore.Query.DESCENDING)
         .limit(limit)
@@ -322,6 +369,13 @@ def query_estimates_by_date(date_str: str) -> list[dict]:
     results = []
     for doc in docs:
         data = doc.to_dict()
-        data["_symbol"] = doc.reference.parent.parent.id
+        root = doc.reference.parent.parent
+        symbol = data.get("symbol") or root.id
+        try:
+            if root.path != ticker_ref(symbol, db=db).path:
+                continue  # staged, retired or superseded observation
+        except ValueError:
+            continue
+        data["_symbol"] = symbol
         results.append(data)
     return results

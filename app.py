@@ -1161,7 +1161,7 @@ def _run_terminal_command(line: str, width: int) -> dict:
             raise ValueError("Usage: /comp AAPL MSFT (up to 6 tickers)")
         if len(parts) > 7:
             raise ValueError("Maximum 6 tickers at a time.")
-        symbols = [_validate_symbol(part) for part in parts[1:]]
+        symbols = [storage.public_symbol(_validate_symbol(part)) for part in parts[1:]]
         data = _web_payload("compare", symbols=symbols)
         # The browser renders the structured payload natively; only fall back
         # to the captured terminal text when no payload could be built. This
@@ -1179,7 +1179,7 @@ def _run_terminal_command(line: str, width: int) -> dict:
             **output,
         }
 
-    symbol = _validate_symbol(parts[0])
+    symbol = storage.public_symbol(_validate_symbol(parts[0]))
     subcmd = parts[1].lower() if len(parts) > 1 else None
 
     if len(parts) > 2:
@@ -1348,7 +1348,7 @@ def _live_bar(symbol: str) -> dict | None:
 @app.get("/api/prices/{symbol}")
 def get_prices(symbol: str, limit: int = Query(default=1260, le=2000)):
     """Get historical prices for a ticker. Default 1260 = ~5 years of trading days."""
-    symbol = symbol.upper()
+    symbol = storage.public_symbol(symbol.upper())
 
     def clean(value):
         # Older rows may contain NaN, which is not JSON-serializable.
@@ -1396,7 +1396,7 @@ def get_prices(symbol: str, limit: int = Query(default=1260, le=2000)):
 @app.get("/api/estimates/{symbol}")
 def get_estimates(symbol: str, limit: int = Query(default=90, le=365)):
     """Get estimate history for a ticker."""
-    symbol = symbol.upper()
+    symbol = storage.public_symbol(symbol.upper())
     history = storage.get_estimate_history(symbol, limit=limit)
     return history
 
@@ -1404,11 +1404,10 @@ def get_estimates(symbol: str, limit: int = Query(default=90, le=365)):
 @app.get("/api/financials/{symbol}")
 def get_financials(symbol: str):
     """Get quarterly financials for a ticker."""
-    symbol = symbol.upper()
+    symbol = storage.public_symbol(symbol.upper())
     db = storage.get_db()
     docs = (
-        db.collection(storage.COLLECTION_ROOT)
-        .document(symbol)
+        storage.ticker_ref(symbol, db=db)
         .collection("financials")
         .order_by("period_end")
         .stream()
@@ -1419,7 +1418,7 @@ def get_financials(symbol: str):
 @app.get("/api/ticker/{symbol}")
 def get_ticker_info(symbol: str):
     """Get ticker metadata."""
-    symbol = symbol.upper()
+    symbol = storage.public_symbol(symbol.upper())
     meta = storage.get_ticker_meta(symbol)
     if not meta:
         return {"error": "Ticker not found"}

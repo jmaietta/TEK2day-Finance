@@ -51,6 +51,9 @@ def fetch_ticker_info(symbol: str) -> dict | None:
     try:
         t = yf.Ticker(symbol)
         info = t.info or {}
+        supplied = info.get("symbol")
+        if supplied and str(supplied).upper().replace("-", ".") != symbol.upper().replace("-", "."):
+            raise ValueError(f"Provider ticker changed from {symbol} to {supplied}; identity review required")
         if not info.get("shortName"):
             logger.warning("%s: no info returned", symbol)
             return None
@@ -64,7 +67,7 @@ def fetch_ticker_info(symbol: str) -> dict | None:
             "market_cap": info.get("marketCap"),
             "shares_outstanding": info.get("sharesOutstanding"),
             "float_shares": info.get("floatShares"),
-            "currency": info.get("currency", "USD"),
+            "currency": info.get("currency"),
             "active": True,
         }
     except Exception as exc:
@@ -110,11 +113,38 @@ def fetch_estimates(symbol: str) -> dict | None:
             logger.warning("%s: estimates parsed but empty", symbol)
             return None
 
+        # yfinance's public tables retain relative labels (0q/0y) but drop
+        # earningsTrend.endDate. Read only the already-fetched cached payload;
+        # never issue another request or infer a fiscal horizon from today's date.
+        trend = getattr(getattr(t, "_analysis", None), "_earnings_trend", None)
+        result["horizons"] = estimate_horizons(trend)
+        result["provider_observed_at"] = None  # Yahoo supplies no matched observation instant here
+
         return result
 
     except Exception as exc:
         logger.error("%s: estimates fetch failed: %s", symbol, exc)
         return None
+
+
+def estimate_horizons(trend):
+    horizons = {}
+    ambiguous = set()
+    for item in trend if isinstance(trend, list) else []:
+        if not isinstance(item, dict):
+            continue
+        label, end = item.get("period"), item.get("endDate")
+        if label not in {"0q", "+1q", "0y", "+1y"}:
+            continue
+        try:
+            if not isinstance(end, str) or date.fromisoformat(end).isoformat() != end:
+                continue
+        except ValueError:
+            continue
+        if label in horizons and horizons[label] != end:
+            ambiguous.add(label)
+        horizons[label] = end
+    return {k: v for k, v in horizons.items() if k not in ambiguous}
 
 
 def yahoo_epoch_seconds(value):

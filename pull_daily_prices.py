@@ -110,16 +110,17 @@ def call_with_retry(fn, label):
 def firestore_write_with_retry(fn, label):
     for attempt in range(1, MAX_FIRESTORE_RETRIES + 1):
         try:
-            return fn()
+            fn()
+            return True
         except ResourceExhausted:
             wait = 60 * attempt
             logger.info("%s: Firestore quota hit, waiting %ds (attempt %d/%d)", label, wait, attempt, MAX_FIRESTORE_RETRIES)
             time.sleep(wait)
         except Exception as exc:
             logger.warning("%s: write error: %s", label, exc)
-            return None
+            return False
     logger.warning("%s: gave up after %d Firestore retries", label, MAX_FIRESTORE_RETRIES)
-    return None
+    return False
 
 
 def main():
@@ -156,6 +157,7 @@ def main():
 
     success = 0
     failed = 0
+    continuity_failed = []
 
     for i, symbol in enumerate(tickers, 1):
         yahoo_sym = symbol.replace(".", "-")
@@ -168,15 +170,22 @@ def main():
         if rows:
             for r in rows:
                 r["symbol"] = symbol
-            firestore_write_with_retry(
+            written = firestore_write_with_retry(
                 lambda s=symbol, r=rows: storage.write_prices_batch(s, r),
                 f"{symbol} prices write",
             )
-            logger.info("[%d/%d] %s: %d price rows", i, total, symbol, len(rows))
-            success += 1
+            if written:
+                logger.info("[%d/%d] %s: %d price rows written", i, total, symbol, len(rows))
+                success += 1
+            else:
+                failed += 1
+                if storage.event_for(symbol):
+                    continuity_failed.append(symbol)
         else:
             logger.warning("[%d/%d] %s: no prices returned", i, total, symbol)
             failed += 1
+            if storage.event_for(symbol):
+                continuity_failed.append(symbol)
 
         if i % 100 == 0:
             elapsed = (datetime.now(timezone.utc) - start).total_seconds() / 3600
@@ -196,6 +205,9 @@ def main():
             "The universe has NOT been refreshed. ***", total)
 
     rate = (success / total) if total else 0.0
+    if continuity_failed:
+        logger.error("Reviewed security price maintenance failed: %s", ",".join(continuity_failed))
+        sys.exit(1)
     if total and rate < MIN_SUCCESS_RATE:
         logger.error(
             "PRICE PULL FAILED: only %d of %d tickers returned data (%.1f%%, "

@@ -1,0 +1,131 @@
+{
+  "api": {
+    "spec": {
+      "template": {
+        "spec": {
+          "containers": [
+            {
+              "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/api:e39cdd98707974ba324a2d6ebb67a96353f48e07"
+            }
+          ]
+        }
+      }
+    },
+    "status": {
+      "latestReadyRevisionName": "tek2day-api-00127-9z5",
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100,
+          "revisionName": "tek2day-api-00127-9z5"
+        }
+      ]
+    }
+  },
+  "api_revision": {
+    "status": {
+      "imageDigest": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/api@sha256:027dc8a355870158fa69176372a4cf72636d57426180766498984bb78a349d59"
+    }
+  },
+  "captured_at": "2026-09-10T00:18:29.455209+00:00",
+  "images": {
+    "us-central1-docker.pkg.dev/yfinance-cli/tek2day/daily-prices:latest": {
+      "image_summary": {
+        "digest": "sha256:ababafc9a4bf889fe9980f07a7998ed9d608d2adc06732e9924b178e8c73627e",
+        "fully_qualified_digest": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/daily-prices@sha256:ababafc9a4bf889fe9980f07a7998ed9d608d2adc06732e9924b178e8c73627e"
+      }
+    },
+    "us-central1-docker.pkg.dev/yfinance-cli/tek2day/quarterly-financials:latest": {
+      "image_summary": {
+        "digest": "sha256:b1fecef4163aac8c35b62184750825ced4aae9766a6e64808f523e1568a3ae0f",
+        "fully_qualified_digest": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/quarterly-financials@sha256:b1fecef4163aac8c35b62184750825ced4aae9766a6e64808f523e1568a3ae0f"
+      }
+    },
+    "us-central1-docker.pkg.dev/yfinance-cli/tek2day/weekly-estimates:latest": {
+      "image_summary": {
+        "digest": "sha256:a06d34b623fba01e662a87e014b60f5091372db42f10c9539db6660ed5b87067",
+        "fully_qualified_digest": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/weekly-estimates@sha256:a06d34b623fba01e662a87e014b60f5091372db42f10c9539db6660ed5b87067"
+      }
+    }
+  },
+  "jobs": {
+    "architecture-check": {
+      "spec": {
+        "template": {
+          "spec": {
+            "taskCount": 1,
+            "template": {
+              "spec": {
+                "containers": [
+                  {
+                    "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/daily-prices:latest"
+                  }
+                ],
+                "maxRetries": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "daily-price-pull": {
+      "spec": {
+        "template": {
+          "spec": {
+            "taskCount": 6,
+            "template": {
+              "spec": {
+                "containers": [
+                  {
+                    "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/daily-prices:latest"
+                  }
+                ],
+                "maxRetries": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "quarterly-financial-pull": {
+      "spec": {
+        "template": {
+          "spec": {
+            "taskCount": 1,
+            "template": {
+              "spec": {
+                "containers": [
+                  {
+                    "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/quarterly-financials:latest"
+                  }
+                ],
+                "maxRetries": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "weekly-estimate-pull": {
+      "spec": {
+        "template": {
+          "spec": {
+            "taskCount": 1,
+            "template": {
+              "spec": {
+                "containers": [
+                  {
+                    "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/weekly-estimates:latest"
+                  }
+                ],
+                "maxRetries": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "project": "yfinance-cli",
+  "region": "us-central1"
+}

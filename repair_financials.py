@@ -133,7 +133,7 @@ def run(symbols, database, apply_changes):
     retry_later = []
 
     for symbol in symbols:
-        col = db.collection(storage.COLLECTION_ROOT).document(symbol).collection("financials")
+        col = storage.ticker_ref(symbol, db=db).collection("financials")
         stored = {d.id: (d.to_dict() or {}) for d in col.stream()}
         stub_ids = sorted(pid for pid, doc in stored.items() if is_stub(doc))
         if not stub_ids:

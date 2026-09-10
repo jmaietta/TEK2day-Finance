@@ -409,14 +409,18 @@ def _ttl_cache(ttl_seconds, should_cache=bool):
         @functools.wraps(fn)
         def inner(*args):
             now = time.monotonic()
+            key = args
+            if fn.__name__ in {"_firestore_meta", "_all_financials", "_estimate_history", "_stored_quote_cached"} and args:
+                import storage
+                key = (storage.identity_cache_key(args[0]), *args[1:])
             with lock:
-                hit = cache.get(args)
+                hit = cache.get(key)
                 if hit is not None and now - hit[0] < ttl_seconds:
                     return hit[1]
             result = fn(*args)
             if should_cache(result):
                 with lock:
-                    cache[args] = (now, result)
+                    cache[key] = (now, result)
             return result
 
         return inner
@@ -2212,7 +2216,8 @@ def main():
             cmd_compare([p.upper() for p in parts[1:]])
             continue
 
-        symbol = parts[0].upper()
+        import storage
+        symbol = storage.public_symbol(parts[0].upper())
         subcmd = parts[1].lower() if len(parts) > 1 else None
 
         if len(parts) > 2:

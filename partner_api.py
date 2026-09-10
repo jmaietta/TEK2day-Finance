@@ -266,6 +266,9 @@ def _resolve(symbol: str):
 
     try:
         meta = storage.get_ticker_meta(norm)
+    except storage.identity_storage.IdentityError as exc:
+        return None, None, JSONResponse(status_code=409, content=envelope.integrity_error(
+            requested, {"symbol": norm}, str(exc)))
     except Exception:
         raise HTTPException(status_code=503, detail="Symbol lookup unavailable") from None
 
@@ -559,6 +562,9 @@ def _estimates(symbol: str) -> dict | None:
     # would resolve "current quarter" against the wrong date.
     out["as_of"] = str(record.get("date") or "") or None
     out["captured_at"] = str(record.get("fetched_at") or "") or None
+    if "horizons" in record:
+        out["target_period_ends"] = record["horizons"]
+        out["provider_observed_at"] = record.get("provider_observed_at")
     out["note"] = (
         "Period keys are relative to as_of, not to today, and shift when the "
         "company reports."
@@ -715,6 +721,13 @@ def equity_summary(request: Request, symbol: str):
                                  "fundamentals and mixed-currency valuations are not verified "
                                  "in that unit; legacy display strings are not currency proof."})
 
+    from security_identity import event_for, freshness_warnings
+    if event_for(norm):
+        import terminal
+        estimates = terminal._estimate_history(norm)
+        warnings.extend(freshness_warnings(norm, earnings_period=snap.get("ttm_as_of"),
+                                           estimate=estimates[0] if estimates else None, check_estimates=True))
+
     return envelope.build(
         "company_summary", data, requested,
         {"symbol": norm, "name": data["name"]},
@@ -864,6 +877,8 @@ def equity_financials(
     # looking at — rather than the set, which would average away a stub.
     newest = selected[0] if selected else None
     coverage = envelope.coverage_block([r.get("period") for r in wanted])
+    from security_identity import freshness_warnings
+    warnings = freshness_warnings(norm, earnings_period=(newest or {}).get("period_end")) if frequency == "quarterly" else []
 
     return envelope.build(
         "financial_statement", data, requested,
@@ -871,6 +886,7 @@ def equity_financials(
         record=newest,
         period=periods[0] if periods else None,
         coverage=coverage,
+        warnings=warnings,
     )
 
 
@@ -1297,6 +1313,12 @@ def equity_estimates(request: Request, symbol: str):
 
     warnings = []
     as_of = data.get("as_of")
+    from security_identity import event_for, freshness_warnings
+    if event_for(norm):
+        import terminal
+        history = terminal._estimate_history(norm)
+        warnings.extend(w for w in freshness_warnings(norm, estimate=history[0] if history else None,
+                                                     check_estimates=True) if w["code"].startswith("estimate"))
     stale_days = None
     if as_of:
         try:

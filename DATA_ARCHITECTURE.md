@@ -46,6 +46,16 @@ Key rules:
 - Financials are write-once; existing periods are not overwritten.
 - Metadata writes use `set(..., merge=True)` through `storage.write_ticker_meta()`.
 
+Reviewed ticker continuity is a staged exception to the ticker-keyed layout.
+See [issue #3 preflight](docs/issue-3-identity-preflight.md) for its current
+deployment status. An internal issuer ID (with CIK as a registrant attribute)
+and a separate security ID authorize a reviewed common-stock rename. A single
+`security_routes/{event_id}` pointer publishes a fully reconciled tree under
+`security_data/{security_id}/versions/{generation}`. Raw ticker trees and
+original observations are retained. CIK/name/ticker matches alone never join
+histories. Readers and guarded maintenance use the same route; partner requests
+remain exact-symbol until a separate Kilby integration is agreed.
+
 ## 3. Presentation Rule
 
 Terminal and Web must match. The Web GUI calls the same command functions in
@@ -109,6 +119,10 @@ plus the live Yahoo quote:
 | `/exit` | Terminal exit |
 
 ## 5. Current Guardrail
+
+The following guardrail was scoped to the earlier web-launch hardening work.
+The separately authorized issue #3 identity migration is documented above and
+adds reviewed issuer/security identity fields only through its approval gate.
 
 Do not add or backfill new Firestore metadata fields as part of the current web
 launch hardening work. The immediate goal is source consistency: Terminal and
