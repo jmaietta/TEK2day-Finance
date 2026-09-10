@@ -186,6 +186,8 @@ def main():
     )
 
     tickers = storage.list_active_tickers()
+    active_symbols = list(tickers)
+    sec_yahoo_seen = {}
     # Daily tranche: process 1/N of the universe per weekday so one run finishes
     # within the task timeout. Schedulers fire Mon–Sat, so every ticker refreshes
     # across the week. Override the slice for manual runs with TRANCHE_INDEX.
@@ -248,6 +250,11 @@ def main():
             lambda s=yahoo_sym: fetchers.fetch_annual_financials(s),
             f"{symbol} annual",
         )
+        # Retain only enrolled issuers, so the fallback can reuse this run's
+        # Yahoo observations without retaining an entire tranche in memory.
+        from sec_mapping import BINDINGS
+        if symbol in BINDINGS:
+            sec_yahoo_seen[symbol] = (q_docs, a_docs)
         if a_docs:
             for doc in a_docs:
                 doc["symbol"] = symbol
@@ -278,6 +285,25 @@ def main():
 
         time.sleep(DELAY)
 
+    from sec_maintenance import run_fallback
+    sec_results, sec_failures = run_fallback(active_symbols, yahoo_seen=sec_yahoo_seen)
+    # Existing job outcome/monitoring handles errors and unresolved mappings.
+    # Successful SEC recovery is assessed from storage, separately from Yahoo's
+    # earlier response. Do not clear annual, quote or estimate failures with it.
+    recovered = {r["symbol"] for r in sec_results if r.get("mode") == "apply"
+                 and r.get("status") in {"fill", "noop", "yahoo_available"}}
+    if recovered:
+        from security_identity import earnings_requirement
+        from sec_fallback import coverage_missing
+        for symbol in recovered:
+            required = earnings_requirement(symbol)
+            held = storage.get_all_financials(symbol)
+            if required and any(d.get("period_end") == required["period_end"] and d.get("freq") != "FY"
+                                and not coverage_missing(d) for d in held):
+                continuity_failed = [f for f in continuity_failed if f not in {
+                    symbol + ":quarterly", symbol + ":reported_period_stale", symbol + ":reported_period_incomplete"}]
+    continuity_failed.extend(sec_failures)
+
     elapsed = (datetime.now(timezone.utc) - start).total_seconds() / 60
     logger.info(
         "Quarterly financial pull complete: %d quarterly docs, %d annual docs, %d failed, %.1f minutes",
@@ -302,7 +328,7 @@ def main():
             logger.info("Data review: saved report %s with %d record(s)", pid, len(_records))
         except Exception as exc:  # noqa: BLE001
             logger.warning("Data review: could not save the run report: %s", exc)
-    if total and (q_written == 0 or a_written == 0 or write_failed or continuity_failed):
+    if (total and (q_written == 0 or a_written == 0 or write_failed or continuity_failed)) or sec_failures:
         logger.error("Incomplete reviewed-security financials: %s; failed writes=%d", continuity_failed, write_failed)
         raise RuntimeError("Financial maintenance incomplete; inspect per-period logs")
 

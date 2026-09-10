@@ -10,7 +10,7 @@ This document describes how TEK2day Finance captures, stores, and presents finan
 |--------|-----------|--------|
 | Yahoo Finance via yfinance | EOD prices, financial statements, estimates, and ticker metadata | Scheduled ingestion scripts |
 | Yahoo Finance live quote | Current price, price change, volume, and 52-week price range | Narrow live quote call at command runtime |
-| SEC EDGAR API | SEC filings | REST API |
+| SEC EDGAR API | SEC filings; reviewed financial fallback (off until enabled) | REST API |
 | CEORater API | CEO analytics | REST API |
 
 ### Scheduled Capture
@@ -23,6 +23,13 @@ This document describes how TEK2day Finance captures, stores, and presents finan
 | Ticker metadata | With the existing metadata pull path | `fetchers.fetch_ticker_info()` |
 
 No new Firestore metadata fields are required for the current Terminal/Web hardening pass.
+
+The separately requested [SEC financial fallback](docs/sec-financial-fallback.md)
+is implemented inside the existing financial job, default off pending rollout.
+After a seven-day filing grace period it can fill reviewed missing financial
+fields with atomic original/source audits. Its initial enrollment is BNY; CIK
+alone does not enroll an issuer or join histories. See that document for exact
+period selection, accounting mappings, rollback and coverage limitations.
 
 ## 2. Data Storage
 

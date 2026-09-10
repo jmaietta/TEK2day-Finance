@@ -1,4 +1,4 @@
-# Issue #3 closure record — OPEN, code deployed; migration pending
+# Issue #3 closure record — OPEN, migration verified; coverage work remains
 
 This record is deliberately incomplete until the acceptance evidence exists.
 It must not be used as authorization to integrate or publish renamed securities.
@@ -11,14 +11,14 @@ It must not be used as authorization to integrate or publish renamed securities.
 | Implementation commit | 30d6b90646fade38609f3df21e4ab31af5066170; published |
 | Deployed commit | e08d5492e3ffb37ca1490e55ce515f8864d2094a |
 | Build/deploy runs | API 34489995005; maintenance images 34489995022; both successful |
-| Live repair/migration writes in this session | None; separate approval pending |
-| Migration status | Dry-run only, plan 17f04fb3c5f56030356764b271a6fb860531be71915849798d30f019d2ab3bfd |
+| Live repair/migration writes in this session | Approved and executed September 10; retained original history and audit snapshots |
+| Migration status | Published 2026-09-10T18:09:20.380321Z, plan 17f04fb3c5f56030356764b271a6fb860531be71915849798d30f019d2ab3bfd |
 | Live partner checks | Not performed; existing authorized Kilby path required |
 | Offline validation | 439 verified tests across 21 isolated files; 22 pinned Kilby producer/consumer assertions |
-| Runtime validation limit | Pinned image builds, Cloud Run startup and workflow smoke test passed; active migration/native transaction and Kilby live acceptance pending |
+| Runtime validation limit | Pinned image builds, Cloud Run startup and workflow smoke test passed; native migration/readers and no-op maintenance guards passed; live Kilby acceptance pending |
 | Corporate event | BK→BNY, ordinary common stock, 2026-05-21; issuer CIK 0001390777; CUSIP 064058100; NYSE/XNYS; provider-observed USD |
 | Known financial gap | Stored history ends 2026-Q1; Yahoo's 2026-Q2 response is incomplete; 2021-FY is incomplete |
-| API rollout mode | Code installed; route not activated. After approved migration: BNY canonical, BK 409; no security_resolution or redirect payload |
+| API rollout mode | Route active: BNY canonical, BK 409; no security_resolution or redirect payload |
 | Issue #3 | OPEN; not ready for closure |
 | Chatllm #221 | Remains OPEN |
 | Chatllm #233 | Not reopened; no chatllm modification |
@@ -29,7 +29,12 @@ review, rollback procedure and acceptance checks. The
 [rollback receipt](issue-3-rollout-rollback.json) preserves the prior image
 digests; they were rechecked immediately before pushing. The
 [deployment receipt](issue-3-deployment-20260910.json) records the new API and
-maintenance image digests. No manual maintenance execution was triggered.
+maintenance image digests. The [executed migration receipt](issue-3-migration-20260910.json)
+records 10 financial periods, 9 estimates, 1,282 prices and 1,303 retained audit
+observations. Twelve first-party website checks passed. Migration preserved
+existing history; it did not supply the absent June quarter. See the
+[SEC fallback implementation](sec-financial-fallback.md) for the separate local
+work, which has not been deployed or enabled. No manual maintenance job was triggered.
 
 Synthetic fixtures in `test_ticker_identity.py` and
 `scripts/check_kilby_identity_contract.py` are permitted offline compatibility
@@ -62,7 +67,9 @@ replace the pending receipt entries with verified final values first.
 > The reviewed implementation was 30d6b90646fade38609f3df21e4ab31af5066170,
 > included in deployed commit e08d5492e3ffb37ca1490e55ce515f8864d2094a on
 > September 10, revision tek2day-api-00128-dvv. Builds and the workflow smoke
-> test passed, but migration and live Kilby acceptance were still pending.
+> test passed. Migration was published September 10 at 18:09:20.380321Z;
+> native readers, first-party old/new reads and maintenance guards passed.
+> Live Kilby acceptance and remaining coverage work were still pending.
 > Verify the final published receipt; this code deployment alone is not closure.
 >
 > The verified event is the May 21, 2026 BK→BNY ticker change for The Bank of

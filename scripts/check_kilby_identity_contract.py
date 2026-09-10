@@ -61,8 +61,24 @@ def main():
             assert json.loads(refused.body).get("data") is None
         assert guard({"data": {"symbol": "BNY", "renamed_to": "OTHER"}}, "BNY")
         assert guard({"security_resolution": {}}, "BNY")
+        # Real public SEC facts, still strictly offline. This is a producer
+        # adapter fixture, not a frozen live partner response or API grant.
+        from datetime import datetime, timezone
+        from sec_fallback import filings_from, build_candidate
+        from sec_mapping import BINDINGS
+        evidence = json.loads((ROOT / "tests/fixtures/sec_bny_2026.json").read_text())
+        filings, _ = filings_from(evidence["submissions"], BINDINGS["BNY"], datetime(2026, 9, 10, 23, tzinfo=timezone.utc))
+        recovered = build_candidate(evidence["facts"], evidence["source_capture"], BINDINGS["BNY"], filings[-1], filings)
+        financials[:] = [recovered]
+        for statement in ("income", "balance_sheet", "cash_flow"):
+            body = partner_api.equity_financials(None, "BNY", statement, "quarterly")
+            assert guard(json.loads(json.dumps(body)), "BNY") == ""
+            assert body["provenance"]["upstream"] == "SEC EDGAR"
+            assert body["data"]["filing_sources"][0]["filing"]["reportDate"] == "2026-06-30"
+            assert body["completeness"]["source"] == "sec_fallback"
+            assert guard(body, "BK")
     assert not attempts
-    print("PASS: 22 producer/consumer identity checks across resolution, summary, estimates and financials; no network, paid work or live partner requests")
+    print("PASS: 22 identity assertions plus 15 SEC producer/consumer assertions; no network, paid work or live partner requests")
     return 0
 
 

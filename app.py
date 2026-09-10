@@ -44,6 +44,7 @@ import partner_api
 import fetchers
 import storage
 import terminal
+import envelope
 import watchlist
 from config import CEORATER_API_KEY
 from seo_pages import BASE_URL, router as seo_router
@@ -272,7 +273,8 @@ def _summary_payload(symbol: str) -> dict | None:
             "change_pct": snap.get("change_pct"),
             "volume": terminal._count(snap.get("volume")),
             "description": desc or "",
-            "source": "Yahoo Finance, TEK2day",
+            "source": "SEC EDGAR, Yahoo Finance, TEK2day" if "SEC EDGAR" in snap.get("financial_upstream", "")
+                      else "Yahoo Finance, TEK2day",
             "metrics": [
                 {"label": "Market Cap", "value": terminal._dollar(snap.get("market_cap"))},
                 {"label": "Diluted Shares", "value": terminal._count(snap.get("shares"))},
@@ -514,7 +516,7 @@ def _financial_payload(symbol: str, section: str, fields: list, title: str) -> d
         "type": "financials",
         "symbol": symbol,
         "title": title,
-        "source": "TEK2day Firestore",
+        "source": envelope.financial_upstream(all_fins) + ", TEK2day Firestore",
         # Stated once, in the panel corner. Per-share rows keep their own form,
         # which is why the note says so — the 10-Q convention.
         "unit": unit_label,
@@ -729,7 +731,8 @@ def _compare_payload(symbols: list[str]) -> dict | None:
     return {
         "type": "compare",
         "title": "Comparison",
-        "source": "Yahoo Finance, TEK2day",
+        "source": "SEC EDGAR, Yahoo Finance, TEK2day" if any("SEC EDGAR" in s.get("financial_upstream", "")
+                                                             for s in snapshots.values()) else "Yahoo Finance, TEK2day",
         "symbols": [
             {"symbol": symbol, "name": snapshots[symbol].get("name", symbol)}
             for symbol in ordered_symbols

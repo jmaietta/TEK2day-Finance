@@ -732,6 +732,7 @@ def equity_summary(request: Request, symbol: str):
         "company_summary", data, requested,
         {"symbol": norm, "name": data["name"]},
         live=True, currency=currency, warnings=warnings,
+        upstream="SEC EDGAR, Yahoo Finance" if "SEC EDGAR" in snap.get("financial_upstream", "") else None,
     )
 
 
@@ -863,6 +864,13 @@ def equity_financials(
         "statement": statement,
         "title": title,
         "frequency": frequency,
+        "filing_sources": [
+            {"period": r.get("period"), "source": "SEC EDGAR",
+             "filing": p.get("filing"), "fields": p.get("selected_fields") or list(p.get("fields", {})),
+             "field_provenance": p.get("fields"), "limitations": p.get("limitations", [])}
+            for r in selected for p in ([r["sec_provenance"]] if r.get("sec_provenance") else [])
+            + list((r.get("sec_backfills") or {}).values())
+        ],
         # ⚠️ ONE UNIT FOR THE WHOLE STATEMENT, so a consumer states it once
         # rather than reading a suffix off every figure. Millions, as the 10-Q
         # does it — at billions a $62M line collapses to 0.1 and a $4M line to
@@ -884,6 +892,7 @@ def equity_financials(
         "financial_statement", data, requested,
         {"symbol": norm, "name": meta.get("name")},
         record=newest,
+        upstream=envelope.financial_upstream(selected),
         period=periods[0] if periods else None,
         coverage=coverage,
         warnings=warnings,
@@ -1102,6 +1111,8 @@ def comparisons(request: Request, symbols: str = Query(..., min_length=1)):
         "comparison", data, requested,
         {"symbols": [c["symbol"] for c in companies]},
         live=True,
+        upstream="SEC EDGAR, Yahoo Finance" if any("SEC EDGAR" in (s or {}).get("financial_upstream", "")
+                                                   for _, _, s in loaded) else None,
         warnings=warnings,
     )
 
@@ -1182,9 +1193,11 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1)):
             financials = storage.get_all_financials(norm)
         except Exception:
             financials = []
-        return watchlist_metrics.build_row(
+        row = watchlist_metrics.build_row(
             norm, (meta or {}).get("name"), prices, estimates, financials
         )
+        row["financial_upstream"] = envelope.financial_upstream(financials)
+        return row
 
     # Bounded rather than one worker per symbol: these are Firestore reads and a
     # watchlist can be long, so the pool is capped instead of scaling with the
@@ -1248,6 +1261,8 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1)):
         "equity_metrics", data, requested,
         {"symbols": [row["symbol"] for row in rows]},
         live=False,
+        upstream="SEC EDGAR, Yahoo Finance" if any("SEC EDGAR" in row.get("financial_upstream", "")
+                                                   for row in rows) else None,
         warnings=warnings,
     )
 

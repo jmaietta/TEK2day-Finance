@@ -340,7 +340,8 @@ def review_and_populate(symbol: str, period: str, incoming: dict, db=None) -> di
         return None  # a new period; write_financials already handled it
 
     stored = snap.to_dict() or {}
-    if not is_stub(stored) and not share_count_changed(stored, incoming):
+    if (not is_stub(stored) and not share_count_changed(stored, incoming)
+            and not stored.get("sec_provenance") and not stored.get("sec_backfills")):
         return None  # complete record and the share count still agrees
 
     merged, filled = storage.merge_financial_doc(stored, incoming)

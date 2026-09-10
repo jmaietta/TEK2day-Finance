@@ -1,0 +1,201 @@
+{
+  "database": "(default)",
+  "deployed_commit": "e08d5492e3ffb37ca1490e55ce515f8864d2094a",
+  "evidence_sha256": {
+    "migration-native-guards-20260910.json": "9ceea6f49de949cd489313dc3dad41426754a19db6b602644af69f77ff9c05a9",
+    "migration-publish-20260910.json": "acadd36d9ebab7960d16a136b26eb4280f6015a6bad2409409ea0338100bd553",
+    "migration-reader-verification-20260910.json": "68147eabc691dbd7822976d31b8147b54d40dd29e96260a471f364e72cd4e664",
+    "migration-stage-20260910.json": "f2359331b744d9ea370df01c4c6216f30db6b5fb4b5490e70f43c9e5c1163b5e"
+  },
+  "issue_status": "OPEN: continuity migration verified; remaining coverage and live Kilby acceptance pending",
+  "maintenance_guards": {
+    "canonical_financial_rerun": "native transaction, zero writes, original observation unchanged",
+    "checked_at": "2026-09-10T19:22:06.926763+00:00",
+    "legacy_split_record_recreated": false,
+    "limitations": "No data refresh or job execution; scheduled maintenance still needs its own outcome check.",
+    "nonempty_commits_permitted": false,
+    "nvda_july": {
+      "exists": true,
+      "fetched_at": "2026-09-10T18:29:57.655013+00:00",
+      "period_end": "2026-07-31",
+      "snapshot_sha256": "b65af772de909a57503222afdf71375106aaba2cbf51d2fab752558d741a1dc0"
+    },
+    "retired_write_rejected": true
+  },
+  "nvda_website": {
+    "july_period_visible": "2026-07-31",
+    "response_sha256": "c8eb99c05ba574a9385db64bfacf02ab34e3a4363e6dd8912db122465cc0e106",
+    "status": 200,
+    "symbol": "NVDA"
+  },
+  "project": "yfinance-cli",
+  "publish": {
+    "action": "publish",
+    "completed_at": "2026-09-10T18:09:20.556366+00:00",
+    "plan_sha256": "17f04fb3c5f56030356764b271a6fb860531be71915849798d30f019d2ab3bfd",
+    "route": {
+      "event_sha256": "d2a29a324af44554fd89c4a13f8b3d1041a308ada0942529bbe364959aae7a95",
+      "generation": "95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f",
+      "published_at": "2026-09-10T18:09:20.380321+00:00",
+      "status": "active",
+      "version_path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f"
+    }
+  },
+  "quote": {
+    "currency": "USD",
+    "note": "The raw diagnostic retrieval label was sampled before the request; it is recorded here as request start. Exact response-completion time was not captured.",
+    "observed_at": "2026-09-10T19:01:10+00:00",
+    "price": 162.215,
+    "request_started_at": "2026-09-10T19:00:56.019362+00:00",
+    "retrieved_at": null,
+    "symbol": "BNY"
+  },
+  "readers": {
+    "cache_key": [
+      "BNY",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f",
+      "active"
+    ],
+    "checked_at": "2026-09-10T19:12:16.031502+00:00",
+    "counts": {
+      "audit_observations": 1303,
+      "estimates": 9,
+      "financials": 10,
+      "prices": 1282
+    },
+    "limitations": [
+      "History preserved, not refreshed",
+      "Financial gaps remain",
+      "Existing estimate horizons remain unknown",
+      "Live Kilby acceptance is separate"
+    ],
+    "metadata": {
+      "issuer_id": "issuer-85cc7016-376a-42d5-9f90-8bf7711f64bb",
+      "security_id": "security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93",
+      "symbol": "BNY"
+    },
+    "mode": "published",
+    "old_exact_symbol_read": "rejected as retired",
+    "original_history_unchanged": true,
+    "plan_sha256": "17f04fb3c5f56030356764b271a6fb860531be71915849798d30f019d2ab3bfd",
+    "public_resolution": {
+      "BK": "BNY",
+      "BNY": "BNY"
+    },
+    "route": {
+      "event_sha256": "d2a29a324af44554fd89c4a13f8b3d1041a308ada0942529bbe364959aae7a95",
+      "generation": "95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f",
+      "published_at": "2026-09-10T18:09:20.380321+00:00",
+      "status": "active",
+      "version_path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f"
+    },
+    "selected_data_matches_manifest": true,
+    "stored_estimates_through": "2026-07-21",
+    "stored_financial_periods": [
+      "2021-FY",
+      "2022-FY",
+      "2023-FY",
+      "2024-FY",
+      "2025-FY",
+      "2025-Q1",
+      "2025-Q2",
+      "2025-Q3",
+      "2025-Q4",
+      "2026-Q1"
+    ],
+    "stored_prices_through": "2026-07-17"
+  },
+  "recorded_at": "2026-09-10T19:24:35.709694+00:00",
+  "rollback": "Original history and 1303 audit observations retained. Rollback refuses changed active data; no live rollback was performed.",
+  "serving_revision": "tek2day-api-00128-dvv",
+  "stage": {
+    "action": "stage",
+    "completed_at": "2026-09-10T16:52:45.601604+00:00",
+    "plan_sha256": "17f04fb3c5f56030356764b271a6fb860531be71915849798d30f019d2ab3bfd",
+    "route": {
+      "event_sha256": "d2a29a324af44554fd89c4a13f8b3d1041a308ada0942529bbe364959aae7a95",
+      "generation": "95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f",
+      "status": "staging",
+      "version_path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f"
+    }
+  },
+  "website": {
+    "checks": [
+      "BK:inc:pass",
+      "BK:bal:pass",
+      "BK:cf:pass",
+      "BK:summary:pass",
+      "BK:metadata:pass",
+      "BK:prices:pass",
+      "BNY:inc:pass",
+      "BNY:bal:pass",
+      "BNY:cf:pass",
+      "BNY:summary:pass",
+      "BNY:metadata:pass",
+      "BNY:prices:pass"
+    ],
+    "completed_at": "2026-09-10T19:12:40.019203+00:00",
+    "responses": {
+      "BK:bal": {
+        "retrieved_at": "2026-09-10T19:12:34.121499+00:00",
+        "sha256": "5ab4cd3686f2414247991f8f1c9df86b3c1f435057d42b51bc93f16fbe3b23ec",
+        "status": 200
+      },
+      "BK:cf": {
+        "retrieved_at": "2026-09-10T19:12:34.398369+00:00",
+        "sha256": "ca3b5db2ae1718d6c9c43884782091a0de3d0c0cf3db399ba23de869483c0be7",
+        "status": 200
+      },
+      "BK:inc": {
+        "retrieved_at": "2026-09-10T19:12:33.800325+00:00",
+        "sha256": "9b873d0db8e1475ae81ff964df8221c25e944e42d741e45220849a1ec28e1d46",
+        "status": 200
+      },
+      "BK:metadata": {
+        "retrieved_at": "2026-09-10T19:12:36.092879+00:00",
+        "sha256": "6eed3121c23028a927ac1498d9960bc715e5a8ed7992ef779cc0e5fe9f41dbc9",
+        "status": 200
+      },
+      "BK:prices": {
+        "retrieved_at": "2026-09-10T19:12:37.172983+00:00",
+        "sha256": "5ee72227e052410a1929fecc7970244f7ff5430ac86f463341f2aa4802fb165b",
+        "status": 200
+      },
+      "BK:summary": {
+        "retrieved_at": "2026-09-10T19:12:35.750335+00:00",
+        "sha256": "f380bcf724c9d6b77a70fc3082e6881b62d4d8df4d733dba6943dc9e7cf24623",
+        "status": 200
+      },
+      "BNY:bal": {
+        "retrieved_at": "2026-09-10T19:12:37.756933+00:00",
+        "sha256": "5ab4cd3686f2414247991f8f1c9df86b3c1f435057d42b51bc93f16fbe3b23ec",
+        "status": 200
+      },
+      "BNY:cf": {
+        "retrieved_at": "2026-09-10T19:12:38.039331+00:00",
+        "sha256": "ca3b5db2ae1718d6c9c43884782091a0de3d0c0cf3db399ba23de869483c0be7",
+        "status": 200
+      },
+      "BNY:inc": {
+        "retrieved_at": "2026-09-10T19:12:37.463301+00:00",
+        "sha256": "9b873d0db8e1475ae81ff964df8221c25e944e42d741e45220849a1ec28e1d46",
+        "status": 200
+      },
+      "BNY:metadata": {
+        "retrieved_at": "2026-09-10T19:12:39.005712+00:00",
+        "sha256": "6eed3121c23028a927ac1498d9960bc715e5a8ed7992ef779cc0e5fe9f41dbc9",
+        "status": 200
+      },
+      "BNY:prices": {
+        "retrieved_at": "2026-09-10T19:12:40.019203+00:00",
+        "sha256": "5ee72227e052410a1929fecc7970244f7ff5430ac86f463341f2aa4802fb165b",
+        "status": 200
+      },
+      "BNY:summary": {
+        "retrieved_at": "2026-09-10T19:12:38.691375+00:00",
+        "sha256": "f380bcf724c9d6b77a70fc3082e6881b62d4d8df4d733dba6943dc9e7cf24623",
+        "status": 200
+      }
+    }
+  }
+}

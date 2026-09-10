@@ -1,12 +1,14 @@
 # Issue #3: verified diagnosis and staged correction
 
-Status: **code deployed September 10, 2026; database migration remains a dry
-run**. Jonathan approved the push and existing build/deployment workflow.
+Status: **code deployed and approved database migration completed September 10, 2026**.
 Commit `e08d5492e3ffb37ca1490e55ce515f8864d2094a` serves as
-`tek2day-api-00128-dvv`, with 100% traffic. Both workflows and the existing live
-smoke test passed. See the [deployment receipt](issue-3-deployment-20260910.json).
-Issue #3 remains OPEN. No migration was executed and no local partner API call
-was made. Kilby live acceptance remains pending through its authorized path.
+`tek2day-api-00128-dvv`, with 100% traffic. Publication completed at
+2026-09-10T18:09:20.380321Z. See the [executed receipt](issue-3-migration-20260910.json).
+Native readers, original-history preservation, twelve first-party old/new reads
+and a native no-op maintenance guard check passed. The latest copied financial
+period is March 2026; SEC fallback work for the missing June quarter is separate.
+Issue #3 remains OPEN. No local partner API call was made. Kilby live acceptance
+remains pending through its authorized path.
 The diagnosis below was captured September 9 Eastern time.
 
 Reviewed implementation commit: `30d6b90646fade38609f3df21e4ab31af5066170`

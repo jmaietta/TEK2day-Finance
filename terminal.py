@@ -997,6 +997,8 @@ def _firestore_fundamentals(symbol, meta):
     all_fins = _all_financials(symbol)
     if not all_fins:
         return result
+    import envelope
+    result["financial_upstream"] = envelope.financial_upstream(all_fins)
 
     quarterly = sorted(
         [f for f in all_fins if f.get("freq") != "FY"],
@@ -1130,6 +1132,7 @@ def _market_snapshot(symbol):
         "balance_sheet_as_of": fundamentals.get("balance_sheet_as_of"),
         # The twelve months every (TTM) figure below actually covers.
         "ttm_as_of": fundamentals.get("ttm_as_of"),
+        "financial_upstream": fundamentals.get("financial_upstream", "Yahoo Finance"),
         # Differs from balance_sheet_as_of when the selected sheet carries no
         # debt line and an earlier annual total was used instead.
         "debt_as_of": fundamentals.get("debt_as_of"),
@@ -2154,7 +2157,10 @@ def cmd_compare(symbols):
 
 def cmd_full(symbol):
     cmd_overview(symbol)
-    console.print("[grey70]  Source: Yahoo Finance, TEK2day[/grey70]")
+    import envelope
+    sources = envelope.financial_upstream(_all_financials(symbol))
+    label = "SEC EDGAR, Yahoo Finance, TEK2day" if "SEC EDGAR" in sources else "Yahoo Finance, TEK2day"
+    console.print(f"[grey70]  Source: {label}[/grey70]")
     console.print()
     cmd_estimates(symbol)
     console.print()

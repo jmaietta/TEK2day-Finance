@@ -289,7 +289,8 @@ def merge_financial_doc(existing: dict, incoming: dict) -> tuple[dict, list[str]
             if field in old_block and not _is_empty_value(old_block[field]):
                 # The single exception: a share count follows Yahoo's current
                 # basis. Only ever replaced by a real, non-zero number.
-                if field in SHARE_COUNT_FIELDS and new_value and new_value != old_block[field]:
+                if (field in SHARE_COUNT_FIELDS and new_value and new_value != old_block[field]
+                        and not existing.get("sec_provenance") and not existing.get("sec_backfills")):
                     old_block[field] = new_value
                     filled.append(f"{section}.{field}")
                 continue  # otherwise the existing value is real — leave it alone

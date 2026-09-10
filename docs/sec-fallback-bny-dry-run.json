@@ -1,0 +1,1013 @@
+{
+  "action": "fill",
+  "basis": "Saved verified migration tree; needs a new bounded read before live approval",
+  "basis_checked_at": "2026-09-10T19:12:16.031502+00:00",
+  "binding_sha256": "9df5e60353180cc4a1dd200d75ab5296a498da5c4ead3ae4db26dcf973f312f6",
+  "candidate": {
+    "balance_sheet": {
+      "Cash Financial": 7483000000,
+      "Goodwill": 16731000000,
+      "Minority Interest": 684000000,
+      "Net PPE": 3910000000,
+      "Retained Earnings": 48907000000,
+      "Stockholders Equity": 44664000000,
+      "Total Assets": 525019000000,
+      "Total Equity Gross Minority Interest": 45348000000,
+      "Total Liabilities Net Minority Interest": 479671000000
+    },
+    "cash_flow": {
+      "Capital Expenditure": -487000000,
+      "Financing Cash Flow": -38782000000,
+      "Free Cash Flow": 1975000000,
+      "Investing Cash Flow": 38211000000,
+      "Operating Cash Flow": 2462000000
+    },
+    "cik": "0001390777",
+    "currency": "USD",
+    "freq": "Q",
+    "income": {
+      "Basic Average Shares": 686125000,
+      "Basic EPS": 2.47,
+      "Diluted Average Shares": 692223000,
+      "Diluted EPS": 2.45,
+      "Interest Expense": 4494000000,
+      "Interest Income": 5940000000,
+      "Net Income": 1761000000,
+      "Net Income Common Stockholders": 1696000000,
+      "Net Income Including Noncontrolling Interests": 1792000000,
+      "Net Interest Income": 1446000000,
+      "Tax Provision": 475000000,
+      "Total Revenue": 5698000000
+    },
+    "issuer_id": "issuer-85cc7016-376a-42d5-9f90-8bf7711f64bb",
+    "period": "2026-Q2",
+    "period_end": "2026-06-30",
+    "period_start": "2026-04-01",
+    "sec_provenance": {
+      "binding_sha256": "9df5e60353180cc4a1dd200d75ab5296a498da5c4ead3ae4db26dcf973f312f6",
+      "fields": {
+        "balance_sheet.Cash Financial": {
+          "concept": "us-gaap:CashAndDueFromBanks",
+          "observations": [
+            {
+              "accn": "0001390777-26-000086",
+              "end": "2026-06-30",
+              "filed": "2026-07-31",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2026Q2I",
+              "fy": 2026,
+              "val": 7483000000
+            }
+          ],
+          "sign": 1,
+          "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+          "unit": "USD",
+          "value": 7483000000
+        },
+        "balance_sheet.Goodwill": {
+          "concept": "us-gaap:Goodwill",
+          "observations": [
+            {
+              "accn": "0001390777-26-000086",
+              "end": "2026-06-30",
+              "filed": "2026-07-31",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2026Q2I",
+              "fy": 2026,
+              "val": 16731000000
+            }
+          ],
+          "sign": 1,
+          "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+          "unit": "USD",
+          "value": 16731000000
+        },
+        "balance_sheet.Minority Interest": {
+          "formula": "MinorityInterest + TemporaryEquityCarryingAmountIncludingPortionAttributableToNoncontrollingInterests",
+          "sign": 1,
+          "terms": [
+            {
+              "concept": "us-gaap:MinorityInterest",
+              "observations": [
+                {
+                  "accn": "0001390777-26-000086",
+                  "end": "2026-06-30",
+                  "filed": "2026-07-31",
+                  "form": "10-Q",
+                  "fp": "Q2",
+                  "frame": "CY2026Q2I",
+                  "fy": 2026,
+                  "val": 600000000
+                }
+              ],
+              "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+              "unit": "USD",
+              "value": 600000000
+            },
+            {
+              "concept": "us-gaap:TemporaryEquityCarryingAmountIncludingPortionAttributableToNoncontrollingInterests",
+              "observations": [
+                {
+                  "accn": "0001390777-26-000086",
+                  "end": "2026-06-30",
+                  "filed": "2026-07-31",
+                  "form": "10-Q",
+                  "fp": "Q2",
+                  "frame": "CY2026Q2I",
+                  "fy": 2026,
+                  "val": 84000000
+                }
+              ],
+              "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+              "unit": "USD",
+              "value": 84000000
+            }
+          ],
+          "unit": "USD",
+          "value": 684000000
+        },
+        "balance_sheet.Net PPE": {
+          "concept": "us-gaap:PropertyPlantAndEquipmentNet",
+          "observations": [
+            {
+              "accn": "0001390777-26-000086",
+              "end": "2026-06-30",
+              "filed": "2026-07-31",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2026Q2I",
+              "fy": 2026,
+              "val": 3910000000
+            }
+          ],
+          "sign": 1,
+          "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+          "unit": "USD",
+          "value": 3910000000
+        },
+        "balance_sheet.Retained Earnings": {
+          "concept": "us-gaap:RetainedEarningsAccumulatedDeficit",
+          "observations": [
+            {
+              "accn": "0001390777-26-000086",
+              "end": "2026-06-30",
+              "filed": "2026-07-31",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2026Q2I",
+              "fy": 2026,
+              "val": 48907000000
+            }
+          ],
+          "sign": 1,
+          "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+          "unit": "USD",
+          "value": 48907000000
+        },
+        "balance_sheet.Stockholders Equity": {
+          "concept": "us-gaap:StockholdersEquity",
+          "observations": [
+            {
+              "accn": "0001390777-26-000086",
+              "end": "2026-06-30",
+              "filed": "2026-07-31",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2026Q2I",
+              "fy": 2026,
+              "val": 44664000000
+            }
+          ],
+          "sign": 1,
+          "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+          "unit": "USD",
+          "value": 44664000000
+        },
+        "balance_sheet.Total Assets": {
+          "concept": "us-gaap:Assets",
+          "observations": [
+            {
+              "accn": "0001390777-26-000086",
+              "end": "2026-06-30",
+              "filed": "2026-07-31",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2026Q2I",
+              "fy": 2026,
+              "val": 525019000000
+            }
+          ],
+          "sign": 1,
+          "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+          "unit": "USD",
+          "value": 525019000000
+        },
+        "balance_sheet.Total Equity Gross Minority Interest": {
+          "formula": "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest + TemporaryEquityCarryingAmountIncludingPortionAttributableToNoncontrollingInterests",
+          "sign": 1,
+          "terms": [
+            {
+              "concept": "us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+              "observations": [
+                {
+                  "accn": "0001390777-26-000086",
+                  "end": "2026-06-30",
+                  "filed": "2026-07-31",
+                  "form": "10-Q",
+                  "fp": "Q2",
+                  "frame": "CY2026Q2I",
+                  "fy": 2026,
+                  "val": 45264000000
+                }
+              ],
+              "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+              "unit": "USD",
+              "value": 45264000000
+            },
+            {
+              "concept": "us-gaap:TemporaryEquityCarryingAmountIncludingPortionAttributableToNoncontrollingInterests",
+              "observations": [
+                {
+                  "accn": "0001390777-26-000086",
+                  "end": "2026-06-30",
+                  "filed": "2026-07-31",
+                  "form": "10-Q",
+                  "fp": "Q2",
+                  "frame": "CY2026Q2I",
+                  "fy": 2026,
+                  "val": 84000000
+                }
+              ],
+              "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+              "unit": "USD",
+              "value": 84000000
+            }
+          ],
+          "unit": "USD",
+          "value": 45348000000
+        },
+        "balance_sheet.Total Liabilities Net Minority Interest": {
+          "concept": "us-gaap:Liabilities",
+          "observations": [
+            {
+              "accn": "0001390777-26-000086",
+              "end": "2026-06-30",
+              "filed": "2026-07-31",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2026Q2I",
+              "fy": 2026,
+              "val": 479671000000
+            }
+          ],
+          "sign": 1,
+          "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+          "unit": "USD",
+          "value": 479671000000
+        },
+        "cash_flow.Capital Expenditure": {
+          "basis_review": {
+            "basis_review": "Same consolidated cash-flow basis in Q1 and Q2; six-month YTD less Q1",
+            "current_accession": "0001390777-26-000086",
+            "prior_accession": "0001390777-26-000060",
+            "prior_end": "2026-03-31",
+            "sources": [
+              {
+                "page": 50,
+                "sha256": "7e004391586962b2d0ff73c43d540f88b45bc80052b4099b4dd65a99fe2dce2d",
+                "url": "https://www.bny.com/content/dam/bnymellon/documents/pdf/investor-relations/form-10-q-2q26.pdf"
+              },
+              {
+                "page": 48,
+                "sha256": "ba5624c10f0e70b7fea1b71a3fb32ed040fcf671eaa2156213cfa518cb45f63c",
+                "url": "https://www.bny.com/assets/corporate/documents/pdf/investor-relations/form-10-q-1q26-final.pdf"
+              }
+            ],
+            "ytd_start": "2026-01-01"
+          },
+          "formula": "YTD minus prior YTD",
+          "sign": -1,
+          "terms": [
+            {
+              "concept": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+              "observations": [
+                {
+                  "accn": "0001390777-26-000086",
+                  "end": "2026-06-30",
+                  "filed": "2026-07-31",
+                  "form": "10-Q",
+                  "fp": "Q2",
+                  "fy": 2026,
+                  "start": "2026-01-01",
+                  "val": 1104000000
+                }
+              ],
+              "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+              "unit": "USD",
+              "value": 1104000000
+            },
+            {
+              "concept": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+              "observations": [
+                {
+                  "accn": "0001390777-26-000060",
+                  "end": "2026-03-31",
+                  "filed": "2026-05-01",
+                  "form": "10-Q",
+                  "fp": "Q1",
+                  "frame": "CY2026Q1",
+                  "fy": 2026,
+                  "start": "2026-01-01",
+                  "val": 617000000
+                }
+              ],
+              "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000060/bk-20260331.htm",
+              "unit": "USD",
+              "value": 617000000
+            }
+          ],
+          "unit": "USD",
+          "value": 487000000
+        },
+        "cash_flow.Financing Cash Flow": {
+          "basis_review": {
+            "basis_review": "Same consolidated cash-flow basis in Q1 and Q2; six-month YTD less Q1",
+            "current_accession": "0001390777-26-000086",
+            "prior_accession": "0001390777-26-000060",
+            "prior_end": "2026-03-31",
+            "sources": [
+              {
+                "page": 50,
+                "sha256": "7e004391586962b2d0ff73c43d540f88b45bc80052b4099b4dd65a99fe2dce2d",
+                "url": "https://www.bny.com/content/dam/bnymellon/documents/pdf/investor-relations/form-10-q-2q26.pdf"
+              },
+              {
+                "page": 48,
+                "sha256": "ba5624c10f0e70b7fea1b71a3fb32ed040fcf671eaa2156213cfa518cb45f63c",
+                "url": "https://www.bny.com/assets/corporate/documents/pdf/investor-relations/form-10-q-1q26-final.pdf"
+              }
+            ],
+            "ytd_start": "2026-01-01"
+          },
+          "formula": "YTD minus prior YTD",
+          "sign": 1,
+          "terms": [
+            {
+              "concept": "us-gaap:NetCashProvidedByUsedInFinancingActivities",
+              "observations": [
+                {
+                  "accn": "0001390777-26-000086",
+                  "end": "2026-06-30",
+                  "filed": "2026-07-31",
+                  "form": "10-Q",
+                  "fp": "Q2",
+                  "fy": 2026,
+                  "start": "2026-01-01",
+                  "val": 49521000000
+                }
+              ],
+              "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+              "unit": "USD",
+              "value": 49521000000
+            },
+            {
+              "concept": "us-gaap:NetCashProvidedByUsedInFinancingActivities",
+              "observations": [
+                {
+                  "accn": "0001390777-26-000060",
+                  "end": "2026-03-31",
+                  "filed": "2026-05-01",
+                  "form": "10-Q",
+                  "fp": "Q1",
+                  "frame": "CY2026Q1",
+                  "fy": 2026,
+                  "start": "2026-01-01",
+                  "val": 88303000000
+                }
+              ],
+              "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000060/bk-20260331.htm",
+              "unit": "USD",
+              "value": 88303000000
+            }
+          ],
+          "unit": "USD",
+          "value": -38782000000
+        },
+        "cash_flow.Free Cash Flow": {
+          "formula": "Operating Cash Flow + signed Capital Expenditure",
+          "sign": 1,
+          "terms": [
+            {
+              "basis_review": {
+                "basis_review": "Same consolidated cash-flow basis in Q1 and Q2; six-month YTD less Q1",
+                "current_accession": "0001390777-26-000086",
+                "prior_accession": "0001390777-26-000060",
+                "prior_end": "2026-03-31",
+                "sources": [
+                  {
+                    "page": 50,
+                    "sha256": "7e004391586962b2d0ff73c43d540f88b45bc80052b4099b4dd65a99fe2dce2d",
+                    "url": "https://www.bny.com/content/dam/bnymellon/documents/pdf/investor-relations/form-10-q-2q26.pdf"
+                  },
+                  {
+                    "page": 48,
+                    "sha256": "ba5624c10f0e70b7fea1b71a3fb32ed040fcf671eaa2156213cfa518cb45f63c",
+                    "url": "https://www.bny.com/assets/corporate/documents/pdf/investor-relations/form-10-q-1q26-final.pdf"
+                  }
+                ],
+                "ytd_start": "2026-01-01"
+              },
+              "formula": "YTD minus prior YTD",
+              "sign": 1,
+              "terms": [
+                {
+                  "concept": "us-gaap:NetCashProvidedByUsedInOperatingActivities",
+                  "observations": [
+                    {
+                      "accn": "0001390777-26-000086",
+                      "end": "2026-06-30",
+                      "filed": "2026-07-31",
+                      "form": "10-Q",
+                      "fp": "Q2",
+                      "fy": 2026,
+                      "start": "2026-01-01",
+                      "val": -551000000
+                    }
+                  ],
+                  "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+                  "unit": "USD",
+                  "value": -551000000
+                },
+                {
+                  "concept": "us-gaap:NetCashProvidedByUsedInOperatingActivities",
+                  "observations": [
+                    {
+                      "accn": "0001390777-26-000060",
+                      "end": "2026-03-31",
+                      "filed": "2026-05-01",
+                      "form": "10-Q",
+                      "fp": "Q1",
+                      "frame": "CY2026Q1",
+                      "fy": 2026,
+                      "start": "2026-01-01",
+                      "val": -3013000000
+                    }
+                  ],
+                  "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000060/bk-20260331.htm",
+                  "unit": "USD",
+                  "value": -3013000000
+                }
+              ],
+              "unit": "USD",
+              "value": 2462000000
+            },
+            {
+              "basis_review": {
+                "basis_review": "Same consolidated cash-flow basis in Q1 and Q2; six-month YTD less Q1",
+                "current_accession": "0001390777-26-000086",
+                "prior_accession": "0001390777-26-000060",
+                "prior_end": "2026-03-31",
+                "sources": [
+                  {
+                    "page": 50,
+                    "sha256": "7e004391586962b2d0ff73c43d540f88b45bc80052b4099b4dd65a99fe2dce2d",
+                    "url": "https://www.bny.com/content/dam/bnymellon/documents/pdf/investor-relations/form-10-q-2q26.pdf"
+                  },
+                  {
+                    "page": 48,
+                    "sha256": "ba5624c10f0e70b7fea1b71a3fb32ed040fcf671eaa2156213cfa518cb45f63c",
+                    "url": "https://www.bny.com/assets/corporate/documents/pdf/investor-relations/form-10-q-1q26-final.pdf"
+                  }
+                ],
+                "ytd_start": "2026-01-01"
+              },
+              "formula": "YTD minus prior YTD",
+              "sign": -1,
+              "terms": [
+                {
+                  "concept": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+                  "observations": [
+                    {
+                      "accn": "0001390777-26-000086",
+                      "end": "2026-06-30",
+                      "filed": "2026-07-31",
+                      "form": "10-Q",
+                      "fp": "Q2",
+                      "fy": 2026,
+                      "start": "2026-01-01",
+                      "val": 1104000000
+                    }
+                  ],
+                  "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+                  "unit": "USD",
+                  "value": 1104000000
+                },
+                {
+                  "concept": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+                  "observations": [
+                    {
+                      "accn": "0001390777-26-000060",
+                      "end": "2026-03-31",
+                      "filed": "2026-05-01",
+                      "form": "10-Q",
+                      "fp": "Q1",
+                      "frame": "CY2026Q1",
+                      "fy": 2026,
+                      "start": "2026-01-01",
+                      "val": 617000000
+                    }
+                  ],
+                  "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000060/bk-20260331.htm",
+                  "unit": "USD",
+                  "value": 617000000
+                }
+              ],
+              "unit": "USD",
+              "value": 487000000
+            }
+          ],
+          "unit": "USD",
+          "value": 1975000000
+        },
+        "cash_flow.Investing Cash Flow": {
+          "basis_review": {
+            "basis_review": "Same consolidated cash-flow basis in Q1 and Q2; six-month YTD less Q1",
+            "current_accession": "0001390777-26-000086",
+            "prior_accession": "0001390777-26-000060",
+            "prior_end": "2026-03-31",
+            "sources": [
+              {
+                "page": 50,
+                "sha256": "7e004391586962b2d0ff73c43d540f88b45bc80052b4099b4dd65a99fe2dce2d",
+                "url": "https://www.bny.com/content/dam/bnymellon/documents/pdf/investor-relations/form-10-q-2q26.pdf"
+              },
+              {
+                "page": 48,
+                "sha256": "ba5624c10f0e70b7fea1b71a3fb32ed040fcf671eaa2156213cfa518cb45f63c",
+                "url": "https://www.bny.com/assets/corporate/documents/pdf/investor-relations/form-10-q-1q26-final.pdf"
+              }
+            ],
+            "ytd_start": "2026-01-01"
+          },
+          "formula": "YTD minus prior YTD",
+          "sign": 1,
+          "terms": [
+            {
+              "concept": "us-gaap:NetCashProvidedByUsedInInvestingActivities",
+              "observations": [
+                {
+                  "accn": "0001390777-26-000086",
+                  "end": "2026-06-30",
+                  "filed": "2026-07-31",
+                  "form": "10-Q",
+                  "fp": "Q2",
+                  "fy": 2026,
+                  "start": "2026-01-01",
+                  "val": -45512000000
+                }
+              ],
+              "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+              "unit": "USD",
+              "value": -45512000000
+            },
+            {
+              "concept": "us-gaap:NetCashProvidedByUsedInInvestingActivities",
+              "observations": [
+                {
+                  "accn": "0001390777-26-000060",
+                  "end": "2026-03-31",
+                  "filed": "2026-05-01",
+                  "form": "10-Q",
+                  "fp": "Q1",
+                  "frame": "CY2026Q1",
+                  "fy": 2026,
+                  "start": "2026-01-01",
+                  "val": -83723000000
+                }
+              ],
+              "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000060/bk-20260331.htm",
+              "unit": "USD",
+              "value": -83723000000
+            }
+          ],
+          "unit": "USD",
+          "value": 38211000000
+        },
+        "cash_flow.Operating Cash Flow": {
+          "basis_review": {
+            "basis_review": "Same consolidated cash-flow basis in Q1 and Q2; six-month YTD less Q1",
+            "current_accession": "0001390777-26-000086",
+            "prior_accession": "0001390777-26-000060",
+            "prior_end": "2026-03-31",
+            "sources": [
+              {
+                "page": 50,
+                "sha256": "7e004391586962b2d0ff73c43d540f88b45bc80052b4099b4dd65a99fe2dce2d",
+                "url": "https://www.bny.com/content/dam/bnymellon/documents/pdf/investor-relations/form-10-q-2q26.pdf"
+              },
+              {
+                "page": 48,
+                "sha256": "ba5624c10f0e70b7fea1b71a3fb32ed040fcf671eaa2156213cfa518cb45f63c",
+                "url": "https://www.bny.com/assets/corporate/documents/pdf/investor-relations/form-10-q-1q26-final.pdf"
+              }
+            ],
+            "ytd_start": "2026-01-01"
+          },
+          "formula": "YTD minus prior YTD",
+          "sign": 1,
+          "terms": [
+            {
+              "concept": "us-gaap:NetCashProvidedByUsedInOperatingActivities",
+              "observations": [
+                {
+                  "accn": "0001390777-26-000086",
+                  "end": "2026-06-30",
+                  "filed": "2026-07-31",
+                  "form": "10-Q",
+                  "fp": "Q2",
+                  "fy": 2026,
+                  "start": "2026-01-01",
+                  "val": -551000000
+                }
+              ],
+              "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+              "unit": "USD",
+              "value": -551000000
+            },
+            {
+              "concept": "us-gaap:NetCashProvidedByUsedInOperatingActivities",
+              "observations": [
+                {
+                  "accn": "0001390777-26-000060",
+                  "end": "2026-03-31",
+                  "filed": "2026-05-01",
+                  "form": "10-Q",
+                  "fp": "Q1",
+                  "frame": "CY2026Q1",
+                  "fy": 2026,
+                  "start": "2026-01-01",
+                  "val": -3013000000
+                }
+              ],
+              "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000060/bk-20260331.htm",
+              "unit": "USD",
+              "value": -3013000000
+            }
+          ],
+          "unit": "USD",
+          "value": 2462000000
+        },
+        "income.Basic Average Shares": {
+          "concept": "us-gaap:WeightedAverageNumberOfSharesOutstandingBasic",
+          "observations": [
+            {
+              "accn": "0001390777-26-000086",
+              "end": "2026-06-30",
+              "filed": "2026-07-31",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2026Q2",
+              "fy": 2026,
+              "start": "2026-04-01",
+              "val": 686125000
+            }
+          ],
+          "sign": 1,
+          "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+          "unit": "shares",
+          "value": 686125000
+        },
+        "income.Basic EPS": {
+          "concept": "us-gaap:EarningsPerShareBasic",
+          "observations": [
+            {
+              "accn": "0001390777-26-000086",
+              "end": "2026-06-30",
+              "filed": "2026-07-31",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2026Q2",
+              "fy": 2026,
+              "start": "2026-04-01",
+              "val": 2.47
+            }
+          ],
+          "sign": 1,
+          "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+          "unit": "USD/shares",
+          "value": 2.47
+        },
+        "income.Diluted Average Shares": {
+          "concept": "us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding",
+          "observations": [
+            {
+              "accn": "0001390777-26-000086",
+              "end": "2026-06-30",
+              "filed": "2026-07-31",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2026Q2",
+              "fy": 2026,
+              "start": "2026-04-01",
+              "val": 692223000
+            }
+          ],
+          "sign": 1,
+          "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+          "unit": "shares",
+          "value": 692223000
+        },
+        "income.Diluted EPS": {
+          "concept": "us-gaap:EarningsPerShareDiluted",
+          "observations": [
+            {
+              "accn": "0001390777-26-000086",
+              "end": "2026-06-30",
+              "filed": "2026-07-31",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2026Q2",
+              "fy": 2026,
+              "start": "2026-04-01",
+              "val": 2.45
+            }
+          ],
+          "sign": 1,
+          "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+          "unit": "USD/shares",
+          "value": 2.45
+        },
+        "income.Interest Expense": {
+          "concept": "us-gaap:InterestExpenseOperating",
+          "observations": [
+            {
+              "accn": "0001390777-26-000086",
+              "end": "2026-06-30",
+              "filed": "2026-07-31",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2026Q2",
+              "fy": 2026,
+              "start": "2026-04-01",
+              "val": 4494000000
+            }
+          ],
+          "sign": 1,
+          "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+          "unit": "USD",
+          "value": 4494000000
+        },
+        "income.Interest Income": {
+          "concept": "us-gaap:InterestAndDividendIncomeOperating",
+          "observations": [
+            {
+              "accn": "0001390777-26-000086",
+              "end": "2026-06-30",
+              "filed": "2026-07-31",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2026Q2",
+              "fy": 2026,
+              "start": "2026-04-01",
+              "val": 5940000000
+            }
+          ],
+          "sign": 1,
+          "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+          "unit": "USD",
+          "value": 5940000000
+        },
+        "income.Net Income": {
+          "concept": "us-gaap:NetIncomeLoss",
+          "observations": [
+            {
+              "accn": "0001390777-26-000086",
+              "end": "2026-06-30",
+              "filed": "2026-07-31",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2026Q2",
+              "fy": 2026,
+              "start": "2026-04-01",
+              "val": 1761000000
+            }
+          ],
+          "sign": 1,
+          "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+          "unit": "USD",
+          "value": 1761000000
+        },
+        "income.Net Income Common Stockholders": {
+          "concept": "us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic",
+          "observations": [
+            {
+              "accn": "0001390777-26-000086",
+              "end": "2026-06-30",
+              "filed": "2026-07-31",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2026Q2",
+              "fy": 2026,
+              "start": "2026-04-01",
+              "val": 1696000000
+            }
+          ],
+          "sign": 1,
+          "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+          "unit": "USD",
+          "value": 1696000000
+        },
+        "income.Net Income Including Noncontrolling Interests": {
+          "concept": "us-gaap:ProfitLoss",
+          "observations": [
+            {
+              "accn": "0001390777-26-000086",
+              "end": "2026-06-30",
+              "filed": "2026-07-31",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2026Q2",
+              "fy": 2026,
+              "start": "2026-04-01",
+              "val": 1792000000
+            }
+          ],
+          "sign": 1,
+          "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+          "unit": "USD",
+          "value": 1792000000
+        },
+        "income.Net Interest Income": {
+          "concept": "us-gaap:InterestIncomeExpenseNet",
+          "observations": [
+            {
+              "accn": "0001390777-26-000086",
+              "end": "2026-06-30",
+              "filed": "2026-07-31",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2026Q2",
+              "fy": 2026,
+              "start": "2026-04-01",
+              "val": 1446000000
+            }
+          ],
+          "sign": 1,
+          "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+          "unit": "USD",
+          "value": 1446000000
+        },
+        "income.Tax Provision": {
+          "concept": "us-gaap:IncomeTaxExpenseBenefit",
+          "observations": [
+            {
+              "accn": "0001390777-26-000086",
+              "end": "2026-06-30",
+              "filed": "2026-07-31",
+              "form": "10-Q",
+              "fp": "Q2",
+              "frame": "CY2026Q2",
+              "fy": 2026,
+              "start": "2026-04-01",
+              "val": 475000000
+            }
+          ],
+          "sign": 1,
+          "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+          "unit": "USD",
+          "value": 475000000
+        },
+        "income.Total Revenue": {
+          "formula": "NoninterestIncome + InterestIncomeExpenseNet",
+          "sign": 1,
+          "terms": [
+            {
+              "concept": "us-gaap:NoninterestIncome",
+              "observations": [
+                {
+                  "accn": "0001390777-26-000086",
+                  "end": "2026-06-30",
+                  "filed": "2026-07-31",
+                  "form": "10-Q",
+                  "fp": "Q2",
+                  "frame": "CY2026Q2",
+                  "fy": 2026,
+                  "start": "2026-04-01",
+                  "val": 4252000000
+                }
+              ],
+              "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+              "unit": "USD",
+              "value": 4252000000
+            },
+            {
+              "concept": "us-gaap:InterestIncomeExpenseNet",
+              "observations": [
+                {
+                  "accn": "0001390777-26-000086",
+                  "end": "2026-06-30",
+                  "filed": "2026-07-31",
+                  "form": "10-Q",
+                  "fp": "Q2",
+                  "frame": "CY2026Q2",
+                  "fy": 2026,
+                  "start": "2026-04-01",
+                  "val": 1446000000
+                }
+              ],
+              "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm",
+              "unit": "USD",
+              "value": 1446000000
+            }
+          ],
+          "unit": "USD",
+          "value": 5698000000
+        }
+      },
+      "filing": {
+        "accepted_at": "2026-07-31T20:31:16.000Z",
+        "accessionNumber": "0001390777-26-000086",
+        "eligible": true,
+        "eligible_after": "2026-08-07T20:31:16+00:00",
+        "filingDate": "2026-07-31",
+        "filing_date_precision": "timestamp",
+        "form": "10-Q",
+        "primaryDocument": "bk-20260630.htm",
+        "reportDate": "2026-06-30",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1390777/000139077726000086/bk-20260630.htm"
+      },
+      "limitations": [
+        "Bank cash differs from Yahoo Cash And Cash Equivalents",
+        "Debt, staff expense and intangible definitions require further mapping review"
+      ],
+      "per_share_basis": "as filed; only explicitly reviewed periods",
+      "profile": "us-gaap-bank-bny-v1",
+      "source_capture": {
+        "bytes": 7827785,
+        "retrieved_at": "2026-09-10T19:31:26.037656+00:00",
+        "sha256": "5e1d416fbbc5df89085c4e9d2f32ee91dfae321cb8f3a29a107699e974d926cd",
+        "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001390777.json"
+      },
+      "unmapped_or_missing": []
+    },
+    "security_id": "security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93",
+    "symbol": "BNY"
+  },
+  "candidate_sha256": "6eddcb47173585581996532dfe82306ab961628f547054ef2e9fa301337ae0d5",
+  "conflicts": [],
+  "database": "(default)",
+  "existing_period": null,
+  "filled_fields": [
+    "balance_sheet.Cash Financial",
+    "balance_sheet.Goodwill",
+    "balance_sheet.Minority Interest",
+    "balance_sheet.Net PPE",
+    "balance_sheet.Retained Earnings",
+    "balance_sheet.Stockholders Equity",
+    "balance_sheet.Total Assets",
+    "balance_sheet.Total Equity Gross Minority Interest",
+    "balance_sheet.Total Liabilities Net Minority Interest",
+    "cash_flow.Capital Expenditure",
+    "cash_flow.Financing Cash Flow",
+    "cash_flow.Free Cash Flow",
+    "cash_flow.Investing Cash Flow",
+    "cash_flow.Operating Cash Flow",
+    "income.Basic Average Shares",
+    "income.Basic EPS",
+    "income.Diluted Average Shares",
+    "income.Diluted EPS",
+    "income.Interest Expense",
+    "income.Interest Income",
+    "income.Net Income",
+    "income.Net Income Common Stockholders",
+    "income.Net Income Including Noncontrolling Interests",
+    "income.Net Interest Income",
+    "income.Tax Provision",
+    "income.Total Revenue"
+  ],
+  "live_scope": "BNY only; no execution, deployment or enabling approval implied",
+  "migration_receipt_sha256": "a25502c544e491312ae5d5e1f92311421bec18d1ca85ab14e576f8d619c0e53a",
+  "project": "yfinance-cli",
+  "proposed_writes": [
+    {
+      "data": "candidate plus execution timestamps and subset warning",
+      "operation": "conditional create",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/financials/2026-Q2"
+    },
+    {
+      "data": "exact original/absence, full candidate, selected fields and route state",
+      "operation": "conditional create",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/financials/2026-Q2/identity_observations/sec-1d0d3aa5275462a6d911d0b2332d87df854a5cf671d1138481e340e18f0b989b"
+    }
+  ],
+  "rollback": {
+    "candidate_key": "1d0d3aa5275462a6d911d0b2332d87df854a5cf671d1138481e340e18f0b989b",
+    "effect": "Restore original absence, retain audit and rollback marker, leave route paused for verification",
+    "entrypoint": "sec_maintenance.rollback_candidate",
+    "period": "2026-Q2",
+    "requirements": "Pause existing identity route; require unchanged applied document and no newer descendants"
+  },
+  "status": "OFFLINE DRY RUN; NOT EXECUTED"
+}

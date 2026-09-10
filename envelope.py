@@ -46,6 +46,17 @@ UPSTREAM = {
     "symbol_resolution": None,
 }
 
+
+def financial_upstream(records):
+    """Attribution from selected stored observations, never from a ticker guess."""
+    sources = set()
+    for record in records:
+        if record.get("sec_provenance") or record.get("sec_backfills"):
+            sources.add("SEC EDGAR")
+        if not record.get("sec_provenance") or record.get("backfilled_at"):
+            sources.add("Yahoo Finance")
+    return ", ".join(sorted(sources)) or "Yahoo Finance"
+
 # Prices are stored with auto_adjust=True, so every price-derived response must
 # say so rather than leaving a consumer to assume as-traded values.
 ADJUSTED = "split_and_dividend_adjusted"
@@ -268,7 +279,7 @@ def completeness_block(record: dict | None, coverage: dict | None = None) -> dic
         # empty at Yahoo, so no pull can ever fill it — and Kilby has to answer
         # questions about it today. (His ruling, 16 Aug.)
         status = STUB
-    elif record.get("data_warnings"):
+    elif record.get("data_warnings") or record.get("sec_provenance") or record.get("sec_backfills"):
         status = PARTIAL
     else:
         status = COMPLETE
@@ -277,13 +288,15 @@ def completeness_block(record: dict | None, coverage: dict | None = None) -> dic
         "status": status,
         # Shipped every time rather than documented elsewhere: a consumer must
         # never have to look up what the word it just received means.
-        "meaning": STATUS_MEANING,
+        "meaning": ({**STATUS_MEANING, PARTIAL: "Reviewed SEC fields are available; full statement mapping remains incomplete"}
+                    if record.get("sec_provenance") or record.get("sec_backfills") else STATUS_MEANING),
         "sections": sections,
         # Distinguishes a value from the original pull from one the Data Review
         # populated later. An institutional user asking where a figure came from
         # deserves a real answer.
-        "source": "yahoo_backfill" if record.get("backfilled_at") else "original_ingestion",
-        "populated_at": record.get("backfilled_at"),
+        "source": "sec_fallback" if record.get("sec_provenance") or record.get("sec_backfills") else
+                  "yahoo_backfill" if record.get("backfilled_at") else "original_ingestion",
+        "populated_at": record.get("sec_backfilled_at") or record.get("backfilled_at"),
         "coverage": coverage,
     }
 
@@ -353,6 +366,7 @@ def build(
     warnings: list[dict] | None = None,
     as_of: str | None = None,
     live: bool = False,
+    upstream: str | None = None,
 ) -> dict:
     """Wrap a payload in the partner contract.
 
@@ -361,9 +375,12 @@ def build(
     value, P/E and the EV multiples. Anything with price in it must be live;
     stored prices are yesterday's close and are for history and charts only.
     """
-    upstream = UPSTREAM.get(dataset)
+    upstream = upstream or UPSTREAM.get(dataset)
     notes = list(warnings or [])
     notes.extend(warnings_from(record))
+    if record and (record.get("sec_provenance") or record.get("sec_backfills")):
+        notes.append({"code": "financial_mapping_partial",
+                      "note": "Reviewed SEC fields are included; unsupported financial fields remain unavailable."})
 
     envelope = {
         "api_version": API_VERSION,

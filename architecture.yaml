@@ -58,6 +58,8 @@ cloud_run_jobs:
     tag: latest
     task_count: 1
     max_retries: 1
+    note: "SEC financial fallback is part of this job, default SEC_FALLBACK_MODE=off.
+           No separate SEC job or scheduler; reviewed BNY enrollment only initially."
   architecture-check:
     image: daily-prices          # reuses an existing image, no new Dockerfile
     tag: latest
