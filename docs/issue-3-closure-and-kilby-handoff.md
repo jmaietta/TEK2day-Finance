@@ -8,7 +8,8 @@ It must not be used as authorization to integrate or publish renamed securities.
 | GitHub source base | e39cdd98707974ba324a2d6ebb67a96353f48e07 |
 | Serving API revision | tek2day-api-00127-9z5; still the baseline |
 | Serving API immutable image | sha256:027dc8a355870158fa69176372a4cf72636d57426180766498984bb78a349d59 |
-| Candidate commit/build | Local candidate; record final commit after review; no candidate build/deploy |
+| Implementation commit | 30d6b90646fade38609f3df21e4ab31af5066170; local only |
+| Candidate build | None; no candidate push/build/deploy |
 | Live database writes | None |
 | Migration status | Dry-run only, plan 17f04fb3c5f56030356764b271a6fb860531be71915849798d30f019d2ab3bfd |
 | Live partner checks | Not performed; existing authorized Kilby path required |
@@ -54,6 +55,9 @@ replace the pending receipt entries with verified final values first.
 > jmaietta/TEK2day-Finance. The preflight baseline was
 > e39cdd98707974ba324a2d6ebb67a96353f48e07 / tek2day-api-00127-9z5; it is not the
 > repaired build. Do not treat the dry-run manifest as an executed repair.
+> The reviewed preflight implementation was local commit
+> 30d6b90646fade38609f3df21e4ab31af5066170. Its existence does not establish that
+> GitHub or the serving deployment contains it; verify the final published receipt.
 >
 > The verified event is the May 21, 2026 BK→BNY ticker change for The Bank of
 > New York Mellon Corporation common stock, $0.01 par, CUSIP 064058100, NYSE

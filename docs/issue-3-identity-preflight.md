@@ -5,6 +5,9 @@ mutation**. Issue #3 remains OPEN. This is not a closure or a claim that Kilby
 already sees the candidate. Evidence was captured September 9, 2026 Eastern
 time (the rollback receipt is September 10 UTC).
 
+Reviewed implementation commit: `30d6b90646fade38609f3df21e4ab31af5066170`
+(local only; subsequent receipt documentation does not change runtime code).
+
 ## Source of truth and scope
 
 GitHub main was verified at `e39cdd98707974ba324a2d6ebb67a96353f48e07`.
