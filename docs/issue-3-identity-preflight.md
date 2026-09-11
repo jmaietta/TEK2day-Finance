@@ -11,6 +11,11 @@ Issue #3 remains OPEN. No local partner API call was made. Kilby live acceptance
 remains pending through its authorized path.
 The diagnosis below was captured September 9 Eastern time.
 
+Subsequent serving deployment: commit `0095514c3a48e395ef4faab8284e7961cc5d1dea`,
+revision `tek2day-api-00129-dc2`, 100% traffic. Its SEC fallback is in observation
+mode and has made no financial repairs. See the
+[current deployment receipt](sec-fallback-deployment-20260910.json).
+
 Reviewed implementation commit: `30d6b90646fade38609f3df21e4ab31af5066170`
 (included in the deployed commit; receipt documentation does not change runtime code).
 

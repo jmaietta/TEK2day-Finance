@@ -1,4 +1,4 @@
-# SEC financial fallback: local implementation, not yet deployed
+# SEC financial fallback: deployed in observation mode
 
 Requested September 10, 2026: if Yahoo has not populated financial data one
 week after a 10-Q or 10-K is filed, recover the missing values from SEC.gov.
@@ -8,9 +8,14 @@ filing-based grace period, or SEC financial ingestion path. The standalone
 repair Dockerfile is unused; no additional job or infrastructure is needed.
 
 GitHub/local main was verified at `ebb17ce2b48ddcbf125100e5eaa83f0be0b553a5`.
+After approval, commit `0095514c3a48e395ef4faab8284e7961cc5d1dea` was pushed and
+deployed as `tek2day-api-00129-dc2` at 100% traffic. Both build/deploy workflows
+succeeded. The existing financial job was configured and rechecked with
+`SEC_FALLBACK_MODE=observe`; SEC financial writes remain disabled. No manual job
+execution was triggered. See the [deployment receipt](sec-fallback-deployment-20260910.json).
 This work preserves the existing branch and unrelated `.claude/` files. No new
-packages, IAM changes, partner calls, database writes, push or deployment were
-performed for the fallback. The separately approved BK/BNY continuity migration
+packages, IAM changes, partner calls or SEC database writes were performed.
+The separately approved BK/BNY continuity migration
 was already executed; its [receipt](issue-3-migration-20260910.json) is distinct
 from this financial repair.
 
@@ -169,8 +174,11 @@ statements, HTTP/cache behavior, atomic interruption/retry, nested-history
 preservation, conditional rollback and job failure reporting. The pinned real
 Kilby guard passes 22 existing identity assertions plus 15 SEC response
 assertions offline. Relevant existing financial/partner/valuation/identity tests
-also pass. Local libraries differ from deployed pins; the new pinned container
-build and authorized live Kilby checks remain rollout validations.
+also pass. The new pinned container builds, deployment workflow smoke test and
+post-deployment BK/BNY first-party income reads passed. Local libraries differ
+from deployed pins; actual observation-job results and authorized live Kilby
+checks remain rollout validations. March remains the latest live financial
+period; observation mode does not apply the pending June repair.
 
 No dependency pins or Dockerfiles changed. All runtime modules are root Python
 files, included by the existing image `COPY *.py`, and listed in package modules.

@@ -25,7 +25,8 @@ This document describes how TEK2day Finance captures, stores, and presents finan
 No new Firestore metadata fields are required for the current Terminal/Web hardening pass.
 
 The separately requested [SEC financial fallback](docs/sec-financial-fallback.md)
-is implemented inside the existing financial job, default off pending rollout.
+is implemented inside the existing financial job, default off; the approved
+BNY rollout is currently configured in observation mode (no SEC writes).
 After a seven-day filing grace period it can fill reviewed missing financial
 fields with atomic original/source audits. Its initial enrollment is BNY; CIK
 alone does not enroll an issuer or join histories. See that document for exact

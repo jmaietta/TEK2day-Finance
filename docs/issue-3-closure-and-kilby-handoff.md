@@ -6,11 +6,12 @@ It must not be used as authorization to integrate or publish renamed securities.
 | Item | Recorded state |
 | --- | --- |
 | GitHub source base | e39cdd98707974ba324a2d6ebb67a96353f48e07 |
-| Serving API revision | tek2day-api-00128-dvv; 100% traffic, verified September 10 |
-| Serving API immutable image | sha256:2d161cf6ff779d02c7cb45edbe42b82ee231bbd7f6f080dd04c080a42e2f568e |
+| Serving API revision | tek2day-api-00129-dc2; 100% traffic, verified September 10 |
+| Serving API immutable image | sha256:66f004b8421c9fdf5858568583726d26a7b7ce88f7acab2fc2d8ac3cee045bf1 |
 | Implementation commit | 30d6b90646fade38609f3df21e4ab31af5066170; published |
-| Deployed commit | e08d5492e3ffb37ca1490e55ce515f8864d2094a |
-| Build/deploy runs | API 34489995005; maintenance images 34489995022; both successful |
+| Deployed commit | 0095514c3a48e395ef4faab8284e7961cc5d1dea |
+| Build/deploy runs | API 34531601591; maintenance images 34531601681; both successful |
+| SEC fallback | Deployed, BNY-only observe mode; no SEC financial writes or manual job execution |
 | Live repair/migration writes in this session | Approved and executed September 10; retained original history and audit snapshots |
 | Migration status | Published 2026-09-10T18:09:20.380321Z, plan 17f04fb3c5f56030356764b271a6fb860531be71915849798d30f019d2ab3bfd |
 | Live partner checks | Not performed; existing authorized Kilby path required |
@@ -34,7 +35,9 @@ records 10 financial periods, 9 estimates, 1,282 prices and 1,303 retained audit
 observations. Twelve first-party website checks passed. Migration preserved
 existing history; it did not supply the absent June quarter. See the
 [SEC fallback implementation](sec-financial-fallback.md) for the separate local
-work, which has not been deployed or enabled. No manual maintenance job was triggered.
+work, deployed in observation mode with financial writes disabled. Its
+[deployment receipt](sec-fallback-deployment-20260910.json) records the current
+images. No manual maintenance job was triggered.
 
 Synthetic fixtures in `test_ticker_identity.py` and
 `scripts/check_kilby_identity_contract.py` are permitted offline compatibility
@@ -71,6 +74,12 @@ replace the pending receipt entries with verified final values first.
 > native readers, first-party old/new reads and maintenance guards passed.
 > Live Kilby acceptance and remaining coverage work were still pending.
 > Verify the final published receipt; this code deployment alone is not closure.
+> A subsequent SEC fallback deployment is commit
+> 0095514c3a48e395ef4faab8284e7961cc5d1dea / tek2day-api-00129-dc2, with successful
+> API workflow 34531601591 and maintenance workflow 34531601681. Its financial
+> job is in observe mode, not apply mode. The June-quarter repair has not been
+> applied. SEC financial envelopes passed the pinned Kilby guard offline;
+> validate the final live responses through the authorized Kilby path.
 >
 > The verified event is the May 21, 2026 BK→BNY ticker change for The Bank of
 > New York Mellon Corporation common stock, $0.01 par, CUSIP 064058100, NYSE
