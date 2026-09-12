@@ -1992,6 +1992,21 @@ def _load_cik_cache():
 
 def cmd_filings(symbol):
     console.print(f"[grey70]Fetching SEC filings for {symbol}...[/grey70]")
+    from registrant_succession import succession_for
+    if succession_for(symbol):
+        from succession_filings import filings_payload
+        try:
+            payload = filings_payload(symbol)
+            table = Table(title=f"{symbol} — Recent SEC Filings", box=box.SIMPLE_HEAVY)
+            for label in ("Date", "Form", "Filing CIK", "Accession"):
+                table.add_column(label)
+            for row in payload['filings']:
+                table.add_row(row['date'], row['form'], row['source_cik'], row['accession'])
+            console.print(table)
+            console.print(payload['note'])
+        except Exception as exc:
+            console.print(f"[red]Error fetching reviewed SEC filings: {exc}[/red]")
+        return
     _load_cik_cache()
 
     cik = _cik_cache.get(symbol)

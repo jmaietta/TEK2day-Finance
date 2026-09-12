@@ -77,8 +77,29 @@ def main():
             assert body["data"]["filing_sources"][0]["filing"]["reportDate"] == "2026-06-30"
             assert body["completeness"]["source"] == "sec_fallback"
             assert guard(body, "BK")
+        # Successor identity remains internal. Kilby's current exact-symbol
+        # policy still sees requested/resolved/payload XOM, without redirects.
+        from registrant_succession import XOM_SUCCESSION
+        meta.clear()
+        meta.update(symbol='XOM', name='Synthetic successor adapter fixture',
+                    cik=XOM_SUCCESSION['to']['cik'], issuer_id=XOM_SUCCESSION['to']['issuer_id'],
+                    security_id=XOM_SUCCESSION['to']['security_id'],
+                    reporting_series_id=XOM_SUCCESSION['series_id'])
+        snap.update(symbol='XOM', name=meta['name'])
+        financials[:] = [{'symbol': 'XOM', 'period': '2026-Q2', 'period_end': '2026-06-30',
+                         'income': {'Total Revenue': 100, 'Net Income': 0},
+                         'balance_sheet': {'Total Assets': 200}, 'cash_flow': {'Operating Cash Flow': 12}}]
+        estimates[:] = [{'symbol': 'XOM', 'date': '2026-09-09', 'eps_avg': {'0q': 1},
+                         'horizons': {'0q': '2026-09-30', '+1q': '2026-12-31'}}]
+        for producer in (partner_api.resolve_symbol, partner_api.equity_summary, partner_api.equity_estimates,
+                         lambda request, symbol: partner_api.equity_financials(request, symbol, 'income', 'quarterly')):
+            body = json.loads(json.dumps(producer(None, 'XOM')))
+            assert guard(body, 'XOM') == ''
+            assert guard(body, 'BNY')
+            assert body['data']['symbol'] == 'XOM'
+            assert 'security_resolution' not in body
     assert not attempts
-    print("PASS: 22 identity assertions plus 15 SEC producer/consumer assertions; no network, paid work or live partner requests")
+    print("PASS: 22 rename, 15 SEC and 16 XOM successor producer/consumer assertions; no network, paid work or live partner requests")
     return 0
 
 

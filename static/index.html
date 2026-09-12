@@ -1744,6 +1744,11 @@
         }).join("")}
         </tbody>
       </table></div>` + sourceLineHtml(`Source: ${(result.data && result.data.source) || "SEC EDGAR"}`);
+      if (result.data && result.data.note) {
+        const note = document.createElement("p");
+        note.textContent = result.data.note;
+        panel.body.appendChild(note);
+      }
     }
 
     function fillCompare(panel, result) {

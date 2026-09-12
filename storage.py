@@ -17,7 +17,7 @@ from google.cloud import firestore
 
 from config import FIRESTORE_PROJECT, COLLECTION_ROOT
 import identity_storage
-from security_identity import event_for
+from security_identity import routable_event_for as event_for
 
 _db = None
 
@@ -290,7 +290,8 @@ def merge_financial_doc(existing: dict, incoming: dict) -> tuple[dict, list[str]
                 # The single exception: a share count follows Yahoo's current
                 # basis. Only ever replaced by a real, non-zero number.
                 if (field in SHARE_COUNT_FIELDS and new_value and new_value != old_block[field]
-                        and not existing.get("sec_provenance") and not existing.get("sec_backfills")):
+                        and not existing.get("sec_provenance") and not existing.get("sec_backfills")
+                        and not _has_reviewed_successor(existing.get("symbol"))):
                     old_block[field] = new_value
                     filled.append(f"{section}.{field}")
                 continue  # otherwise the existing value is real — leave it alone
@@ -298,6 +299,11 @@ def merge_financial_doc(existing: dict, incoming: dict) -> tuple[dict, list[str]
             filled.append(f"{section}.{field}")
 
     return merged, filled
+
+
+def _has_reviewed_successor(symbol):
+    from registrant_succession import succession_for
+    return bool(symbol and succession_for(symbol))
 
 
 def backfill_financials(symbol: str, period: str, incoming: dict, db=None) -> list[str]:

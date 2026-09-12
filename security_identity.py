@@ -168,6 +168,14 @@ def route_path(event):
     return "security_routes/" + event["event_id"]
 
 
+def routable_event_for(symbol):
+    """Storage/job dispatch only; successor events never pass rename validation."""
+    from registrant_succession import succession_for
+    rename, successor = event_for(symbol), succession_for(symbol)
+    require(not (rename and successor), 'Ambiguous rename/successor relationship')
+    return rename or successor
+
+
 def version_path(event, generation):
     require(isinstance(generation, str) and bool(re.fullmatch(r"[0-9a-f]{64}", generation)), "invalid generation")
     return f"security_data/{event['security_id']}/versions/{generation}"

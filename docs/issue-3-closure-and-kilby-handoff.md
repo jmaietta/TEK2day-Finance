@@ -23,6 +23,7 @@ It must not be used as authorization to integrate or publish renamed securities.
 | Issue #3 | OPEN; not ready for closure |
 | Chatllm #221 | Remains OPEN |
 | Chatllm #233 | Not reopened; no chatllm modification |
+| XOM successor correction | Prepared locally September 12; 45 successor tests and pinned Kilby adapters pass; no XOM publication yet. See [review and exact manifest](xom-succession-implementation.md) |
 
 The [preflight](issue-3-identity-preflight.md) contains the primary evidence,
 bounded comparison, exact private-evidence locations, manifest, dependency
@@ -49,6 +50,19 @@ authorized Kilby path and review for sharing. Current Yahoo captures are private
 diagnostic observations, not frozen partner API responses.
 
 ## Self-contained prompt for the later chatllm session
+
+XOM follow-up to include in the returning prompt after deployment approval:
+verify the final XOM implementation commit/build and publication receipt from
+`docs/xom-succession-implementation.md`. XOM is a July 1, 2026 successor-registrant
+event, CIK 0000034088/common CUSIP 30231G102 to CIK 0002115436/common CUSIP
+30233Q108, not a ticker rename. Its reviewed June 10-Q appears under both
+registrants with accession 0000034088-26-000093. Retain original source identity
+and avoid counting that quarter twice. Current compatibility remains XOM/XOM;
+no proposed ancestry envelope is enabled. The public SEC submissions fixture
+may be shared as evidence; synthetic adapter financial values are not real
+company financials. Private Firestore exports and unreviewed live partner
+responses are not permitted frozen fixtures. The prepared XOM dry run has not
+executed, and XOM is not enrolled in SEC financial backfill.
 
 Use this only after TEK2day issue #3 has actually been resolved and closed;
 replace the pending receipt entries with verified final values first.

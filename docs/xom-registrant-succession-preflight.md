@@ -4,6 +4,11 @@ Verified from primary public evidence September 10, 2026, in response to the
 question about CIK changes. This is an evidence/design note, not an enabled
 identity binding, database migration, or authorization for an XOM repair.
 
+Update September 12: the bounded diagnosis, local successor implementation,
+tests and exact metadata repair manifest are now prepared. See
+[implementation and rollout](xom-succession-implementation.md). This preflight
+records the earlier evidence baseline; the new correction is not yet deployed.
+
 | Item | Predecessor | Successor |
 | --- | --- | --- |
 | Registrant | Exxon Mobil Corporation, New Jersey | ExxonMobil Holdings Corporation, Texas |

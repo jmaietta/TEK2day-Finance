@@ -634,6 +634,13 @@ def _fetch_filings_from_sec(symbol: str, cik: str) -> dict | None:
 
 
 def _filings_payload(symbol: str) -> dict | None:
+    from registrant_succession import succession_for
+    if succession_for(symbol):
+        from succession_filings import filings_payload
+        try:
+            return filings_payload(symbol)
+        except Exception:
+            return None
     terminal._load_cik_cache()
     cik = terminal._cik_cache.get(symbol)
     if not cik:

@@ -1,0 +1,397 @@
+{
+  "capture_completed_at": "2026-09-12T06:02:54.477753+00:00",
+  "capture_started_at": "2026-09-12T05:59:01.807207+00:00",
+  "collections": [
+    "tickers/XOM/estimates",
+    "tickers/XOM/financials",
+    "tickers/XOM/prices"
+  ],
+  "coverage": {
+    "estimates": "Capture dates are not evidence of provider incorporation of new results",
+    "financials": "Presence and field/null counts only; populated values not revalidated against SEC",
+    "history": "Existing provider series retained; not joined across CUSIPs or reattributed",
+    "quote": "No new quote observation requested; not inferred from financial/metadata update times"
+  },
+  "database": "(default)",
+  "database_type": "FIRESTORE_NATIVE",
+  "documents": 1356,
+  "estimates_summary": {
+    "documents": 14,
+    "explicit_horizons_documents": 0,
+    "first_period_or_date": "2026-05-26",
+    "last_period_or_date": "2026-09-09",
+    "post_results_event_provenance_documents": 0,
+    "snapshot_digest": "9287585b6ef72b98b6d3f1c50a9b6de32eb6c3eb1fb736509add11ffa76f18ff"
+  },
+  "financials": [
+    {
+      "freq": "FY",
+      "path": "tickers/XOM/financials/2021-FY",
+      "period_end": "2021-12-31",
+      "source_cik_supplied": false,
+      "statements": {
+        "balance_sheet": {
+          "fields": 0,
+          "null_or_nonfinite": 0,
+          "zero": 0
+        },
+        "cash_flow": {
+          "fields": 52,
+          "null_or_nonfinite": 51,
+          "zero": 0
+        },
+        "income": {
+          "fields": 42,
+          "null_or_nonfinite": 39,
+          "zero": 0
+        }
+      },
+      "update_time": {
+        "__firestore_timestamp__": "2026-05-26T23:32:14.474054+00:00"
+      }
+    },
+    {
+      "freq": "FY",
+      "path": "tickers/XOM/financials/2022-FY",
+      "period_end": "2022-12-31",
+      "source_cik_supplied": false,
+      "statements": {
+        "balance_sheet": {
+          "fields": 72,
+          "null_or_nonfinite": 0,
+          "zero": 1
+        },
+        "cash_flow": {
+          "fields": 52,
+          "null_or_nonfinite": 0,
+          "zero": 2
+        },
+        "income": {
+          "fields": 42,
+          "null_or_nonfinite": 0,
+          "zero": 1
+        }
+      },
+      "update_time": {
+        "__firestore_timestamp__": "2026-05-26T23:32:14.302524+00:00"
+      }
+    },
+    {
+      "freq": "FY",
+      "path": "tickers/XOM/financials/2023-FY",
+      "period_end": "2023-12-31",
+      "source_cik_supplied": false,
+      "statements": {
+        "balance_sheet": {
+          "fields": 72,
+          "null_or_nonfinite": 0,
+          "zero": 1
+        },
+        "cash_flow": {
+          "fields": 52,
+          "null_or_nonfinite": 1,
+          "zero": 3
+        },
+        "income": {
+          "fields": 42,
+          "null_or_nonfinite": 0,
+          "zero": 1
+        }
+      },
+      "update_time": {
+        "__firestore_timestamp__": "2026-05-26T23:32:14.125081+00:00"
+      }
+    },
+    {
+      "freq": "FY",
+      "path": "tickers/XOM/financials/2024-FY",
+      "period_end": "2024-12-31",
+      "source_cik_supplied": false,
+      "statements": {
+        "balance_sheet": {
+          "fields": 72,
+          "null_or_nonfinite": 0,
+          "zero": 2
+        },
+        "cash_flow": {
+          "fields": 52,
+          "null_or_nonfinite": 1,
+          "zero": 1
+        },
+        "income": {
+          "fields": 42,
+          "null_or_nonfinite": 1,
+          "zero": 1
+        }
+      },
+      "update_time": {
+        "__firestore_timestamp__": "2026-05-26T23:32:13.899621+00:00"
+      }
+    },
+    {
+      "freq": null,
+      "path": "tickers/XOM/financials/2024-Q3",
+      "period_end": "2024-09-30",
+      "source_cik_supplied": false,
+      "statements": {
+        "balance_sheet": {
+          "fields": 0,
+          "null_or_nonfinite": 0,
+          "zero": 0
+        },
+        "cash_flow": {
+          "fields": 40,
+          "null_or_nonfinite": 37,
+          "zero": 3
+        },
+        "income": {
+          "fields": 41,
+          "null_or_nonfinite": 39,
+          "zero": 0
+        }
+      },
+      "update_time": {
+        "__firestore_timestamp__": "2026-05-26T23:08:59.155077+00:00"
+      }
+    },
+    {
+      "freq": null,
+      "path": "tickers/XOM/financials/2024-Q4",
+      "period_end": "2024-12-31",
+      "source_cik_supplied": false,
+      "statements": {
+        "balance_sheet": {
+          "fields": 72,
+          "null_or_nonfinite": 53,
+          "zero": 1
+        },
+        "cash_flow": {
+          "fields": 40,
+          "null_or_nonfinite": 37,
+          "zero": 2
+        },
+        "income": {
+          "fields": 41,
+          "null_or_nonfinite": 39,
+          "zero": 0
+        }
+      },
+      "update_time": {
+        "__firestore_timestamp__": "2026-05-26T23:08:59.083955+00:00"
+      }
+    },
+    {
+      "freq": "FY",
+      "path": "tickers/XOM/financials/2025-FY",
+      "period_end": "2025-12-31",
+      "source_cik_supplied": false,
+      "statements": {
+        "balance_sheet": {
+          "fields": 72,
+          "null_or_nonfinite": 0,
+          "zero": 2
+        },
+        "cash_flow": {
+          "fields": 52,
+          "null_or_nonfinite": 1,
+          "zero": 2
+        },
+        "income": {
+          "fields": 42,
+          "null_or_nonfinite": 3,
+          "zero": 1
+        }
+      },
+      "update_time": {
+        "__firestore_timestamp__": "2026-05-26T23:32:13.673863+00:00"
+      }
+    },
+    {
+      "freq": null,
+      "path": "tickers/XOM/financials/2025-Q1",
+      "period_end": "2025-03-31",
+      "source_cik_supplied": false,
+      "statements": {
+        "balance_sheet": {
+          "fields": 72,
+          "null_or_nonfinite": 18,
+          "zero": 1
+        },
+        "cash_flow": {
+          "fields": 40,
+          "null_or_nonfinite": 3,
+          "zero": 0
+        },
+        "income": {
+          "fields": 41,
+          "null_or_nonfinite": 0,
+          "zero": 1
+        }
+      },
+      "update_time": {
+        "__firestore_timestamp__": "2026-05-26T23:08:59.003152+00:00"
+      }
+    },
+    {
+      "freq": null,
+      "path": "tickers/XOM/financials/2025-Q2",
+      "period_end": "2025-06-30",
+      "source_cik_supplied": false,
+      "statements": {
+        "balance_sheet": {
+          "fields": 72,
+          "null_or_nonfinite": 18,
+          "zero": 1
+        },
+        "cash_flow": {
+          "fields": 40,
+          "null_or_nonfinite": 3,
+          "zero": 0
+        },
+        "income": {
+          "fields": 41,
+          "null_or_nonfinite": 2,
+          "zero": 1
+        }
+      },
+      "update_time": {
+        "__firestore_timestamp__": "2026-05-26T23:08:58.924038+00:00"
+      }
+    },
+    {
+      "freq": null,
+      "path": "tickers/XOM/financials/2025-Q3",
+      "period_end": "2025-09-30",
+      "source_cik_supplied": false,
+      "statements": {
+        "balance_sheet": {
+          "fields": 72,
+          "null_or_nonfinite": 18,
+          "zero": 1
+        },
+        "cash_flow": {
+          "fields": 40,
+          "null_or_nonfinite": 0,
+          "zero": 3
+        },
+        "income": {
+          "fields": 41,
+          "null_or_nonfinite": 2,
+          "zero": 1
+        }
+      },
+      "update_time": {
+        "__firestore_timestamp__": "2026-05-26T23:08:58.848420+00:00"
+      }
+    },
+    {
+      "freq": null,
+      "path": "tickers/XOM/financials/2025-Q4",
+      "period_end": "2025-12-31",
+      "source_cik_supplied": false,
+      "statements": {
+        "balance_sheet": {
+          "fields": 72,
+          "null_or_nonfinite": 0,
+          "zero": 2
+        },
+        "cash_flow": {
+          "fields": 40,
+          "null_or_nonfinite": 0,
+          "zero": 3
+        },
+        "income": {
+          "fields": 41,
+          "null_or_nonfinite": 2,
+          "zero": 1
+        }
+      },
+      "update_time": {
+        "__firestore_timestamp__": "2026-05-26T23:08:58.759196+00:00"
+      }
+    },
+    {
+      "freq": null,
+      "path": "tickers/XOM/financials/2026-Q1",
+      "period_end": "2026-03-31",
+      "source_cik_supplied": false,
+      "statements": {
+        "balance_sheet": {
+          "fields": 72,
+          "null_or_nonfinite": 18,
+          "zero": 1
+        },
+        "cash_flow": {
+          "fields": 40,
+          "null_or_nonfinite": 3,
+          "zero": 0
+        },
+        "income": {
+          "fields": 41,
+          "null_or_nonfinite": 2,
+          "zero": 1
+        }
+      },
+      "update_time": {
+        "__firestore_timestamp__": "2026-09-09T20:00:21.690956+00:00"
+      }
+    },
+    {
+      "freq": "Q",
+      "path": "tickers/XOM/financials/2026-Q2",
+      "period_end": "2026-06-30",
+      "source_cik_supplied": false,
+      "statements": {
+        "balance_sheet": {
+          "fields": 72,
+          "null_or_nonfinite": 19,
+          "zero": 1
+        },
+        "cash_flow": {
+          "fields": 40,
+          "null_or_nonfinite": 3,
+          "zero": 1
+        },
+        "income": {
+          "fields": 41,
+          "null_or_nonfinite": 2,
+          "zero": 1
+        }
+      },
+      "update_time": {
+        "__firestore_timestamp__": "2026-09-09T20:00:21.369608+00:00"
+      }
+    }
+  ],
+  "financials_summary": {
+    "documents": 13,
+    "first_period_or_date": "2021-12-31",
+    "last_period_or_date": "2026-06-30",
+    "snapshot_digest": "a1cbd4d104655a3ee8d7a88f630cacc7ee7b2876eb292463c7ed7c76d50a95c4"
+  },
+  "location": "us-east1",
+  "metadata": {
+    "active": true,
+    "cik": 34088,
+    "currency": "USD",
+    "exchange": "NYQ",
+    "name": "ExxonMobil Holdings Corporation",
+    "symbol": "XOM",
+    "updated_at": "2026-09-09T12:57:11.702800+00:00"
+  },
+  "metadata_snapshot_sha256": "a91d1bd58ebb0bd15ac74fc1f7a42e2aeac8a88ec6d3ab790d2f7418a3e48036",
+  "not_established": [
+    "No evidence that missing fields make the populated historical figures wrong",
+    "No review of exact first successor trade instant or quote/estimate security attribution",
+    "No SEC XOM financial mapping enrollment"
+  ],
+  "prices_summary": {
+    "documents": 1328,
+    "first_period_or_date": "2021-05-27",
+    "last_period_or_date": "2026-09-11",
+    "snapshot_digest": "f0614568d5af627b14c1a6dd4c35d77f4ce110b2ba33b4a6ca78406ad54ab6eb"
+  },
+  "private_capture_tree_sha256": "da73b79a91b74eb789e8c5012b22cbb35aadc811671f35ade37be05e61052375",
+  "project": "yfinance-cli",
+  "verified_cause": "Current metadata has successor name but predecessor CIK; filings reader uses one mutable current-ticker CIK and cannot retrieve both reviewed registrants."
+}

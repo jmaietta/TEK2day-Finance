@@ -6,6 +6,11 @@ from security_identity import (IdentityError, digest, event_for, require,
 
 
 def context(db, symbol, *, public=False, write=False, transaction=None):
+    from registrant_succession import succession_for
+    if succession_for(symbol):
+        from succession_storage import context as successor_context
+        require(event_for(symbol) is None, 'Ambiguous rename/succession')
+        return successor_context(db, symbol, write=write, transaction=transaction)
     event = event_for(symbol)
     if event is None:
         return symbol, db.collection("tickers").document(symbol), None, None
@@ -29,6 +34,11 @@ def guarded_write(db, symbol, entries, *, merge=False, write_once=False, expecte
     entries is [(relative document path or '', data)]. Existing observations
     survive every update at deterministic revision paths. Caller data is copied.
     """
+    from registrant_succession import succession_for
+    if succession_for(symbol):
+        from succession_storage import guarded_write as successor_write
+        require(event_for(symbol) is None, 'Ambiguous rename/succession')
+        return successor_write(db, symbol, entries, merge=merge, write_once=write_once, expected=expected)
     if event_for(symbol) is None:
         return False
     from google.cloud import firestore
