@@ -52,6 +52,9 @@ diagnostic observations, not frozen partner API responses.
 ## Self-contained prompt for the later chatllm session
 
 XOM follow-up to include in the returning prompt after deployment approval:
+the reviewed local implementation is commit
+`1081ab88145cda12de444a790f13d64fe4046b83`, with
+[review receipt](xom-local-review-20260912.json);
 verify the final XOM implementation commit/build and publication receipt from
 `docs/xom-succession-implementation.md`. XOM is a July 1, 2026 successor-registrant
 event, CIK 0000034088/common CUSIP 30231G102 to CIK 0002115436/common CUSIP

@@ -1,5 +1,10 @@
 # XOM successor identity — prepared September 12, 2026; not published
 
+Reviewed implementation commit: **1081ab88145cda12de444a790f13d64fe4046b83**.
+[The local review receipt](xom-local-review-20260912.json) records exact test
+results, the approved-plan candidate digest, unchanged deployed image digests
+and pending deployment/repair status. A local commit is not a deployed build.
+
 XOM's stored metadata pairs the successor name, ExxonMobil Holdings Corporation,
 with predecessor CIK 34088. The June 2026 financial record is already present.
 The SEC filing readers currently use a single CIK from the mutable ticker map,
