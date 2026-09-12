@@ -1,14 +1,23 @@
-# XOM successor identity — prepared September 12, 2026; not published
+# XOM successor identity — deployed and published September 12, 2026
 
 Reviewed implementation commit: **1081ab88145cda12de444a790f13d64fe4046b83**.
 [The local review receipt](xom-local-review-20260912.json) records exact test
-results, the approved-plan candidate digest, unchanged deployed image digests
-and pending deployment/repair status. A local commit is not a deployed build.
+results, the approved-plan candidate digest and the pre-deployment baseline.
+The user subsequently approved execution. Code is deployed at commit
+**e9e28afd0536c5d8bc1ee552dee6449466fdbb11**, API revision
+**tek2day-api-00130-cxf** (100% traffic). The published metadata and six identity
+records share Firestore update time **2026-09-12T15:44:53.252968Z**.
+The client receipt separately reports completion at 15:44:46.393948Z; both clock
+readings are retained, and the client reading is not used as the authoritative
+Firestore commit time. These are maintenance timestamps, not the corporate
+event's effective instant. See the
+[execution receipt](xom-execution-20260912.json) for builds and verification.
 
-XOM's stored metadata pairs the successor name, ExxonMobil Holdings Corporation,
-with predecessor CIK 34088. The June 2026 financial record is already present.
-The SEC filing readers currently use a single CIK from the mutable ticker map,
-which can omit predecessor reports. This correction preserves the existing XOM
+Before repair, XOM's stored metadata paired the successor name, ExxonMobil
+Holdings Corporation, with predecessor CIK 34088. Current metadata now uses
+successor CIK **0002115436**. The June 2026 financial record was already present.
+The previous SEC readers used a single CIK from the mutable ticker map,
+which could omit predecessor reports. This correction preserves the existing XOM
 tree and introduces an explicit, reviewed relationship between two registrants
 and two common-stock securities.
 
@@ -40,11 +49,11 @@ periods, null/zero counts, metadata and update-time evidence:
 
 | Dataset | Captured coverage | What remains unverified |
 | --- | --- | --- |
-| Metadata | Successor name; old CIK; USD/NYQ; updated September 9 | Corrected CIK is not yet published |
+| Metadata | Pre-repair: successor name; old CIK; USD/NYQ; provider update September 9 | Current CIK corrected September 12; original provider timestamp retained |
 | Financials | 13 documents, 2021 FY through June 2026; original periods preserved | Field presence does not verify each populated figure; historical source CIK/accession absent |
 | Prices | 1,328 observations, May 27, 2021 through September 11, 2026 | Exact successor first trade/security attribution; no new price-history join |
 | Estimates | 14 snapshots through September 9; none has explicit horizons | Provider revision after results and target periods |
-| Current quote | No new quote request | Observation time and current-price freshness require separate post-rollout check |
+| Current quote | Independent post-deploy Yahoo observation: USD/NYSE, September 11 at 20:04:28Z; $165.99 matches the first-party summary | First-party summary does not expose the observation timestamp; live Kilby validation remains separate |
 
 The recursive capture inspected **1,356 XOM documents** and every collection
 level (financials, prices, estimates; no deeper descendants present). Six new
@@ -158,7 +167,7 @@ the identity publication **before** restoring pre-guard images; do not remove
 the guard from an active/paused succession route. The current baseline remains
 `0095514c3a48e395ef4faab8284e7961cc5d1dea`, API `tek2day-api-00129-dc2`.
 
-## Validation and pending acceptance
+## Validation and remaining acceptance
 
 * 134 tests passed in four isolated offline suites: successor (45), BK/BNY
   identity (38), SEC fallback (44), share counts (7), with external access blocked.
@@ -168,11 +177,27 @@ the guard from an active/paused succession route. The current baseline remains
   XOM), with network blocked. These are synthetic producer fixtures, not live
   partner responses or evidence of actual corporate identities.
 
-No XOM database writes, pushes or deployments have been performed for this
-correction. After approval, reverify builds, native reads, first-party filings
-and financial views, original nested-tree digests, quote observation, estimates,
-cache transitions and an authorized maintenance rerun. Live partner acceptance
-must use Kilby's existing authorized path. No local client may impersonate it.
+The approved execution performed one staging write and nine atomic publication
+writes. Both build/deploy workflows succeeded: API **34700569623** and jobs
+**34700569634**. The API and each job's latest image were matched to the reviewed
+commit tags before publication. No old writer execution was outstanding,
+including the legacy one-time onboarding job. SEC fallback remains in observe
+mode. That retired onboarding image was not changed and must not be manually
+rerun against reviewed identities.
+
+Eight pre-publication and nine post-publication first-party checks passed,
+including repeat filing reads, corrected CIK, financial statements, estimates
+and chart history. Income, balance-sheet and cash-flow payloads are unchanged;
+estimates are unchanged. The native financial maintenance rerun committed zero
+writes and preserved its original observation/update time. Attempts to restore
+the old CIK or add a self-alias were rejected. BK/BNY native resolution remains
+BNY for first-party reads, with strict BK reads rejected.
+
+The execution receipt records the final recursive tree comparison. No live
+rollback or full-universe job was triggered. The next ordinary scheduled refresh
+has its own outcome; a no-op guard test is not evidence of fresh provider data.
+Live partner acceptance must use Kilby's existing authorized path. No local
+client may impersonate it. XOM's SEC financial-field mapping remains unenrolled.
 
 Issue #3 remains OPEN. BK/BNY migration is already complete; its separate June
 financial repair and live Kilby acceptance remain pending. Chatllm #221 remains

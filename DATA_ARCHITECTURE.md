@@ -64,11 +64,11 @@ original observations are retained. CIK/name/ticker matches alone never join
 histories. Readers and guarded maintenance use the same route; partner requests
 remain exact-symbol until a separate Kilby integration is agreed.
 
-The [prepared XOM successor correction](docs/xom-succession-implementation.md)
+The [deployed XOM successor correction](docs/xom-succession-implementation.md)
 handles two registrants and two securities with the same ticker through an
 explicit dated relationship and a separate reporting-series identity. It keeps
-the existing ticker storage tree and atomically publishes current metadata and
-identity records after approval. Historical observations are not relabelled.
+the existing ticker storage tree; current metadata and identity records were
+atomically published after approval September 12. Historical observations are not relabelled.
 Reviewed filing lookup queries both CIKs and preserves original accession/CIK
 associations; this does not enroll XOM in the SEC financial fallback.
 

@@ -6,24 +6,24 @@ It must not be used as authorization to integrate or publish renamed securities.
 | Item | Recorded state |
 | --- | --- |
 | GitHub source base | e39cdd98707974ba324a2d6ebb67a96353f48e07 |
-| Serving API revision | tek2day-api-00129-dc2; 100% traffic, verified September 10 |
-| Serving API immutable image | sha256:66f004b8421c9fdf5858568583726d26a7b7ce88f7acab2fc2d8ac3cee045bf1 |
+| Serving API revision | tek2day-api-00130-cxf; 100% traffic, verified September 12 |
+| Serving API immutable image | sha256:745ff6a066f1d9cbd3b3462643aa8a56f72ae248ca3fcc05a4ab6015bfd303c7 |
 | Implementation commit | 30d6b90646fade38609f3df21e4ab31af5066170; published |
-| Deployed commit | 0095514c3a48e395ef4faab8284e7961cc5d1dea |
-| Build/deploy runs | API 34531601591; maintenance images 34531601681; both successful |
+| Deployed commit | e9e28afd0536c5d8bc1ee552dee6449466fdbb11 |
+| Build/deploy runs | API 34700569623; maintenance images 34700569634; both successful |
 | SEC fallback | Deployed, BNY-only observe mode; no SEC financial writes or manual job execution |
-| Live repair/migration writes in this session | Approved and executed September 10; retained original history and audit snapshots |
+| Live repair/migration writes in this session | BK/BNY migration September 10; approved XOM identity publication September 12; retained original history and audit snapshots; no SEC financial backfill executed |
 | Migration status | Published 2026-09-10T18:09:20.380321Z, plan 17f04fb3c5f56030356764b271a6fb860531be71915849798d30f019d2ab3bfd |
 | Live partner checks | Not performed; existing authorized Kilby path required |
 | Offline validation | 439 verified tests across 21 isolated files; 22 pinned Kilby producer/consumer assertions |
 | Runtime validation limit | Pinned image builds, Cloud Run startup and workflow smoke test passed; native migration/readers and no-op maintenance guards passed; live Kilby acceptance pending |
 | Corporate event | BK→BNY, ordinary common stock, 2026-05-21; issuer CIK 0001390777; CUSIP 064058100; NYSE/XNYS; provider-observed USD |
-| Known financial gap | Stored history ends 2026-Q1; Yahoo's 2026-Q2 response is incomplete; 2021-FY is incomplete |
+| Known BNY financial gap (September 10 verification) | Stored history ended 2026-Q1; Yahoo's 2026-Q2 response was incomplete; 2021-FY was incomplete. XOM repair does not resolve this separate coverage work |
 | API rollout mode | Route active: BNY canonical, BK 409; no security_resolution or redirect payload |
 | Issue #3 | OPEN; not ready for closure |
 | Chatllm #221 | Remains OPEN |
 | Chatllm #233 | Not reopened; no chatllm modification |
-| XOM successor correction | Prepared locally September 12; 45 successor tests and pinned Kilby adapters pass; no XOM publication yet. See [review and exact manifest](xom-succession-implementation.md) |
+| XOM successor correction | Deployed and published September 12; current CIK 0002115436; historical data preserved. See [execution and exact manifest](xom-succession-implementation.md) |
 
 The [preflight](issue-3-identity-preflight.md) contains the primary evidence,
 bounded comparison, exact private-evidence locations, manifest, dependency
@@ -51,11 +51,17 @@ diagnostic observations, not frozen partner API responses.
 
 ## Self-contained prompt for the later chatllm session
 
-XOM follow-up to include in the returning prompt after deployment approval:
-the reviewed local implementation is commit
+XOM follow-up to include in the returning prompt:
+the reviewed implementation is commit
 `1081ab88145cda12de444a790f13d64fe4046b83`, with
 [review receipt](xom-local-review-20260912.json);
-verify the final XOM implementation commit/build and publication receipt from
+deployed in e9e28afd0536c5d8bc1ee552dee6449466fdbb11, revision
+tek2day-api-00130-cxf, API build 34700569623 / jobs build 34700569634.
+The published metadata/identity records carry Firestore update time
+September 12 at 15:44:53.252968Z; the separate client completion reading is
+15:44:46.393948Z. Preserve both clock readings and do not treat either as the
+corporate-event effective time.
+Verify the final XOM implementation commit/build and publication receipt from
 `docs/xom-succession-implementation.md`. XOM is a July 1, 2026 successor-registrant
 event, CIK 0000034088/common CUSIP 30231G102 to CIK 0002115436/common CUSIP
 30233Q108, not a ticker rename. Its reviewed June 10-Q appears under both
@@ -64,8 +70,10 @@ and avoid counting that quarter twice. Current compatibility remains XOM/XOM;
 no proposed ancestry envelope is enabled. The public SEC submissions fixture
 may be shared as evidence; synthetic adapter financial values are not real
 company financials. Private Firestore exports and unreviewed live partner
-responses are not permitted frozen fixtures. The prepared XOM dry run has not
-executed, and XOM is not enrolled in SEC financial backfill.
+responses are not permitted frozen fixtures. The XOM plan executed one staging
+write and nine atomic publication writes, preserving the existing tree;
+XOM is still not enrolled in SEC financial backfill. Native and first-party
+checks passed; live Kilby acceptance remains separate and authorized-path only.
 
 Use this only after TEK2day issue #3 has actually been resolved and closed;
 replace the pending receipt entries with verified final values first.

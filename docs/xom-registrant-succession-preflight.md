@@ -4,10 +4,10 @@ Verified from primary public evidence September 10, 2026, in response to the
 question about CIK changes. This is an evidence/design note, not an enabled
 identity binding, database migration, or authorization for an XOM repair.
 
-Update September 12: the bounded diagnosis, local successor implementation,
-tests and exact metadata repair manifest are now prepared. See
-[implementation and rollout](xom-succession-implementation.md). This preflight
-records the earlier evidence baseline; the new correction is not yet deployed.
+Update September 12: the reviewed successor implementation is deployed and the
+approved metadata/identity repair is published. See
+[implementation and execution](xom-succession-implementation.md). This preflight
+records the earlier evidence baseline; XOM financial fallback remains unenrolled.
 
 | Item | Predecessor | Successor |
 | --- | --- | --- |
