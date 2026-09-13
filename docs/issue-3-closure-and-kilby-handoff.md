@@ -305,3 +305,25 @@ API and MCP. Review current published CEORater code/contracts and authorization
 then; do not infer the new contract from the old integration. Chatllm remains
 unchanged in this phase, #221 remains open and #233 remains closed. No CEORater
 activation or additional live repair is authorized by this documentation.
+
+## BNY price repair completed; urgent COST handoff
+
+The user subsequently instructed execution of the exact reviewed price plan.
+See [execution record](bny-price-execution-20260913.json): 42 missing bars plus
+one audit committed atomically September 13 at 16:57:23.444833Z. All 1,328
+pre-existing captured documents and nested collections are unchanged; selected
+price history is now 1,330 records. Replay produced zero writes. Twelve BK/BNY
+and eight AMZN first-party checks passed. Serving commit
+`4789708d72fa68af6aac78d68322951b6ef578d0`, revision `tek2day-api-00139-rsq`;
+all maintenance images match, old writers drained, SEC mode remains apply.
+No new partner response semantics, live partner fixture, chatllm change or
+CEORater activation occurred. Normal scheduled-run acceptance still awaits
+September 14 noon Eastern, and the documented remaining coverage questions
+keep issue #3 open.
+
+The user now needs an urgent Kilby session for COST Deep Research failing with
+`A financial amount is missing its fact, source-excerpt or scenario reference.`
+Read the [self-contained COST handoff](cost-kilby-report-handoff-20260913.md),
+including the bounded TEK2day diagnosis, requirement to deliver supported
+partial reports and requirement to reverse a charge when no usable report is
+delivered. The older COST balance-sheet gap is not proven to cause this error.

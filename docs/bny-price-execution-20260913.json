@@ -1,0 +1,291 @@
+{
+  "api_revision": "tek2day-api-00139-rsq",
+  "approval_scope": "User instruction to execute the reviewed BNY repair: 42 absent dates and one atomic audit. No additional issuers or price revisions.",
+  "audit_path": "price_repairs/d6bf88ee1de4bf72e03d790dac9352746ed03286cd0bbe43f5b032e15503bfb8",
+  "audit_server_update_time": {
+    "__firestore_timestamp__": "2026-09-13T16:57:23.444833+00:00"
+  },
+  "audit_sha256": "1b189f45fdd2b20e1acae84f335f2d7b0fc2a1aaf48824900f29820b53dd45c5",
+  "client_completion_time": "2026-09-13T16:57:17.391561+00:00",
+  "code_commit": "4789708d72fa68af6aac78d68322951b6ef578d0",
+  "compatibility": "No partner contract change. BNY exact-symbol; BK strict refusal on partner API, first-party BK resolves BNY. No security_resolution envelope. No live partner request or permitted raw partner fixture captured.",
+  "created_documents": [
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-06-22",
+      "sha256": "63192ca257ea4716c6aeb33632f66aa738d90149b03ee6fbad440d87135e7df7"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-06",
+      "sha256": "56a6d977d88fba56b0780efa70cfeb87c912443200c82df4911a2ade0c81a8f5"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-07",
+      "sha256": "b3fd93825ef20f02415438ee8819d32f010d6e860ef14cc470fc934795a4b649"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-08",
+      "sha256": "a885abc8b6c8544906fd6e348860000d9f52864174c4908855948a18c155b8cc"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-09",
+      "sha256": "d20fb297f822b87a6c64155e2c80b184847ff194e858914cf11d73eb0377c994"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-13",
+      "sha256": "cd172370f136701e7fff6a09e7faeb1f4211ced4f39977f57942769af49d5ff9"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-14",
+      "sha256": "0e0e4ecb66d2fb130670c756bb4aaff8d939736e8867b933869fca5e41bfb208"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-15",
+      "sha256": "8a617866a1d84d769cf26e8cc44ff169566cbdd04cf3f927001f4702759137b2"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-16",
+      "sha256": "b65df094d03dc9a7c0bb34cb163627cea8675dd99ed15d740a978096bf1b7626"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-20",
+      "sha256": "3c1e3949516e69ccfe6ffb83cfab60d6ebc0727da499b7bedf88d9efe0b43f62"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-21",
+      "sha256": "9503840446f0f2c3eae7cad99f7ec9d1596f6a37629128d3faa1d7b366cf7d2d"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-22",
+      "sha256": "eddc829f9d898ed30b2e76b0ae31708deb6f98ecddcb5348d15b11eae4f25fdd"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-23",
+      "sha256": "b29dfbc1b530ecb5eb45a290cf0e51411775ae09589a0fc813b042f14ac46aeb"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-24",
+      "sha256": "9d3a062a17ca11ff5e8c522cb49481dadabea63029c7c5814a4255c4a726b2f7"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-27",
+      "sha256": "19fb584b9fcfe0ff973a0a5681415aeeadd3653dfe647cbbb17cb1f48419444d"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-28",
+      "sha256": "f6a329ec6282fa5e0efbbd00e2e453fc4abb7936b6ee8a9535e278176125b693"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-29",
+      "sha256": "57df17f76250b408cae488e1cff8511863da3e81e6362be1a77fe2f9a39459fa"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-30",
+      "sha256": "e25156b30fefb5d71eaf454d113b441107b015cf5128d338ce2544382869cd27"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-31",
+      "sha256": "b96ccba1d37637b8c98506f0b480fab7df823bbe3a984f4507b0e2c46f0cc037"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-03",
+      "sha256": "a0b97c16cdde0253ab5bf69dbb662c549276e4f4aa1e71932674afa4fef9e86b"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-04",
+      "sha256": "e43c46740eec01c4902fbcefe5252498e0fef877e7da7e6a510fcfc286d0a1a6"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-05",
+      "sha256": "972d57c9009dc60dc26a506b450898e7dd77b3d3190081a779a82748e00533fc"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-06",
+      "sha256": "1f5afc8b5391532b3b4ab1e61a8c11a5310febf59e0796979f50d6ca30d5d6f3"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-07",
+      "sha256": "36e46a642ece57097b9a610ac2bd6eee4cb96d7e88e42f97b04153c5ded8b036"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-10",
+      "sha256": "853048b86025cfc74b0f4ca80515aafde084562cfc047ea59db354910241522a"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-11",
+      "sha256": "f7c5a9c8f6f4f4c594a2656e160709a1c4ed982bdd4b9d2557abc7723cb9e6ee"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-12",
+      "sha256": "ec96006afecfcf2b2b48b97d70dc3e6f6d8a00d5df88a357801936bac1a48aa3"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-13",
+      "sha256": "e32d6c14bbd3618e89193acba6365467ebdc4476309044effc22074efa90d7a8"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-14",
+      "sha256": "ebf5730df63e449811ec421e0626180b2f2a0fd273d73f53f2d2d3320da7468b"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-17",
+      "sha256": "cb05396120d3d6cfb106a18e4a5a44f25bc52e317d5adfeaeb1627cb320a30a9"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-18",
+      "sha256": "51b000e315d0bac35fd7d494520c0161916e42c526897a480da61edd80baa7f8"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-19",
+      "sha256": "ad7cb9b7afde2e3ddfa4e478c2543450995ce361a9bc9b22450bee9fa915c6ab"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-20",
+      "sha256": "cc1872556d805475906ac26116b15110708c85d3e104d0e2b03e466ffff5a614"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-21",
+      "sha256": "be09463b1c92310005f02052a6c6cc506aa894a29a09db56dee76c6090f18991"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-24",
+      "sha256": "266050f2fb984885474e6369520d78bc039dde4ea89a28770e52305953663954"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-25",
+      "sha256": "cba786dc8b1ceefdd1c1dcc9971103c6eb3351a2535c659e51679b7a9fffae72"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-26",
+      "sha256": "bd2d95d68edc81166949676de1b8d7592d5a44ff539de2e4988852293d2ab8ce"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-27",
+      "sha256": "52c9400b12f6f3b0b4ae29fa8e7812dfcb680c39b4899ccc7707ccff8085f53f"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-28",
+      "sha256": "c3774feaab828e601ddaee21d3e37d4179a45cb53706d750072c6c469df9b54e"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-31",
+      "sha256": "78ecd403b22f5431b3cb5bc4459559da817da03f4d99d61352305a5f6d1870e9"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-09-01",
+      "sha256": "ade124f2e9a6337741d461a61a97d255e386fde48cc7ebbfc703317cf392df2d"
+    },
+    {
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-09-02",
+      "sha256": "3c28970cc11e8bef6e4d8636af9140824e9ae1a9a9e8e7243702685b49de3140"
+    }
+  ],
+  "database": "(default)",
+  "firstparty": {
+    "amzn_views": {
+      "checks": [
+        "AMZN:inc:exact_financials",
+        "AMZN:bal:exact_financials",
+        "AMZN:cf:exact_financials",
+        "AMZN:metadata:unchanged",
+        "AMZN:estimates:observations_and_horizons_retained",
+        "AMZN:prices:stored_history_retained",
+        "AMZN:quote:price_and_observation_time_verified",
+        "AMZN:financial_repeat:stable"
+      ],
+      "completed_at": "2026-09-13T16:58:48.641863+00:00",
+      "receipt_sha256": "90be986f1198556ffbc0e79a72d09a46490632c39b9503b80634324324925e69"
+    },
+    "bny_views": {
+      "checks": [
+        "BK:inc:exact_verified_financials",
+        "BK:bal:exact_verified_financials",
+        "BK:cf:exact_verified_financials",
+        "BK:metadata:unchanged",
+        "BNY:inc:exact_verified_financials",
+        "BNY:bal:exact_verified_financials",
+        "BNY:cf:exact_verified_financials",
+        "BNY:metadata:unchanged",
+        "estimates:all_observations_retained",
+        "prices:stored_history_connected",
+        "quote:matched_price_with_separate_observation_time",
+        "financial_repeat:stable"
+      ],
+      "completed_at": "2026-09-13T16:58:50.159057+00:00",
+      "receipt_sha256": "4bb2d10f5edffc7f47dfc67f3d250a76df304b1a4af011009785d1d3bc9c64c8"
+    }
+  },
+  "github_runs": {
+    "api": 34769843656,
+    "conclusions": "success",
+    "jobs": 34769843595
+  },
+  "images": {
+    "api": "sha256:cad9fee9bbd777268601ef03e83326c10d89e9e384cd1fce362ff4b36a4c5b57",
+    "daily-prices": "sha256:68ea308019ac36bda63d30f75702cc938efe6f1fbbd307e251b85f9f55b9cf79",
+    "quarterly-financials": "sha256:6ff12483f862e4944b404119268473807f82c7625441bb894105192c12860a7d",
+    "weekly-estimates": "sha256:b93b2865a520b0c0097860be86a23dc43e4a55520b2a0d5d8cd2ba2a9f7ab3b3"
+  },
+  "native_verification": {
+    "exact_atomic_write_count": 43,
+    "protected_documents_unchanged": 1328,
+    "selected_price_count_after": 1330,
+    "server_commit_time": {
+      "__firestore_timestamp__": "2026-09-13T16:57:23.444833+00:00"
+    }
+  },
+  "offline": {
+    "isolated_suites": 7,
+    "kilby_contract_assertions": 53,
+    "tests": 223
+  },
+  "plan_sha256": "d6bf88ee1de4bf72e03d790dac9352746ed03286cd0bbe43f5b032e15503bfb8",
+  "price_basis": {
+    "basis": "yahoo_no_dividend_adjustment",
+    "rationale": "Limit selection to June 12-September 11, 2026: all 21 stored overlapping closes match Yahoo without dividend adjustment to stored four-decimal precision; the 42 absent dates lie between stored boundary bars. No split in the captured June 2021-September 2026 source interval. Preserve all populated OHLC/volume revisions. This narrow repair does not normalize older history with differing adjustment vintages or claim Yahoo Close is universally split-unadjusted.",
+    "source_sha256": "01236ec16dee0dd42fe2486e0b32782cff5c7a66728b71e2f227ee33fedf49af"
+  },
+  "private_evidence_digests": {
+    "amzn_views": {
+      "filename": "amzn-price-guard-website-after-20260913.json",
+      "sha256": "90be986f1198556ffbc0e79a72d09a46490632c39b9503b80634324324925e69"
+    },
+    "apply": {
+      "filename": "bny-price-gap-applied-20260913.json",
+      "sha256": "4244ba914d5927abd12468390fc90dd4352d936a07d3f74e2a1d68f43918f836"
+    },
+    "bny_views": {
+      "filename": "bny-price-gap-website-after-20260913.json",
+      "sha256": "4bb2d10f5edffc7f47dfc67f3d250a76df304b1a4af011009785d1d3bc9c64c8"
+    },
+    "deployment": {
+      "filename": "bny-price-guard-deployment-20260913.json",
+      "sha256": "7898c25a5d76048c1934f6061b9342865e6b803f94daedd5e99aaf83734390ad"
+    },
+    "native": {
+      "filename": "bny-price-gap-verified-20260913.json",
+      "sha256": "274fd41e3d227f2f792cf282d4a980178df7d48fecabcbc37d71a37043ce08b5"
+    },
+    "plan": {
+      "filename": "bny-price-gap-plan-20260913.json",
+      "sha256": "d6bf88ee1de4bf72e03d790dac9352746ed03286cd0bbe43f5b032e15503bfb8"
+    }
+  },
+  "project": "yfinance-cli",
+  "remaining": [
+    "Normal financial scheduled run September 14 at noon America/New_York remains pending; no manual job run.",
+    "Older mixed price-adjustment bases outside the reviewed June-September window are preserved and unresolved.",
+    "BNY/AMZN remaining financial coverage and definition questions retain their prior documented limitations.",
+    "Live Kilby acceptance only through the existing authorized consumer path.",
+    "COST first-party diagnosis and urgent Kilby report-delivery/billing requirement recorded separately.",
+    "CEORater reactivation follows current acceptance work and urgent Kilby bug; no CEORater or chatllm changes made."
+  ],
+  "replay_writes": 0,
+  "rollback": "Run approved-plan pause, enumerate targets after guarded writers drain, conditional rollback only if all selected bars and original atomic server timestamps are unchanged and no nested observations exist; retain audit with rollback marker, verify before resume.",
+  "sec_fallback_mode": "apply",
+  "selected_bars_after": 1330,
+  "selected_bars_before": 1288,
+  "status": "APPROVED REPAIR EXECUTED AND VERIFIED; ISSUE 3 REMAINS OPEN",
+  "symbol": "BNY",
+  "timestamp_note": "Server update time is authoritative; client completion time is retained separately, not reconciled by inventing timestamps.",
+  "writers_drained": true
+}

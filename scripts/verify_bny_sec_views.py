@@ -20,6 +20,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--native", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--price-plan", type=Path, help="Optional approved price plan adds expected new bars; financial baseline remains independently verified")
     args = parser.parse_args()
     require(not args.output.exists() and not args.output.resolve().is_relative_to(Path(__file__).resolve().parents[1]),
             "Use a new private receipt path")
@@ -69,6 +70,14 @@ def main():
         result["checks"].append("estimates:all_observations_retained")
         prices = fetch("prices", "/api/prices/BNY")
         stored = sorted([d["data"] for d in native["datasets"]["prices"].values()], key=lambda d: d["date"])
+        if args.price_plan:
+            from price_repair import validate
+            plan = read(args.price_plan)
+            validate(plan)
+            require(plan['symbol'] == 'BNY', 'BNY price expectation required')
+            require(not ({r['date'] for r in stored} & {w['data']['date'] for w in plan['writes']}), 'Price expectation overwrites existing observation')
+            stored = sorted(stored + [w['data'] for w in plan['writes']], key=lambda d: d['date'])
+            result['expected_price_plan_sha256'] = digest(plan)
         earlier = {r["time"]: r for r in prices if r["time"] < stored[-1]["date"]}
         for row in stored[:-1]:
             require(row["date"] in earlier and all(earlier[row["date"]].get(k) == row.get(k)

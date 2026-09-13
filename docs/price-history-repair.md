@@ -4,7 +4,9 @@ The reusable operator workflow fills absent daily documents for an already
 reviewed security. It uses the same canonical route or ordinary enrollment
 control as readers and maintenance. It does not discover identity from ticker,
 CIK or name, enroll securities, or turn a merger/succession into a rename.
-The first proposed live application is BNY; it has **not executed**.
+The first live application, BNY, was subsequently approved, executed and fully
+verified September 13. See [execution record](bny-price-execution-20260913.json).
+The preparation details below are retained as the exact reviewed proposal.
 
 ## BNY evidence and selection
 
