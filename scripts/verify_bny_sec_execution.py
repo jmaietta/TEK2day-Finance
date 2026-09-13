@@ -96,7 +96,8 @@ def main():
                 raise AssertionError("Retired maintenance write accepted")
             fallback_results, fallback_failures = run_fallback(["BNY"], db=db, mode="apply")
             require(not fallback_failures, "Bounded scheduled fallback rerun failed")
-            require(not any("period" in row for row in fallback_results), "Repaired period was not skipped")
+            require(all(row.get("status") == "stored_complete" for row in fallback_results if "period" in row),
+                    "Repaired period was not skipped")
         require(storage.public_symbol("BK") == storage.public_symbol("BNY") == "BNY", "Old/new website routing mismatch")
         try:
             storage.get_ticker_meta("BK")

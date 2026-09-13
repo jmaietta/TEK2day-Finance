@@ -135,7 +135,8 @@ def test_scheduler_skips_complete_march_and_fills_only_june(db, evidence):
     result, failures = sm.run_fallback(['BNY'], client=Client(), db=db, mode='observe', now=NOW,
                                      yahoo_seen={'BNY': ([], [])})
     assert not failures and db.writes == 0
-    assert [r['period'] for r in result if 'period' in r] == ['2026-Q2']
+    assert [r['period'] for r in result if r.get('status') == 'fill'] == ['2026-Q2']
+    assert [r['period'] for r in result if r.get('status') == 'stored_complete'] == ['2026-Q1']
     result, failures = sm.run_fallback(['BNY'], client=Client(), db=db, mode='apply', now=NOW,
                                      yahoo_seen={'BNY': ([], [])})
     assert not failures and db.writes == 2

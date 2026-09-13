@@ -15,6 +15,8 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--commit', default='e9e28afd0536c5d8bc1ee552dee6449466fdbb11',
                         help='Expected source commit; can verify subsequent SEC repair guard builds')
+    parser.add_argument('--sec-mode', choices=('off', 'observe', 'apply'), default='observe',
+                        help='Expected, already-authorized mode; this read-only check never changes it')
     args = parser.parse_args()
     require(not args.output.exists(), 'Use a new receipt path')
     sha = args.commit
@@ -59,7 +61,7 @@ def main():
                'spec.template.spec.template.spec.containers[0].env')
     env = job['spec']['template']['spec']['template']['spec']['containers'][0]['env']
     receipt['sec_fallback_mode'] = next((e.get('value') for e in env if e['name'] == 'SEC_FALLBACK_MODE'), 'off')
-    require(receipt['sec_fallback_mode'] == 'observe', 'SEC fallback mode unexpectedly changed')
+    require(receipt['sec_fallback_mode'] == args.sec_mode, 'SEC fallback mode unexpectedly changed')
     receipt['writers_drained'] = True
     receipt['completed_at'] = datetime.now(timezone.utc).isoformat()
     with args.output.open('x', encoding='utf-8') as handle:

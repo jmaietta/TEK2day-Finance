@@ -3,6 +3,13 @@
 This record is deliberately incomplete until the acceptance evidence exists.
 It must not be used as authorization to integrate or publish renamed securities.
 
+The [September 13 scheduled-refresh follow-up](bny-refresh-followup-20260913.md)
+records the failed Saturday observe-mode execution, the next Monday noon
+Eastern schedule, and two subsequent maintenance corrections. The user supplied
+Kilby income, balance-sheet and cash-flow screenshots showing the repaired June
+data; the balance sheet also matches TEK2day. These authorized-path display
+checks pass. Raw partner response and authorization checks remain separate.
+
 September 13 financial follow-up: the approved BNY June repair was applied and
 verified. The [execution receipt](bny-sec-repair-execution-20260913.json) records
 22 gap fills, zero conflicts and two atomic writes. The [review and rollback
@@ -22,7 +29,7 @@ pre-execution validation included 146 offline tests and 53 pinned Kilby assertio
 | SEC fallback | BNY-only apply mode, financial job generation 4 Ready; no manual Cloud Run job execution |
 | Live repair/migration writes in this session | BK/BNY migration September 10; XOM identity publication September 12; approved BNY June SEC repair September 13 at 03:47:44.132463Z, 22 fields/two writes; originals and other history retained |
 | Migration status | Published 2026-09-10T18:09:20.380321Z, plan 17f04fb3c5f56030356764b271a6fb860531be71915849798d30f019d2ab3bfd |
-| Live partner checks | Not performed; existing authorized Kilby path required |
+| Live partner checks | User-supplied Kilby screenshots confirm all three statement displays; raw response and authorization checks remain pending through that authorized path |
 | Latest repair offline validation | 146 tests; 53 pinned Kilby producer/consumer assertions; earlier broad validation remains in the preflight records |
 | Runtime validation limit | Pinned image builds, Cloud Run startup and workflow smoke test passed; native migration/readers and no-op maintenance guards passed; live Kilby acceptance pending |
 | Corporate event | BK→BNY, ordinary common stock, 2026-05-21; issuer CIK 0001390777; CUSIP 064058100; NYSE/XNYS; provider-observed USD |
@@ -49,7 +56,7 @@ work, now enabled for BNY after the approved June repair. The
 current images; the [execution receipt](bny-sec-repair-execution-20260913.json)
 records actual application and verification. No manual Cloud Run job was triggered.
 
-Remaining acceptance: live partner verification through Kilby; the next ordinary
+Remaining acceptance: raw partner verification through Kilby; the next ordinary
 financial-job execution in apply mode; existing price gaps (no stored bars
 between July 2 and July 10, or July 17 and September 3, 2026); incomplete 2021-FY;
 March revenue reconciliation. The financial repair preserved all 1,288 prices

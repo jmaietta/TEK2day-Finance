@@ -318,6 +318,11 @@ def run_fallback(active_symbols, *, yahoo_seen=None, client=None, db=None, mode=
                 period = f"{d.year}-FY" if filing["form"] == "10-K" else f"{d.year}-Q{(d.month - 1)//3+1}"
                 stored = root.collection("financials").document(period).get().to_dict()
                 if stored is not None and not mapped_missing(stored, binding, end):
+                    # The parent may have just seen Yahoo's still-incomplete
+                    # stub. Report verified stored coverage even when this run
+                    # has nothing to write, so an earlier repair counts too.
+                    results.append({"symbol": symbol, "period": period, "status": "stored_complete",
+                                    "mode": mode, "source": "stored reviewed mapping"})
                     continue
                 matches = [x for x in all_yahoo if x.get("period") == period and x.get("period_end") == end]
                 require(len(matches) <= 1, "Ambiguous Yahoo period")

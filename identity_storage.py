@@ -1,8 +1,25 @@
 """Firestore routing for reviewed securities; unrelated issuers keep legacy paths."""
 from copy import deepcopy
+import re
 
 from security_identity import (IdentityError, digest, event_for, require,
                                resolve_state, route_path)
+
+
+def financial_frequency(data, period):
+    """Accept the existing readers' absent-frequency quarterly representation.
+
+    The document key supplies only frequency, never issuer/security continuity.
+    Annual documents still require explicit FY; malformed keys fail closed.
+    """
+    require(re.fullmatch(r"\d{4}-(?:Q[1-4]|FY)", period) is not None,
+            "invalid maintenance financial period")
+    frequency = data.get("freq")
+    if frequency is None and re.fullmatch(r"\d{4}-Q[1-4]", period):
+        frequency = "Q"
+    require(frequency == ("FY" if period.endswith("-FY") else "Q"),
+            "maintenance financial frequency mismatch")
+    return frequency
 
 
 def context(db, symbol, *, public=False, write=False, transaction=None):
@@ -72,8 +89,11 @@ def guarded_write(db, symbol, entries, *, merge=False, write_once=False, expecte
                 section, key = suffix.split('/')[1:]
                 identity_key = "period" if section == "financials" else "date"
                 require(data.get(identity_key) == key, "maintenance document period mismatch")
+                if section == "financials":
+                    financial_frequency(data, key)
                 if old and section == "financials":
-                    require(all(old.get(k) == data.get(k) for k in ("period", "period_end", "freq")),
+                    require(all(old.get(k) == data.get(k) for k in ("period", "period_end"))
+                            and financial_frequency(old, key) == financial_frequency(data, key),
                             "maintenance financial period identity changed")
             ref = db.document(root.path + suffix)
             if write_once and snap.exists:
@@ -81,6 +101,9 @@ def guarded_write(db, symbol, entries, *, merge=False, write_once=False, expecte
                 # because the financial period already exists.
                 prior_values = {k: v for k, v in old.items() if k != "fetched_at"}
                 next_values = {k: v for k, v in data.items() if k != "fetched_at"}
+                if suffix.startswith("/financials/"):
+                    prior_values["freq"] = financial_frequency(old, key)
+                    next_values["freq"] = financial_frequency(data, key)
                 if digest(prior_values) != digest(next_values):
                     tx.set(ref.collection("identity_observations").document(digest(data)), data)
                 continue

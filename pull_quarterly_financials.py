@@ -291,7 +291,7 @@ def main():
     # Successful SEC recovery is assessed from storage, separately from Yahoo's
     # earlier response. Do not clear annual, quote or estimate failures with it.
     recovered = {r["symbol"] for r in sec_results if r.get("mode") == "apply"
-                 and r.get("status") in {"fill", "noop", "yahoo_available"}}
+                 and r.get("status") in {"fill", "noop", "yahoo_available", "stored_complete"}}
     if recovered:
         from security_identity import earnings_requirement
         from sec_fallback import coverage_missing
