@@ -1,0 +1,125 @@
+{
+  "active_profile": "us-gaap-bank-bny-v1",
+  "additional_repair_executed": false,
+  "api": {
+    "spec": {
+      "template": {
+        "spec": {
+          "containers": [
+            {
+              "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/api:beb5a413f3dbd66fa4ade6653a8be6fdfca10b80"
+            }
+          ]
+        }
+      }
+    },
+    "status": {
+      "latestReadyRevisionName": "tek2day-api-00133-rrj",
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100,
+          "revisionName": "tek2day-api-00133-rrj"
+        }
+      ]
+    }
+  },
+  "api_revision": {
+    "status": {
+      "imageDigest": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/api@sha256:cfb3cee9d002f80ccc819238e71152c8c93e8412a7e78104dffc2659cdfafe7a"
+    }
+  },
+  "checked_at": "2026-09-13T05:41:17.630758+00:00",
+  "commit": "beb5a413f3dbd66fa4ade6653a8be6fdfca10b80",
+  "completed_at": "2026-09-13T05:41:59.283556+00:00",
+  "first_party_checks": {
+    "checks": [
+      "BK:inc:exact_verified_financials",
+      "BK:bal:exact_verified_financials",
+      "BK:cf:exact_verified_financials",
+      "BK:metadata:unchanged",
+      "BNY:inc:exact_verified_financials",
+      "BNY:bal:exact_verified_financials",
+      "BNY:cf:exact_verified_financials",
+      "BNY:metadata:unchanged",
+      "estimates:all_observations_retained",
+      "prices:stored_history_connected",
+      "quote:matched_price_with_separate_observation_time",
+      "financial_repeat:stable"
+    ],
+    "completed_at": "2026-09-13T05:41:30.352605+00:00",
+    "private_receipt_sha256": "4f9867845dcabaf1428dd89d6a1f8d744199b4579ad3d61b403db407bf8b99a2"
+  },
+  "github_runs": {
+    "api": 34740802990,
+    "conclusion": "success",
+    "maintenance": 34740802977
+  },
+  "images": {
+    "api": "sha256:cfb3cee9d002f80ccc819238e71152c8c93e8412a7e78104dffc2659cdfafe7a",
+    "daily-prices": "sha256:d2d84416ced42fb4958c84a3b4644d80f5068e2675ea8761404cb8c0b9d82f86",
+    "quarterly-financials": "sha256:ac5b0e4c5e79d28358cd4d2e6c3659ada724aeb2102d28f7f4fcf8d535097fa9",
+    "weekly-estimates": "sha256:67ff4b6dacb9fed8d2cabfe63a1f03548919a4f60319df5ddf4e38007422134f"
+  },
+  "jobs": {
+    "daily-price-pull": {
+      "spec": {
+        "template": {
+          "spec": {
+            "template": {
+              "spec": {
+                "containers": [
+                  {
+                    "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/daily-prices:latest"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "quarterly-financial-pull": {
+      "spec": {
+        "template": {
+          "spec": {
+            "template": {
+              "spec": {
+                "containers": [
+                  {
+                    "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/quarterly-financials:latest"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "weekly-estimate-pull": {
+      "spec": {
+        "template": {
+          "spec": {
+            "template": {
+              "spec": {
+                "containers": [
+                  {
+                    "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/weekly-estimates:latest"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "kilby_contract_assertions": 53,
+  "offline_tests": 173,
+  "private_deployment_sha256": "2771ff8b3d5471d079752626b92a00f3f973ffd3aa914886f9bf0c7cc89590c9",
+  "project": "yfinance-cli",
+  "region": "us-central1",
+  "sec_fallback_mode": "apply",
+  "staged_profile": "us-gaap-bank-bny-v2",
+  "writers_drained": true
+}

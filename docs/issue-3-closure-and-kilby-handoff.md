@@ -10,9 +10,11 @@ Kilby income, balance-sheet and cash-flow screenshots showing the repaired June
 data; the balance sheet also matches TEK2day. These authorized-path display
 checks pass. Raw partner response and authorization checks remain separate.
 
-The maintenance correction is deployed at `db81352fe071eafaa2555ce61ef5023b297dd1e7`,
-revision `tek2day-api-00132-49c`, API build 34739763601 and job builds 34739763602,
-all successful; [immutable image receipt](bny-refresh-deployment-20260913.json).
+The maintenance correction originated at `db81352fe071eafaa2555ce61ef5023b297dd1e7`.
+The final serving build includes the inactive mapping and review artifacts at
+`beb5a413f3dbd66fa4ade6653a8be6fdfca10b80`, revision `tek2day-api-00133-rrj`,
+API build 34740802990 and job builds 34740802977, all successful;
+[immutable image and 12 first-party check receipt](bny-staged-deployment-20260913.json).
 The [three-field follow-up repair](bny-additional-repair-20260913.md) is prepared
 with a native read-only preflight and exact rollback, but NOT executed. Its v2
 mapping is staged; BNY's active binding remains v1. Do not report those three
@@ -30,16 +32,16 @@ pre-execution validation included 146 offline tests and 53 pinned Kilby assertio
 | Item | Recorded state |
 | --- | --- |
 | GitHub source base | e39cdd98707974ba324a2d6ebb67a96353f48e07 |
-| Serving API revision | tek2day-api-00132-49c; 100% traffic, verified September 13 UTC |
-| Serving API immutable image | sha256:e3c45705ba70f550926da521e7c600ce2a4212eaec6c818458c91e812add31ab |
+| Serving API revision | tek2day-api-00133-rrj; 100% traffic, verified September 13 UTC |
+| Serving API immutable image | sha256:cfb3cee9d002f80ccc819238e71152c8c93e8412a7e78104dffc2659cdfafe7a |
 | Implementation commit | 30d6b90646fade38609f3df21e4ab31af5066170; published |
-| Deployed commit | db81352fe071eafaa2555ce61ef5023b297dd1e7 |
-| Build/deploy runs | API 34739763601; maintenance images 34739763602; both successful; [exact receipt](bny-refresh-deployment-20260913.json) |
+| Deployed commit | beb5a413f3dbd66fa4ade6653a8be6fdfca10b80 |
+| Build/deploy runs | API 34740802990; maintenance images 34740802977; both successful; [exact receipt](bny-staged-deployment-20260913.json) |
 | SEC fallback | BNY-only apply mode, financial job generation 4 Ready; no manual Cloud Run job execution |
 | Live repair/migration writes in this session | BK/BNY migration September 10; XOM identity publication September 12; approved BNY June SEC repair September 13 at 03:47:44.132463Z, 22 fields/two writes; originals and other history retained |
 | Migration status | Published 2026-09-10T18:09:20.380321Z, plan 17f04fb3c5f56030356764b271a6fb860531be71915849798d30f019d2ab3bfd |
 | Live partner checks | User-supplied Kilby screenshots confirm all three statement displays; raw response and authorization checks remain pending through that authorized path |
-| Latest repair offline validation | 146 tests; 53 pinned Kilby producer/consumer assertions; earlier broad validation remains in the preflight records |
+| Latest offline validation | 173 tests; 53 pinned Kilby producer/consumer assertions; native prospective repair preflight passed with zero writes |
 | Runtime validation limit | Pinned image builds, Cloud Run startup and workflow smoke test passed; native migration/readers and no-op maintenance guards passed; live Kilby acceptance pending |
 | Corporate event | BK→BNY, ordinary common stock, 2026-05-21; issuer CIK 0001390777; CUSIP 064058100; NYSE/XNYS; provider-observed USD |
 | BNY financial coverage | June's 22 gaps filled; SEC subset explicitly partial. March retained; its revenue basis difference and incomplete 2021-FY remain separate limitations |
@@ -61,8 +63,8 @@ observations. Twelve first-party website checks passed. Migration preserved
 existing history; it did not supply the absent June quarter. See the
 [SEC fallback implementation](sec-financial-fallback.md) for the separate local
 work, now enabled for BNY after the approved June repair. The
-[latest deployment receipt](bny-sec-repair-deployment-20260913.json) records the
-current images; the [execution receipt](bny-sec-repair-execution-20260913.json)
+[original repair deployment receipt](bny-sec-repair-deployment-20260913.json) records the
+repair images; the [execution receipt](bny-sec-repair-execution-20260913.json)
 records actual application and verification. No manual Cloud Run job was triggered.
 
 Remaining acceptance: raw partner verification through Kilby; the next ordinary
@@ -125,9 +127,18 @@ replace the pending receipt entries with verified final values first.
 >
 > Independently verify the final TEK2day state in
 > docs/issue-3-closure-and-kilby-handoff.md. The serving commit is
-> 8e04f0237668fb9c209b471a28df120942b7ff6a, revision tek2day-api-00131-jnd,
-> with API build 34735420348 and maintenance build 34735420363 successful.
-> Exact image digests are in docs/bny-sec-repair-deployment-20260913.json.
+> beb5a413f3dbd66fa4ade6653a8be6fdfca10b80, revision tek2day-api-00133-rrj,
+> with API build 34740802990 and maintenance build 34740802977 successful.
+> Exact image digests are in docs/bny-staged-deployment-20260913.json.
+> This includes db81352's scheduled-refresh correction and a staged, inactive
+> three-field mapping. The active BNY profile remains v1. Plan
+> 05fbe370165a5a2118b157c4647df5c949b5a78dbbddc3c290f3e41d58591f04
+> is PREPARED, NOT EXECUTED; review docs/bny-additional-repair-20260913.md.
+> Native read-only preflight, 173 offline tests, 53 pinned Kilby assertions and
+> 12 first-party checks passed. The next scheduled financial job is Monday,
+> September 14, noon America/New_York; no apply-mode scheduled run has yet
+> occurred. User screenshots confirm Kilby receives all three repaired statement
+> displays; raw partner/authorization checks remain pending.
 > The BK/BNY continuity migration was published September 10 at
 > 18:09:20.380321Z; its plan is
 > 17f04fb3c5f56030356764b271a6fb860531be71915849798d30f019d2ab3bfd.
@@ -191,7 +202,7 @@ replace the pending receipt entries with verified final values first.
 > Firestore exports or credentials. Check quotes, earnings, estimates, history
 > and metadata independently, retaining quote observation time, reporting
 > periods, estimate horizons and provenance through recovered/revised reports.
-> Remaining acceptance at the September 13 receipt: live Kilby checks, the
+> Remaining acceptance at the September 13 receipt: raw Kilby checks, the
 > next ordinary apply-mode execution, existing price-history gaps, incomplete
 > 2021-FY and March revenue reconciliation. June repair is verified complete
 > for the reviewed subset. Verify final dispositions before integrating; a live
