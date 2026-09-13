@@ -28,7 +28,7 @@ Repository = "https://github.com/jmaietta/TEK2day-Finance"
 
 [tool.setuptools]
 packages = ["sec_catalog"]
-py-modules = ["terminal", "cli", "config", "storage", "fetchers", "universe", "app", "seo_pages", "auth", "watchlist", "excel_export", "exports", "identity_storage", "security_identity", "ticker_migration", "envelope", "sec_mapping", "sec_fallback", "sec_maintenance", "sec_enrollment", "sec_batch", "sec_cohort", "registrant_succession", "succession_filings", "succession_storage", "succession_migration"]
+py-modules = ["terminal", "cli", "config", "storage", "fetchers", "universe", "app", "seo_pages", "auth", "watchlist", "excel_export", "exports", "identity_storage", "security_identity", "ticker_migration", "price_repair", "envelope", "sec_mapping", "sec_fallback", "sec_maintenance", "sec_enrollment", "sec_batch", "sec_cohort", "registrant_succession", "succession_filings", "succession_storage", "succession_migration"]
 
 [tool.setuptools.package-data]
 sec_catalog = ["enrollments.json"]

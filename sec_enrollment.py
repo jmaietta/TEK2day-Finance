@@ -104,9 +104,10 @@ def guarded_write(db, symbol, entries, *, merge=False, write_once=False, expecte
                         require(all(old.get(k) == data.get(k) for k in ('period', 'period_end'))
                                 and financial_frequency(old, key) == financial_frequency(data, key), 'Reporting period changed')
             ref = db.document(root.path + suffix)
-            if write_once and snap.exists:
-                prior = {k: v for k, v in old.items() if k != 'fetched_at'}
-                revised = {k: v for k, v in data.items() if k != 'fetched_at'}
+            if snap.exists and (write_once or (suffix.startswith('/prices/') and old.get('price_repair'))):
+                from identity_storage import observation_values
+                prior = observation_values(old, suffix)
+                revised = observation_values(data, suffix)
                 if suffix.startswith('/financials/'):
                     prior['freq'] = financial_frequency(old, key)
                     revised['freq'] = financial_frequency(data, key)

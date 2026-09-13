@@ -289,3 +289,19 @@ Append this to the returning chatllm prompt above:
 > exports. TEK2day #3 remains open for its remaining acceptance criteria;
 > chatllm #221 must remain open and #233 closed. Do not enable proposed rename
 > integration merely because AMZN or BNY financial data is now populated.
+
+## Price-history preparation and CEORater follow-up, September 13
+
+See [price-history repair](price-history-repair.md) and the
+[exact BNY proposal](bny-price-gap-review-20260913.json). The reusable tooling
+and maintenance guard are prepared; the 42 BNY price inserts and one atomic
+audit are not yet approved or executed. Normal financial refresh verification
+remains pending Monday September 14 at noon Eastern. Earlier financial repairs
+are complete within their documented scope; this is a separate history repair.
+
+After issue #3's remaining acceptance work, the user wants CEORater enabled
+again in TEK2day Finance and Kilby, using the recently repaired CEORater dataset,
+API and MCP. Review current published CEORater code/contracts and authorization
+then; do not infer the new contract from the old integration. Chatllm remains
+unchanged in this phase, #221 remains open and #233 remains closed. No CEORater
+activation or additional live repair is authorized by this documentation.

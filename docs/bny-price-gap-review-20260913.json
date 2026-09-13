@@ -1,0 +1,489 @@
+{
+  "atomic_write_count": 43,
+  "basis_review": {
+    "basis": "yahoo_no_dividend_adjustment",
+    "rationale": "Limit selection to June 12-September 11, 2026: all 21 stored overlapping closes match Yahoo without dividend adjustment to stored four-decimal precision; the 42 absent dates lie between stored boundary bars. No split in the captured June 2021-September 2026 source interval. Preserve all populated OHLC/volume revisions. This narrow repair does not normalize older history with differing adjustment vintages or claim Yahoo Close is universally split-unadjusted.",
+    "source_sha256": "01236ec16dee0dd42fe2486e0b32782cff5c7a66728b71e2f227ee33fedf49af"
+  },
+  "conflicts": [
+    {
+      "field": "volume",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-06-12",
+      "provider_sha256": "77401881900e0d9d3ffaec3885936dedbf3439156cb7b02008b3e670cb412fef",
+      "selection": "retain_existing_observation",
+      "stored_sha256": "c9ffe77ef50847adf767abc923c59e95a66a0fca9c5e5439aeb5eab076343ff5"
+    },
+    {
+      "field": "high",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-06-15",
+      "provider_sha256": "e17a6f15170f52f9b261488e47827429dfa71e9f45c804b2c74d9ae10c5d8b51",
+      "selection": "retain_existing_observation",
+      "stored_sha256": "e1a5699477a32cd542a472eb48db9501e5b7e1566bd07b889d21581a09ee2a10"
+    },
+    {
+      "field": "volume",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-06-15",
+      "provider_sha256": "6966a720043300bd09786141e064a5081d723d7eb640ad9ac3cb29dca695ad5c",
+      "selection": "retain_existing_observation",
+      "stored_sha256": "824d3ad91c7721862818668259a4f9bd116c6320360f94f80dfc6c80b2ff36a9"
+    },
+    {
+      "field": "volume",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-06-16",
+      "provider_sha256": "b82e87a0f7f14e1e144d2d451727c0ff4f51937905d6cecae68f8ba6a3723d8b",
+      "selection": "retain_existing_observation",
+      "stored_sha256": "d9c7fd5561c1aaa25ec40263f2a8049241b6eae670413c3b66c5518025e02145"
+    },
+    {
+      "field": "volume",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-06-17",
+      "provider_sha256": "db81648e92d9c5038e7dd6f7a5e2a6e8b7fd42e7c370426fe391d37a67a4171c",
+      "selection": "retain_existing_observation",
+      "stored_sha256": "d7d2828770f0f05d26eb6ba3c98ad7f0842df88f01f3fa214983534adf27510f"
+    },
+    {
+      "field": "volume",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-06-18",
+      "provider_sha256": "637d55e127dea4d7d8bfc7e300b008ea99a1a23ed7f08407f301dfed9367ddfb",
+      "selection": "retain_existing_observation",
+      "stored_sha256": "87fcf372e5ce1a0ffbec0f457abaf2aba8f75bf3463aed54b4de02f1bc287834"
+    },
+    {
+      "field": "volume",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-06-23",
+      "provider_sha256": "dba760400e44ca2d522e50e689e8c5de99a5227d0143f60368c2c4ae89dc150b",
+      "selection": "retain_existing_observation",
+      "stored_sha256": "c27ccde83434e2e55bc700958373808a31ec3bf5ec0609263d6d258cf0e10269"
+    },
+    {
+      "field": "volume",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-06-24",
+      "provider_sha256": "2c6d13d8e739562b84a4037e91e55d34d575d610d6933d27264f85e53e327312",
+      "selection": "retain_existing_observation",
+      "stored_sha256": "8ec7778afb04222b3ba31654d6fb467d3b104861d67243b6fcf39e4cc412da23"
+    },
+    {
+      "field": "volume",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-06-25",
+      "provider_sha256": "2a56d313d39c581757ec1c8db4176fae2dbc64d66ba989e8b19f3061144842bd",
+      "selection": "retain_existing_observation",
+      "stored_sha256": "39cb84e5c7acd7f56e68c886216545b1eda7db2d157890df1a49f4685cc550c4"
+    },
+    {
+      "field": "volume",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-06-26",
+      "provider_sha256": "06ffa1d10a219733c96d621cd3252950ac326d03a34f159c5a118f012bfc1c44",
+      "selection": "retain_existing_observation",
+      "stored_sha256": "d32df58a47e180cffbe86f9a5e9eda5e6ac9ec84f4548ab8d20b9df524b0b5a7"
+    },
+    {
+      "field": "low",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-06-29",
+      "provider_sha256": "a75d638a1d5dae99f9011c819058e1e2fc3103e82d8ca8009ec499ad2b44e645",
+      "selection": "retain_existing_observation",
+      "stored_sha256": "e287ca1814001e4b706001afd5a1b5af4cd44dcfe6315a2fa03758f6e70bb6fc"
+    },
+    {
+      "field": "volume",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-06-29",
+      "provider_sha256": "384f757bc3f3076d42bcb150ec79b983343789f5b78ee69945627d989d3a819f",
+      "selection": "retain_existing_observation",
+      "stored_sha256": "619bd49bb900f0749b591b12f877eb22b0f3ddb68baa7c3ca39fb4159b0c7392"
+    },
+    {
+      "field": "volume",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-06-30",
+      "provider_sha256": "d9f329645c999aa2b88be2383460e8193e0aea7807161691057e44be857986cd",
+      "selection": "retain_existing_observation",
+      "stored_sha256": "1e5f2c5a30f0a364fce7d5fca699bea98ae5707ecd6f4c3eb80c68fbc76040ff"
+    },
+    {
+      "field": "volume",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-01",
+      "provider_sha256": "a34461036062accc0968fbb4c690316948a410c25a19c9b8f2542444b9fb0203",
+      "selection": "retain_existing_observation",
+      "stored_sha256": "18344c28f589312c1a9e7e8304d84f38a666b1e9487c6fc8a4856fc448ff8871"
+    },
+    {
+      "field": "volume",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-02",
+      "provider_sha256": "8fe047b8fcdbf02a326921ed90cb18af1df71d3866bb26f21c55a8b65d1053f4",
+      "selection": "retain_existing_observation",
+      "stored_sha256": "42dc133a2d5e8d90b6aefad7ba69b8552590305f8fe3857e121b08032e9cebd1"
+    },
+    {
+      "field": "volume",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-10",
+      "provider_sha256": "b2e671b8c0bdcf6a3c928d5918438024519a43e57ad4cd43af1176792d4a37f6",
+      "selection": "retain_existing_observation",
+      "stored_sha256": "82d744f11822793f09e398e349fc6b6136d66765ef8025cb9fe7d17897c6db23"
+    },
+    {
+      "field": "high",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-17",
+      "provider_sha256": "980bde6aeef2b3eb364753565818661e1bdd023f1ed446783acae4c8cbbbf095",
+      "selection": "retain_existing_observation",
+      "stored_sha256": "2efe13b1406c13c03186c201f2a0bb65183783e611e1f57b19ada0dbe68be02c"
+    },
+    {
+      "field": "volume",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-17",
+      "provider_sha256": "9230ce344ea9b03deb8dc4005034696b3645d7a6be27b8fa0cc943a235cebf7e",
+      "selection": "retain_existing_observation",
+      "stored_sha256": "549e1e1027741785242f5f5f19b9a70b4ea9895af93bd5ce1f3335b46c320aef"
+    },
+    {
+      "field": "low",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-09-11",
+      "provider_sha256": "1a07a65d86221e8fe7e30086105c6043ae0e29932d2aa4337d5c889e30a0ad53",
+      "selection": "retain_existing_observation",
+      "stored_sha256": "2c70085bd81110749ff1c307866eb8e5bf655d9dc4adbdf1de5c0d4f6726f86b"
+    },
+    {
+      "field": "volume",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-09-11",
+      "provider_sha256": "a1f54be832fd81467444bff89441d040aedff3cc6418d77c5bda35f5923ba256",
+      "selection": "retain_existing_observation",
+      "stored_sha256": "6bb3a76034e855f64bc7a565f92ac022b3262beb7c79b53a734cc75f1b47f576"
+    }
+  ],
+  "control_path": "security_routes/bny-common-2026-05-21",
+  "control_sha256": "64dd47e8f5edacd3e50a375f2fd0cf56daa3ffa573fa87e64a6bcbb8d5221cce",
+  "database": "(default)",
+  "missing_dates": [
+    "2026-06-22",
+    "2026-07-06",
+    "2026-07-07",
+    "2026-07-08",
+    "2026-07-09",
+    "2026-07-13",
+    "2026-07-14",
+    "2026-07-15",
+    "2026-07-16",
+    "2026-07-20",
+    "2026-07-21",
+    "2026-07-22",
+    "2026-07-23",
+    "2026-07-24",
+    "2026-07-27",
+    "2026-07-28",
+    "2026-07-29",
+    "2026-07-30",
+    "2026-07-31",
+    "2026-08-03",
+    "2026-08-04",
+    "2026-08-05",
+    "2026-08-06",
+    "2026-08-07",
+    "2026-08-10",
+    "2026-08-11",
+    "2026-08-12",
+    "2026-08-13",
+    "2026-08-14",
+    "2026-08-17",
+    "2026-08-18",
+    "2026-08-19",
+    "2026-08-20",
+    "2026-08-21",
+    "2026-08-24",
+    "2026-08-25",
+    "2026-08-26",
+    "2026-08-27",
+    "2026-08-28",
+    "2026-08-31",
+    "2026-09-01",
+    "2026-09-02"
+  ],
+  "native_collections": [
+    "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/estimates",
+    "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/financials",
+    "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/financials/2021-FY/identity_observations",
+    "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/financials/2022-FY/identity_observations",
+    "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/financials/2023-FY/identity_observations",
+    "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/financials/2024-FY/identity_observations",
+    "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/financials/2025-FY/identity_observations",
+    "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/financials/2026-Q2/identity_observations",
+    "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/identity_observations",
+    "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices",
+    "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-09-04/identity_observations",
+    "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-09-08/identity_observations",
+    "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-09-09/identity_observations",
+    "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-09-10/identity_observations"
+  ],
+  "native_document_count": 1328,
+  "native_tree_sha256": "bf330ee721ff031e38bd2aee7b546e15da01ba7c352d0ba36a066bc1c1b8588d",
+  "overlap_count": 21,
+  "plan_sha256": "d6bf88ee1de4bf72e03d790dac9352746ed03286cd0bbe43f5b032e15503bfb8",
+  "project": "yfinance-cli",
+  "proposed_writes": [
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-06-22",
+      "sha256": "63192ca257ea4716c6aeb33632f66aa738d90149b03ee6fbad440d87135e7df7"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-06",
+      "sha256": "56a6d977d88fba56b0780efa70cfeb87c912443200c82df4911a2ade0c81a8f5"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-07",
+      "sha256": "b3fd93825ef20f02415438ee8819d32f010d6e860ef14cc470fc934795a4b649"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-08",
+      "sha256": "a885abc8b6c8544906fd6e348860000d9f52864174c4908855948a18c155b8cc"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-09",
+      "sha256": "d20fb297f822b87a6c64155e2c80b184847ff194e858914cf11d73eb0377c994"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-13",
+      "sha256": "cd172370f136701e7fff6a09e7faeb1f4211ced4f39977f57942769af49d5ff9"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-14",
+      "sha256": "0e0e4ecb66d2fb130670c756bb4aaff8d939736e8867b933869fca5e41bfb208"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-15",
+      "sha256": "8a617866a1d84d769cf26e8cc44ff169566cbdd04cf3f927001f4702759137b2"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-16",
+      "sha256": "b65df094d03dc9a7c0bb34cb163627cea8675dd99ed15d740a978096bf1b7626"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-20",
+      "sha256": "3c1e3949516e69ccfe6ffb83cfab60d6ebc0727da499b7bedf88d9efe0b43f62"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-21",
+      "sha256": "9503840446f0f2c3eae7cad99f7ec9d1596f6a37629128d3faa1d7b366cf7d2d"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-22",
+      "sha256": "eddc829f9d898ed30b2e76b0ae31708deb6f98ecddcb5348d15b11eae4f25fdd"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-23",
+      "sha256": "b29dfbc1b530ecb5eb45a290cf0e51411775ae09589a0fc813b042f14ac46aeb"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-24",
+      "sha256": "9d3a062a17ca11ff5e8c522cb49481dadabea63029c7c5814a4255c4a726b2f7"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-27",
+      "sha256": "19fb584b9fcfe0ff973a0a5681415aeeadd3653dfe647cbbb17cb1f48419444d"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-28",
+      "sha256": "f6a329ec6282fa5e0efbbd00e2e453fc4abb7936b6ee8a9535e278176125b693"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-29",
+      "sha256": "57df17f76250b408cae488e1cff8511863da3e81e6362be1a77fe2f9a39459fa"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-30",
+      "sha256": "e25156b30fefb5d71eaf454d113b441107b015cf5128d338ce2544382869cd27"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-31",
+      "sha256": "b96ccba1d37637b8c98506f0b480fab7df823bbe3a984f4507b0e2c46f0cc037"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-03",
+      "sha256": "a0b97c16cdde0253ab5bf69dbb662c549276e4f4aa1e71932674afa4fef9e86b"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-04",
+      "sha256": "e43c46740eec01c4902fbcefe5252498e0fef877e7da7e6a510fcfc286d0a1a6"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-05",
+      "sha256": "972d57c9009dc60dc26a506b450898e7dd77b3d3190081a779a82748e00533fc"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-06",
+      "sha256": "1f5afc8b5391532b3b4ab1e61a8c11a5310febf59e0796979f50d6ca30d5d6f3"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-07",
+      "sha256": "36e46a642ece57097b9a610ac2bd6eee4cb96d7e88e42f97b04153c5ded8b036"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-10",
+      "sha256": "853048b86025cfc74b0f4ca80515aafde084562cfc047ea59db354910241522a"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-11",
+      "sha256": "f7c5a9c8f6f4f4c594a2656e160709a1c4ed982bdd4b9d2557abc7723cb9e6ee"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-12",
+      "sha256": "ec96006afecfcf2b2b48b97d70dc3e6f6d8a00d5df88a357801936bac1a48aa3"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-13",
+      "sha256": "e32d6c14bbd3618e89193acba6365467ebdc4476309044effc22074efa90d7a8"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-14",
+      "sha256": "ebf5730df63e449811ec421e0626180b2f2a0fd273d73f53f2d2d3320da7468b"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-17",
+      "sha256": "cb05396120d3d6cfb106a18e4a5a44f25bc52e317d5adfeaeb1627cb320a30a9"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-18",
+      "sha256": "51b000e315d0bac35fd7d494520c0161916e42c526897a480da61edd80baa7f8"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-19",
+      "sha256": "ad7cb9b7afde2e3ddfa4e478c2543450995ce361a9bc9b22450bee9fa915c6ab"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-20",
+      "sha256": "cc1872556d805475906ac26116b15110708c85d3e104d0e2b03e466ffff5a614"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-21",
+      "sha256": "be09463b1c92310005f02052a6c6cc506aa894a29a09db56dee76c6090f18991"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-24",
+      "sha256": "266050f2fb984885474e6369520d78bc039dde4ea89a28770e52305953663954"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-25",
+      "sha256": "cba786dc8b1ceefdd1c1dcc9971103c6eb3351a2535c659e51679b7a9fffae72"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-26",
+      "sha256": "bd2d95d68edc81166949676de1b8d7592d5a44ff539de2e4988852293d2ab8ce"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-27",
+      "sha256": "52c9400b12f6f3b0b4ae29fa8e7812dfcb680c39b4899ccc7707ccff8085f53f"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-28",
+      "sha256": "c3774feaab828e601ddaee21d3e37d4179a45cb53706d750072c6c469df9b54e"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-31",
+      "sha256": "78ecd403b22f5431b3cb5bc4459559da817da03f4d99d61352305a5f6d1870e9"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-09-01",
+      "sha256": "ade124f2e9a6337741d461a61a97d255e386fde48cc7ebbfc703317cf392df2d"
+    },
+    {
+      "operation": "create only if absent",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-09-02",
+      "sha256": "3c28970cc11e8bef6e4d8636af9140824e9ae1a9a9e8e7243702685b49de3140"
+    },
+    {
+      "operation": "atomic immutable source/selection audit",
+      "path": "price_repairs/d6bf88ee1de4bf72e03d790dac9352746ed03286cd0bbe43f5b032e15503bfb8",
+      "sha256": "1b189f45fdd2b20e1acae84f335f2d7b0fc2a1aaf48824900f29820b53dd45c5"
+    }
+  ],
+  "rollback": {
+    "delete_only_unchanged_created_paths": [
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-06-22",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-06",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-07",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-08",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-09",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-13",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-14",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-15",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-16",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-20",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-21",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-22",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-23",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-24",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-27",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-28",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-29",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-30",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-07-31",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-03",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-04",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-05",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-06",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-07",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-10",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-11",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-12",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-13",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-14",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-17",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-18",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-19",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-20",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-21",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-24",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-25",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-26",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-27",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-28",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-08-31",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-09-01",
+      "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/prices/2026-09-02"
+    ],
+    "pause_control": "security_routes/bny-common-2026-05-21",
+    "refuse_any_descendants_or_revisions": true,
+    "replay_after_rollback": "held; never silently reapply",
+    "retain_audit": "price_repairs/d6bf88ee1de4bf72e03d790dac9352746ed03286cd0bbe43f5b032e15503bfb8"
+  },
+  "scope": "Missing daily bars only. Existing prices, metadata, financials, estimates and aliases retained.",
+  "source_sha256": "01236ec16dee0dd42fe2486e0b32782cff5c7a66728b71e2f227ee33fedf49af",
+  "status": "PREPARED; NOT EXECUTED",
+  "symbol": "BNY"
+}

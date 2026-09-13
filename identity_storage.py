@@ -22,6 +22,14 @@ def financial_frequency(data, period):
     return frequency
 
 
+def observation_values(data, suffix):
+    """Ignore retrieval/provenance wrappers when comparing repaired price bars."""
+    ignored = {'fetched_at'}
+    if suffix.startswith('/prices/'):
+        ignored.update({'price_repair', 'price_basis'})
+    return {k: v for k, v in data.items() if k not in ignored}
+
+
 def context(db, symbol, *, public=False, write=False, transaction=None):
     from sec_enrollment import binding_for, context as enrolled_context
     if binding_for(symbol):
@@ -104,11 +112,11 @@ def guarded_write(db, symbol, entries, *, merge=False, write_once=False, expecte
                             and financial_frequency(old, key) == financial_frequency(data, key),
                             "maintenance financial period identity changed")
             ref = db.document(root.path + suffix)
-            if write_once and snap.exists:
+            if snap.exists and (write_once or (suffix.startswith('/prices/') and old.get('price_repair'))):
                 # Record revised observations; never discard restatements merely
                 # because the financial period already exists.
-                prior_values = {k: v for k, v in old.items() if k != "fetched_at"}
-                next_values = {k: v for k, v in data.items() if k != "fetched_at"}
+                prior_values = observation_values(old, suffix)
+                next_values = observation_values(data, suffix)
                 if suffix.startswith("/financials/"):
                     prior_values["freq"] = financial_frequency(old, key)
                     next_values["freq"] = financial_frequency(data, key)
