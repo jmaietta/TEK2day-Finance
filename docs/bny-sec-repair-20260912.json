@@ -1,0 +1,77 @@
+{
+  "candidate_key": "1d0d3aa5275462a6d911d0b2332d87df854a5cf671d1138481e340e18f0b989b",
+  "candidate_sha256": "dc505be7de6ea39925c1f62d43f7da31e852015282bfce52d4c4aedd4e228c8b",
+  "captured_at": "2026-09-12T23:46:45.762635+00:00",
+  "conflict_count": 0,
+  "database": "(default)",
+  "filled_fields": [
+    "balance_sheet.Cash Financial",
+    "balance_sheet.Goodwill",
+    "balance_sheet.Minority Interest",
+    "balance_sheet.Net PPE",
+    "balance_sheet.Retained Earnings",
+    "balance_sheet.Stockholders Equity",
+    "balance_sheet.Total Assets",
+    "balance_sheet.Total Equity Gross Minority Interest",
+    "balance_sheet.Total Liabilities Net Minority Interest",
+    "cash_flow.Capital Expenditure",
+    "cash_flow.Financing Cash Flow",
+    "cash_flow.Free Cash Flow",
+    "cash_flow.Investing Cash Flow",
+    "cash_flow.Operating Cash Flow",
+    "income.Interest Expense",
+    "income.Interest Income",
+    "income.Net Income",
+    "income.Net Income Common Stockholders",
+    "income.Net Income Including Noncontrolling Interests",
+    "income.Net Interest Income",
+    "income.Tax Provision",
+    "income.Total Revenue"
+  ],
+  "original_collections": [],
+  "original_tree": [
+    {
+      "exists": true,
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/financials/2026-Q2",
+      "sha256": "a78646db847dbcd714c2c56aa612ddef3c6bd5a285a91df30577688f80301662",
+      "update_time": {
+        "__firestore_timestamp__": "2026-09-12T16:31:51.304941+00:00"
+      }
+    }
+  ],
+  "period": "2026-Q2",
+  "plan_sha256": "1d2d3401552330e6c2ef12645e44482a8d4765ea3f9eb47e5869c208565eecd1",
+  "project": "yfinance-cli",
+  "proposed_writes": [
+    {
+      "operation": "conditional set in one transaction",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/financials/2026-Q2",
+      "template_sha256": "eb536eb70b4a384e88cdc90032eed380d17670af5022109841ba97b20151ba09"
+    },
+    {
+      "operation": "conditional set in one transaction",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/financials/2026-Q2/identity_observations/sec-1d0d3aa5275462a6d911d0b2332d87df854a5cf671d1138481e340e18f0b989b",
+      "template_sha256": "7257a7ce07ee6e98f756fc0e7ef599e2759fd1716c882b86c8934c60ca6f53af"
+    }
+  ],
+  "rollback": {
+    "candidate_key": "1d0d3aa5275462a6d911d0b2332d87df854a5cf671d1138481e340e18f0b989b",
+    "entrypoint": "sec_maintenance.rollback_candidate",
+    "original_sha256": "a78646db847dbcd714c2c56aa612ddef3c6bd5a285a91df30577688f80301662",
+    "period": "2026-Q2",
+    "requirements": "Pause reviewed route; require unchanged applied record and no later descendants; restore exact original, retain audit/rollback marker, verify before resuming route",
+    "symbol": "BNY"
+  },
+  "route_path": "security_routes/bny-common-2026-05-21",
+  "route_sha256": "64dd47e8f5edacd3e50a375f2fd0cf56daa3ffa573fa87e64a6bcbb8d5221cce",
+  "scope": "One BNY financial period and its audit; all nested observations retained. No quotes, estimates, metadata, other periods or scheduler changes.",
+  "source_capture": {
+    "bytes": 7827785,
+    "retrieved_at": "2026-09-12T23:46:47.552784+00:00",
+    "sha256": "5e1d416fbbc5df89085c4e9d2f32ee91dfae321cb8f3a29a107699e974d926cd",
+    "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001390777.json"
+  },
+  "status": "PREPARED; NOT EXECUTED",
+  "symbol": "BNY",
+  "timestamp_policy": "Only sec_backfilled_at and audit.recorded_at use actual execution time; audit approval_plan_sha256 uses this plan digest; applied_sha256 is recomputed. All source/report timestamps and existing fetched_at stay frozen."
+}

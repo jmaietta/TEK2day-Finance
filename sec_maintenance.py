@@ -56,7 +56,61 @@ def make_plan(path, before, candidate):
             "audit_path": path + "/identity_observations/sec-" + candidate_key(candidate)}
 
 
-def commit_candidate(db, symbol, candidate, *, apply=False, now=None):
+def candidate_writes(plan, state, original_update_time, recorded_at, *, approval_sha256=None):
+    """Exact write payloads shared by execution and review (no database access)."""
+    candidate = plan["candidate"]
+    audit = {"status": "review" if plan["action"] == "review" else "applied",
+             "candidate_key": candidate_key(candidate), "candidate": candidate,
+             "original": plan["before"], "original_update_time": original_update_time,
+             "conflicts": plan["conflicts"], "filled_fields": plan["filled_fields"],
+             "identity_state": state, "recorded_at": recorded_at,
+             "selected_values": {s: {f: plan["selected"][s][f] for f in candidate[s]
+                                     if s + "." + f in plan["filled_fields"]}
+                                 for s in ("income", "balance_sheet", "cash_flow")}}
+    if approval_sha256 is not None:
+        audit["approval_plan_sha256"] = approval_sha256
+    writes = []
+    if plan["action"] == "fill":
+        selected = deepcopy(plan["selected"])
+        if plan["before"] is None:
+            selected["fetched_at"] = candidate["sec_provenance"]["source_capture"]["retrieved_at"]
+        selected["sec_backfilled_at"] = recorded_at
+        selected.setdefault("data_warnings", []).append({"code": "sec_mapped_subset",
+            "detail": "SEC supplied reviewed fields; unsupported fields remain unavailable"})
+        audit["applied_sha256"] = digest(selected)
+        writes.append({"path": plan["path"], "data": selected})
+    require(len(json.dumps(audit, default=str).encode()) < 750_000, "SEC audit exceeds bounded document size")
+    if plan["action"] != "noop":
+        writes.append({"path": plan["audit_path"], "data": audit})
+    return writes
+
+
+def reviewed_repair(native, candidate):
+    """Freeze one captured financial tree; no quotes, estimates or other periods."""
+    from security_identity import route_path
+    symbol = candidate["symbol"]
+    require(native["project"] == "yfinance-cli" and native["database"] == "(default)", "Wrong database")
+    require(symbol in BINDINGS and native["route_path"] == route_path(event_for(symbol)), "Wrong reviewed route")
+    require(native["route"]["status"] == "active" and native["route"]["version_path"] == native["root_path"],
+            "Wrong active canonical root")
+    path = native["root_path"] + "/financials/" + candidate["period"]
+    tree = {p: v for p, v in native["records"].items() if p == path or p.startswith(path + "/")}
+    require(path in tree and len(tree) <= 200, "Missing or oversized reviewed tree")
+    original = tree[path]
+    require(original["exists"] == (original["data"] is not None), "Inconsistent captured period")
+    plan = make_plan(path, original["data"], candidate)
+    require(plan["action"] == "fill" and not plan["conflicts"], "Review only a conflict-free gap fill")
+    require(not tree.get(plan["audit_path"], {}).get("exists"), "Source already has an audit")
+    return {"schema": 1, "symbol": symbol, "project": native["project"], "database": native["database"],
+            "captured_at": native["captured_at"], "route_path": native["route_path"], "route": native["route"],
+            "candidate": candidate, "path": path, "tree": tree,
+            "collections": [p for p in native["collections"] if p.startswith(path + "/")],
+            "filled_fields": plan["filled_fields"],
+            "write_templates": candidate_writes(plan, native["route"], original["update_time"],
+                "${EXECUTED_AT}", approval_sha256="${APPROVED_PLAN_SHA256}")}
+
+
+def commit_candidate(db, symbol, candidate, *, apply=False, now=None, approval=None):
     """Two-document transaction: selected period + immutable source/original audit.
 
     Re-read identity and destination inside the transaction. All descendants
@@ -82,6 +136,27 @@ def commit_candidate(db, symbol, candidate, *, apply=False, now=None):
         plan = make_plan(ref.path, snap.to_dict(), candidate)
         audit_ref = db.document(plan["audit_path"])
         audit_snap = audit_ref.get(transaction=tx)
+        approval_sha = digest(approval) if approval is not None else None
+        if approval is not None:
+            require(approval["schema"] == 1 and approval["project"] == "yfinance-cli"
+                    and approval["database"] == "(default)" and approval["symbol"] == symbol,
+                    "Wrong approved repair scope")
+            require(digest(candidate) == digest(approval["candidate"]) and ref.path == approval["path"]
+                    and digest(state) == digest(approval["route"]), "Approved source, route or target changed")
+            if audit_snap.exists:
+                require(audit_snap.to_dict().get("approval_plan_sha256") == approval_sha,
+                        "Existing audit is not this approved repair")
+            else:
+                require(plan["action"] == "fill", "Approved gap fill changed")
+                for path, old in approval["tree"].items():
+                    require(path == ref.path or path.startswith(ref.path + "/"), "Approved tree scope mismatch")
+                    held = snap if path == ref.path else db.document(path).get(transaction=tx)
+                    require(held.exists == old["exists"] and held.update_time == old["update_time"]
+                            and digest(held.to_dict()) == digest(old["data"]), "Approved financial tree changed")
+                require(ref.path in approval["tree"], "Approved original missing")
+                templates = candidate_writes(plan, state, snap.update_time, "${EXECUTED_AT}",
+                                             approval_sha256="${APPROVED_PLAN_SHA256}")
+                require(digest(templates) == digest(approval["write_templates"]), "Approved writes changed")
         if audit_snap.exists:
             saved = audit_snap.to_dict()
             require(saved.get("candidate_key") == candidate_key(candidate), "Audit key mismatch")
@@ -100,27 +175,8 @@ def commit_candidate(db, symbol, candidate, *, apply=False, now=None):
         if not apply or plan["action"] == "noop":
             return plan
         require(not audit_snap.exists, "Conflicting prior SEC audit; review before retry")
-        audit = {"status": "review" if plan["action"] == "review" else "applied",
-                 "candidate_key": candidate_key(candidate), "candidate": candidate,
-                 "original": snap.to_dict(), "original_update_time": snap.update_time,
-                 "conflicts": plan["conflicts"], "filled_fields": plan["filled_fields"],
-                 "identity_state": state, "recorded_at": now.isoformat(),
-                 "selected_values": {s: {f: plan["selected"][s][f] for f in candidate[s]
-                                         if s + "." + f in plan["filled_fields"]} for s in candidate if s in
-                                      ("income", "balance_sheet", "cash_flow")}}
-        require(len(json.dumps(audit, default=str).encode()) < 750_000, "SEC audit exceeds bounded document size")
-        if plan["action"] == "fill":
-            selected = deepcopy(plan["selected"])
-            if not snap.exists:
-                selected["fetched_at"] = candidate["sec_provenance"]["source_capture"]["retrieved_at"]
-            selected["sec_backfilled_at"] = now.isoformat()
-            # Readers must not mistake a supported subset for the complete
-            # provider statement just because the headline anchors arrived.
-            selected.setdefault("data_warnings", []).append({"code": "sec_mapped_subset",
-                "detail": "SEC supplied reviewed fields; unsupported fields remain unavailable"})
-            audit["applied_sha256"] = digest(selected)
-            tx.set(ref, selected)
-        tx.set(audit_ref, audit)
+        for write in candidate_writes(plan, state, snap.update_time, now.isoformat(), approval_sha256=approval_sha):
+            tx.set(db.document(write["path"]), write["data"])
         return plan
 
     return commit(db.transaction())
@@ -155,14 +211,18 @@ def rollback_candidate(db, symbol, period, key, *, now=None):
                 descendants.append(snap)
                 walk(child, depth + 1)
     walk(ref)
-    saved = audit_ref.get().to_dict() or {}
+    saved_snapshot = audit_ref.get()
+    saved = saved_snapshot.to_dict() or {}
     require(saved.get("status") in {"applied", "rolled_back"}, "No applied SEC observation to roll back")
     if saved["status"] == "rolled_back":
         return "already_rolled_back"
-    applied_time = datetime.fromisoformat(saved["recorded_at"])
+    # Both writes share a Firestore commit. Use its server timestamp, avoiding
+    # false ordering against an operator/worker clock that may be skewed.
+    applied_time = saved_snapshot.update_time
+    require(applied_time is not None, "Applied audit has no server update time")
     for snap in descendants:
         if snap.reference.path != audit_ref.path:
-            require(snap.update_time is not None and snap.update_time <= applied_time,
+            require(not snap.exists or (snap.update_time is not None and snap.update_time <= applied_time),
                     "Newer descendant observation; reviewed reverse plan required")
 
     @firestore.transactional
@@ -183,6 +243,38 @@ def rollback_candidate(db, symbol, period, key, *, now=None):
                           "rolled_back_at": (now or datetime.now(timezone.utc)).isoformat()})
         return "rolled_back_route_still_paused"
     return restore(db.transaction())
+
+
+def repair_route_status(db, approval, status):
+    """Conditional pause before rollback or resume after verified restoration."""
+    from google.cloud import firestore
+    from security_identity import route_path
+    require(status in {"paused", "active"}, "Invalid repair route status")
+    require(approval["route_path"] == route_path(event_for(approval["symbol"])), "Wrong repair route")
+    require(approval["route"]["status"] == "active", "Repair did not originate from an active route")
+    audit_path = approval["write_templates"][-1]["path"]
+
+    @firestore.transactional
+    def change(tx):
+        route_ref = db.document(approval["route_path"])
+        route = route_ref.get(transaction=tx).to_dict()
+        target = db.document(approval["path"]).get(transaction=tx).to_dict()
+        audit = db.document(audit_path).get(transaction=tx).to_dict() or {}
+        require(digest(route) in {digest(approval["route"]), digest({**approval["route"], "status": "paused"})},
+                "Repair route changed")
+        require(audit.get("approval_plan_sha256") == digest(approval), "Approved repair audit missing")
+        if status == "paused":
+            require(audit.get("status") == "applied" and digest(target) == audit.get("applied_sha256"),
+                    "Applied period changed; review a reverse plan")
+        else:
+            require(audit.get("status") == "rolled_back" and
+                    digest(target) == digest(approval["tree"][approval["path"]]["data"]),
+                    "Verify original financial restoration before resuming")
+        if route["status"] == status:
+            return "already_" + status
+        tx.set(route_ref, {**route, "status": status})
+        return status
+    return change(db.transaction())
 
 
 def run_fallback(active_symbols, *, yahoo_seen=None, client=None, db=None, mode=None, now=None):

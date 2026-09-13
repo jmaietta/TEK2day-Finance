@@ -1,5 +1,11 @@
 # SEC financial fallback: deployed in observation mode
 
+September 12 follow-up: June now exists as a partial Yahoo document. The
+[fresh native review and guarded repair](bny-sec-repair-20260912.md) proposes
+22 missing fields and two atomic writes, retaining populated values. Its
+[exact manifest](bny-sec-repair-20260912.json) supersedes the earlier dry run
+based on June's absence. Financial execution and `apply` mode await approval.
+
 Requested September 10, 2026: if Yahoo has not populated financial data one
 week after a 10-Q or 10-K is filed, recover the missing values from SEC.gov.
 The repository previously had CIK-based filing links and a Yahoo-only stub

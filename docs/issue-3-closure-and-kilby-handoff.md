@@ -3,6 +3,12 @@
 This record is deliberately incomplete until the acceptance evidence exists.
 It must not be used as authorization to integrate or publish renamed securities.
 
+September 12 financial follow-up: the [fresh BNY review and rollback runbook](bny-sec-repair-20260912.md)
+and [exact manifest](bny-sec-repair-20260912.json) supersede the earlier absence-based
+dry run. June has a partial Yahoo stub; 22 SEC gap fills are prepared, with zero
+conflicts. Native preflight and 146 offline tests passed; the pinned Kilby guard
+passed 53 assertions. Financial execution and automatic apply await approval.
+
 | Item | Recorded state |
 | --- | --- |
 | GitHub source base | e39cdd98707974ba324a2d6ebb67a96353f48e07 |
@@ -18,7 +24,7 @@ It must not be used as authorization to integrate or publish renamed securities.
 | Offline validation | 439 verified tests across 21 isolated files; 22 pinned Kilby producer/consumer assertions |
 | Runtime validation limit | Pinned image builds, Cloud Run startup and workflow smoke test passed; native migration/readers and no-op maintenance guards passed; live Kilby acceptance pending |
 | Corporate event | BK→BNY, ordinary common stock, 2026-05-21; issuer CIK 0001390777; CUSIP 064058100; NYSE/XNYS; provider-observed USD |
-| Known BNY financial gap (September 10 verification) | Stored history ended 2026-Q1; Yahoo's 2026-Q2 response was incomplete; 2021-FY was incomplete. XOM repair does not resolve this separate coverage work |
+| Known BNY financial gap (September 12 verification) | June now exists as a partial Yahoo stub. Fresh native/SEC/Yahoo review proposes 22 gap fills with zero conflicts; March is skipped. Financial execution and enabling apply await approval; 2021-FY remains a separate historical limitation |
 | API rollout mode | Route active: BNY canonical, BK 409; no security_resolution or redirect payload |
 | Issue #3 | OPEN; not ready for closure |
 | Chatllm #221 | Remains OPEN |
@@ -105,6 +111,15 @@ replace the pending receipt entries with verified final values first.
 > job is in observe mode, not apply mode. The June-quarter repair has not been
 > applied. SEC financial envelopes passed the pinned Kilby guard offline;
 > validate the final live responses through the authorized Kilby path.
+> A fresh September 12 native review found a June Yahoo stub. The new plan is
+> 1d2d3401552330e6c2ef12645e44482a8d4765ea3f9eb47e5869c208565eecd1:
+> 22 gap fills, two atomic writes, no populated-value replacements. Check
+> docs/bny-sec-repair-20260912.md and its manifest for approval/execution state;
+> preparation and native preflight do not establish that the repair was applied.
+> The June SEC accession is 0001390777-26-000086, filed July 31, accepted
+> 2026-07-31T20:31:16Z, eligible after August 7 at 20:31:16Z. The verified source
+> is https://www.bny.com/content/dam/bnymellon/documents/pdf/investor-relations/form-10-q-2q26.pdf.
+> Statements remain explicitly partial where unsupported bank mappings are absent.
 >
 > The verified event is the May 21, 2026 BK→BNY ticker change for The Bank of
 > New York Mellon Corporation common stock, $0.01 par, CUSIP 064058100, NYSE
