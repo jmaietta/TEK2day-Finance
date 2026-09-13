@@ -323,7 +323,8 @@ keep issue #3 open.
 
 The user now needs an urgent Kilby session for COST Deep Research failing with
 `A financial amount is missing its fact, source-excerpt or scenario reference.`
-Read the [self-contained COST handoff](cost-kilby-report-handoff-20260913.md),
-including the bounded TEK2day diagnosis, requirement to deliver supported
+The user moved the self-contained COST handoff to the local chatllm repository:
+`C:\Users\jmaie\chatllm\cost-kilby-report-handoff-20260913.md`.
+It includes the bounded TEK2day diagnosis, requirement to deliver supported
 partial reports and requirement to reverse a charge when no usable report is
 delivered. The older COST balance-sheet gap is not proven to cause this error.
