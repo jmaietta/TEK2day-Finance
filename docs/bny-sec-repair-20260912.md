@@ -1,4 +1,28 @@
-# BNY June financial repair: prepared, awaiting financial-write approval
+# BNY June financial repair: applied and verified
+
+The user approved this BNY-only repair. The exact reviewed plan was applied
+September 13 at Firestore commit time `2026-09-13T03:47:44.132463Z`: 22 gap
+fills, zero conflicts and two atomic writes. Both selected and audit payloads
+match their approved templates. All 20 other financial records/descendants,
+1,288 prices, ten estimate observations and metadata remained unchanged.
+Native candidate and maintenance reruns produced zero writes; the bounded
+BNY-only scheduled fallback invocation skipped completed periods without
+failure, with all nonempty commits blocked. It did not start a Cloud Run job.
+
+The existing financial job now has `SEC_FALLBACK_MODE=apply`; BNY remains its
+only reviewed enrollment. Generation 4 was Ready, verified September 13 at
+`04:25:53.109869Z`, with the deployed financial image unchanged. Twelve
+first-party checks passed after cache expiry, including exact BK/BNY June
+income/balance/cash-flow views and SEC attribution. The
+[execution receipt](bny-sec-repair-execution-20260913.json) contains digests,
+server and client times, independent quote evidence and remaining limitations.
+Client operation time (`03:47:36.619071Z`) and receipt completion time
+(`03:47:37.870204Z`) precede the server commit timestamp; clocks were not
+reconciled. Firestore's timestamp is the authoritative database commit time.
+
+The remaining sections preserve the reviewed plan and pre-execution evidence.
+Statements that approval or execution was pending describe that earlier state.
+No rollback was executed. Issue #3 stays open for remaining acceptance.
 
 The BK/BNY identity migration is already complete. This is a separate financial
 gap repair. Native reads on September 12 found a June 2026 Yahoo stub, updated

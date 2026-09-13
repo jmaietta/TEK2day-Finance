@@ -1,10 +1,19 @@
-# SEC financial fallback: deployed in observation mode
+# SEC financial fallback: BNY apply mode enabled
+
+After explicit BNY-only approval, the June repair was applied and verified on
+September 13, 2026: 22 gap fills and two atomic writes, preserving populated
+values and all other datasets. The existing financial job now uses `apply`,
+with BNY as its only enrollment. See the [execution receipt](bny-sec-repair-execution-20260913.json).
+The next ordinary scheduled Cloud Run execution remains to be observed; the
+bounded native BNY-only fallback rerun passed with writes blocked. Live Kilby
+acceptance is separate. Observation-mode descriptions below record the earlier
+deployment stages and do not describe the current mode.
 
 September 12 follow-up: June now exists as a partial Yahoo document. The
 [fresh native review and guarded repair](bny-sec-repair-20260912.md) proposes
 22 missing fields and two atomic writes, retaining populated values. Its
 [exact manifest](bny-sec-repair-20260912.json) supersedes the earlier dry run
-based on June's absence. Financial execution and `apply` mode await approval.
+based on June's absence. That plan was subsequently approved and executed.
 
 Requested September 10, 2026: if Yahoo has not populated financial data one
 week after a 10-Q or 10-K is filed, recover the missing values from SEC.gov.

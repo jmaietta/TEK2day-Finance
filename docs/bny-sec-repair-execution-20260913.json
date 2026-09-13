@@ -1,0 +1,154 @@
+{
+  "activation": {
+    "binding_sha256": "e66707c78fab5988990667051edb7f553444ed4ecd9f8e8ce5071d0862c91781",
+    "bindings": [
+      "BNY"
+    ],
+    "checked_at": "2026-09-13T04:25:53.109869+00:00",
+    "conditions": [
+      {
+        "status": "True",
+        "type": "Ready"
+      }
+    ],
+    "generation": 4,
+    "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/quarterly-financials:latest",
+    "job": "quarterly-financial-pull",
+    "manual_job_execution": false,
+    "mode": "apply",
+    "project": "yfinance-cli",
+    "region": "us-central1"
+  },
+  "application": {
+    "action": "apply",
+    "audit_sha256": "b8a0b845d8076f8440d107adfb92a31ed1434b628e394c2d785a470c3686a04d",
+    "audit_update_time": {
+      "__firestore_timestamp__": "2026-09-13T03:47:44.132463+00:00"
+    },
+    "completed_at": "2026-09-13T03:47:37.870204+00:00",
+    "outcome": "fill",
+    "plan_sha256": "1d2d3401552330e6c2ef12645e44482a8d4765ea3f9eb47e5869c208565eecd1",
+    "source_recheck": {
+      "candidate_key": "1d0d3aa5275462a6d911d0b2332d87df854a5cf671d1138481e340e18f0b989b",
+      "companyfacts": {
+        "bytes": 7827785,
+        "retrieved_at": "2026-09-13T03:47:35.449096+00:00",
+        "sha256": "5e1d416fbbc5df89085c4e9d2f32ee91dfae321cb8f3a29a107699e974d926cd",
+        "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001390777.json"
+      },
+      "notices": [
+        {
+          "reason": "recent_submission_history_only; older archives not scanned",
+          "status": "scope"
+        }
+      ]
+    },
+    "target_sha256": "6bb1108d1bcefa3020fcef0e8bd6e1ea5a11a4e46ceb19a0f4443abf046efe74",
+    "target_update_time": {
+      "__firestore_timestamp__": "2026-09-13T03:47:44.132463+00:00"
+    }
+  },
+  "builds": {
+    "api": 34735420348,
+    "maintenance": 34735420363
+  },
+  "chatllm_221": "OPEN",
+  "chatllm_233": "CLOSED; not reopened",
+  "conflicts": 0,
+  "counts": {
+    "estimates": 10,
+    "financial_documents_and_descendants_after": 22,
+    "financial_documents_and_descendants_before": 21,
+    "financial_periods": 11,
+    "prices": 1288
+  },
+  "estimates": {
+    "latest_fetched_at": "2026-09-12T10:25:06.542785+00:00",
+    "latest_horizons": {
+      "+1q": "2026-12-31",
+      "+1y": "2027-12-31",
+      "0q": "2026-09-30",
+      "0y": "2026-12-31"
+    },
+    "latest_provider_observed_at": null,
+    "latest_stored_date": "2026-09-12",
+    "older_observations_without_horizons": 9,
+    "unchanged": true
+  },
+  "filled_fields": 22,
+  "issue_3": "OPEN",
+  "live_partner_calls": 0,
+  "manual_cloud_job_executions": 0,
+  "native_verification": {
+    "exact_two_payloads": true,
+    "legacy_split_recreated": false,
+    "metadata_prices_estimates_unchanged": true,
+    "native_reruns_write_counts": [
+      0,
+      0
+    ],
+    "operation_recorded_at": "2026-09-13T03:47:36.619071+00:00",
+    "original_audited": true,
+    "other_financial_records_and_descendants_unchanged": 20,
+    "retired_write_and_strict_read_rejected": true,
+    "same_server_commit": true,
+    "scheduled_fallback_rerun": {
+      "failures": [],
+      "results": [
+        {
+          "reason": "recent_submission_history_only; older archives not scanned",
+          "status": "scope",
+          "symbol": "BNY"
+        }
+      ],
+      "scope": "BNY-only function invocation; all nonempty commits blocked; no Cloud Run execution"
+    },
+    "server_commit_time": {
+      "__firestore_timestamp__": "2026-09-13T03:47:44.132463+00:00"
+    }
+  },
+  "plan_sha256": "1d2d3401552330e6c2ef12645e44482a8d4765ea3f9eb47e5869c208565eecd1",
+  "private_evidence_sha256": {
+    "before": "761006c4bb1f9d70579cb220c2284584f9c3b43e53670de9e6c2db041b60d614",
+    "native_after": "0a4fc77a1386b4b2cccd6fed79653a9e3d5632f233a37e0b307d625e09ea9681"
+  },
+  "proposed_and_actual_writes": 2,
+  "quote": {
+    "currency": "USD",
+    "observed_at": "2026-09-11T20:00:02+00:00",
+    "price": 162.66,
+    "retrieved_at": "2026-09-13T04:23:40.388792+00:00",
+    "scope": "Yahoo provider check, not a live partner response"
+  },
+  "recorded_at": "2026-09-13T04:27:13.186861+00:00",
+  "remaining": [
+    "Live partner verification and frozen responses through existing authorized Kilby path",
+    "Next ordinary scheduled financial execution in apply mode has not yet occurred",
+    "Existing price history has no stored bars between 2026-07-02 and 2026-07-10, and between 2026-07-17 and 2026-09-03; no price repair performed",
+    "2021-FY remains incomplete; March 2026 revenue basis difference remains unreconciled",
+    "SEC statement subset remains partial; unsupported mappings, amendments and future unreviewed YTD bridges require review"
+  ],
+  "rollback_executed": false,
+  "serving_commit": "8e04f0237668fb9c209b471a28df120942b7ff6a",
+  "serving_revision": "tek2day-api-00131-jnd",
+  "status": "BNY JUNE SEC REPAIR APPLIED AND VERIFIED; BNY-ONLY AUTOMATIC FALLBACK ENABLED",
+  "website": {
+    "cache_ttl_seconds": 300,
+    "checks": [
+      "BK:inc:exact_verified_financials",
+      "BK:bal:exact_verified_financials",
+      "BK:cf:exact_verified_financials",
+      "BK:metadata:unchanged",
+      "BNY:inc:exact_verified_financials",
+      "BNY:bal:exact_verified_financials",
+      "BNY:cf:exact_verified_financials",
+      "BNY:metadata:unchanged",
+      "estimates:all_observations_retained",
+      "prices:stored_history_connected",
+      "quote:matched_price_with_separate_observation_time",
+      "financial_repeat:stable"
+    ],
+    "completed_at": "2026-09-13T04:23:40.661556+00:00",
+    "full_receipt_sha256": "e82d44b082b95cc91157a0b04feece9d67bb8a088c903daeb35141af8ce47367"
+  }
+}
