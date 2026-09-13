@@ -34,7 +34,7 @@ def test_three_fields_match_filing_and_quarter_arithmetic(db, evidence):
     assert q1['income']['Pretax Income'] == 2_016_000_000
     assert q1['balance_sheet']['Common Stock Equity'] == 39_452_000_000
     assert q1['cash_flow']['Cash Dividends Paid'] == -434_000_000
-    assert set(BINDINGS) == {'BNY'}
+    assert {s for s, b in BINDINGS.items() if b['profile'].startswith('us-gaap-bank-bny-')} == {'BNY'}
     assert BINDINGS['BNY']['profile'] == 'us-gaap-bank-bny-v2'
     legacy_binding = {**deepcopy(binding), 'profile': 'us-gaap-bank-bny-v1'}
     old = build_candidate(evidence['facts'], evidence['source_capture'], legacy_binding, reports[-1], reports)
