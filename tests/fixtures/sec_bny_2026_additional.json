@@ -1,0 +1,62 @@
+{
+  "note": "Public SEC facts only; extra reviewed BNY concepts, not a database export. Same source SHA as sec_bny_2026.json.",
+  "us-gaap": {
+    "PreferredStockValue": {
+      "label": "Preferred Stock, Value, Issued",
+      "description": "Aggregate par or stated value of issued nonredeemable preferred stock (or preferred stock redeemable solely at the option of the issuer). This item includes treasury stock repurchased by the entity. Note: elements for number of nonredeemable preferred shares, par value and other disclosure concepts are in another section within stockholders' equity.",
+      "units": {
+        "USD": [
+          {
+            "end": "2026-03-31",
+            "val": 5331000000,
+            "accn": "0001390777-26-000060",
+            "fy": 2026,
+            "fp": "Q1",
+            "form": "10-Q",
+            "filed": "2026-05-01",
+            "frame": "CY2026Q1I"
+          },
+          {
+            "end": "2026-06-30",
+            "val": 4754000000,
+            "accn": "0001390777-26-000086",
+            "fy": 2026,
+            "fp": "Q2",
+            "form": "10-Q",
+            "filed": "2026-07-31",
+            "frame": "CY2026Q2I"
+          }
+        ]
+      }
+    },
+    "PaymentsOfDividends": {
+      "label": "Payments of Dividends",
+      "description": "Cash outflow in the form of capital distributions and dividends to common shareholders, preferred shareholders and noncontrolling interests.",
+      "units": {
+        "USD": [
+          {
+            "start": "2026-01-01",
+            "end": "2026-03-31",
+            "val": 434000000,
+            "accn": "0001390777-26-000060",
+            "fy": 2026,
+            "fp": "Q1",
+            "form": "10-Q",
+            "filed": "2026-05-01",
+            "frame": "CY2026Q1"
+          },
+          {
+            "start": "2026-01-01",
+            "end": "2026-06-30",
+            "val": 887000000,
+            "accn": "0001390777-26-000086",
+            "fy": 2026,
+            "fp": "Q2",
+            "form": "10-Q",
+            "filed": "2026-07-31"
+          }
+        ]
+      }
+    }
+  }
+}

@@ -10,6 +10,15 @@ Kilby income, balance-sheet and cash-flow screenshots showing the repaired June
 data; the balance sheet also matches TEK2day. These authorized-path display
 checks pass. Raw partner response and authorization checks remain separate.
 
+The maintenance correction is deployed at `db81352fe071eafaa2555ce61ef5023b297dd1e7`,
+revision `tek2day-api-00132-49c`, API build 34739763601 and job builds 34739763602,
+all successful; [immutable image receipt](bny-refresh-deployment-20260913.json).
+The [three-field follow-up repair](bny-additional-repair-20260913.md) is prepared
+with a native read-only preflight and exact rollback, but NOT executed. Its v2
+mapping is staged; BNY's active binding remains v1. Do not report those three
+additional fields as repaired or include their proposed values in live-response
+fixtures until approved execution and verification are recorded.
+
 September 13 financial follow-up: the approved BNY June repair was applied and
 verified. The [execution receipt](bny-sec-repair-execution-20260913.json) records
 22 gap fills, zero conflicts and two atomic writes. The [review and rollback
@@ -21,11 +30,11 @@ pre-execution validation included 146 offline tests and 53 pinned Kilby assertio
 | Item | Recorded state |
 | --- | --- |
 | GitHub source base | e39cdd98707974ba324a2d6ebb67a96353f48e07 |
-| Serving API revision | tek2day-api-00131-jnd; 100% traffic, verified September 13 UTC (September 12 Eastern) |
-| Serving API immutable image | sha256:674bc98a1e367f38db9ffb65b05055d05cbf08a67f6feb3cea7281aaf1f8fb80 |
+| Serving API revision | tek2day-api-00132-49c; 100% traffic, verified September 13 UTC |
+| Serving API immutable image | sha256:e3c45705ba70f550926da521e7c600ce2a4212eaec6c818458c91e812add31ab |
 | Implementation commit | 30d6b90646fade38609f3df21e4ab31af5066170; published |
-| Deployed commit | 8e04f0237668fb9c209b471a28df120942b7ff6a |
-| Build/deploy runs | API 34735420348; maintenance images 34735420363; both successful; [exact receipt](bny-sec-repair-deployment-20260913.json) |
+| Deployed commit | db81352fe071eafaa2555ce61ef5023b297dd1e7 |
+| Build/deploy runs | API 34739763601; maintenance images 34739763602; both successful; [exact receipt](bny-refresh-deployment-20260913.json) |
 | SEC fallback | BNY-only apply mode, financial job generation 4 Ready; no manual Cloud Run job execution |
 | Live repair/migration writes in this session | BK/BNY migration September 10; XOM identity publication September 12; approved BNY June SEC repair September 13 at 03:47:44.132463Z, 22 fields/two writes; originals and other history retained |
 | Migration status | Published 2026-09-10T18:09:20.380321Z, plan 17f04fb3c5f56030356764b271a6fb860531be71915849798d30f019d2ab3bfd |

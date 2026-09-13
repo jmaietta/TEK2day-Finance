@@ -1,0 +1,482 @@
+{
+  "api": {
+    "spec": {
+      "template": {
+        "spec": {
+          "containers": [
+            {
+              "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/api:db81352fe071eafaa2555ce61ef5023b297dd1e7"
+            }
+          ]
+        }
+      }
+    },
+    "status": {
+      "latestReadyRevisionName": "tek2day-api-00132-49c",
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100,
+          "revisionName": "tek2day-api-00132-49c"
+        }
+      ]
+    }
+  },
+  "api_revision": {
+    "status": {
+      "imageDigest": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/api@sha256:e3c45705ba70f550926da521e7c600ce2a4212eaec6c818458c91e812add31ab"
+    }
+  },
+  "checked_at": "2026-09-13T05:22:32.742391+00:00",
+  "commit": "db81352fe071eafaa2555ce61ef5023b297dd1e7",
+  "completed_at": "2026-09-13T05:23:16.246102+00:00",
+  "executions": {
+    "daily-price-pull": {
+      "inspected_count": 71,
+      "latest": [
+        {
+          "metadata": {
+            "name": "daily-price-pull-p5gqs"
+          },
+          "status": {
+            "completionTime": "2026-09-11T21:38:29.919467Z",
+            "conditions": [
+              {
+                "lastTransitionTime": "2026-09-11T21:38:29.919467Z",
+                "message": "Execution completed successfully in 1h8m8.98s.",
+                "status": "True",
+                "type": "Completed"
+              },
+              {
+                "lastTransitionTime": "2026-09-11T20:30:05.015572Z",
+                "message": "Provisioned imported containers.",
+                "status": "True",
+                "type": "ResourcesAvailable"
+              },
+              {
+                "lastTransitionTime": "2026-09-11T20:32:14.104073Z",
+                "message": "Started deployed execution in 2m9.08s.",
+                "status": "True",
+                "type": "Started"
+              },
+              {
+                "lastTransitionTime": "2026-09-11T20:30:04.865354Z",
+                "message": "Imported container image in 1.4s.",
+                "status": "True",
+                "type": "ContainerReady"
+              }
+            ],
+            "startTime": "2026-09-11T20:30:20.929749Z"
+          }
+        },
+        {
+          "metadata": {
+            "name": "daily-price-pull-ckdnz"
+          },
+          "status": {
+            "completionTime": "2026-09-10T21:38:32.025319Z",
+            "conditions": [
+              {
+                "lastTransitionTime": "2026-09-10T21:38:32.025319Z",
+                "message": "Execution completed successfully in 1h7m51.86s.",
+                "status": "True",
+                "type": "Completed"
+              },
+              {
+                "lastTransitionTime": "2026-09-10T20:30:25.046831Z",
+                "message": "Provisioned imported containers.",
+                "status": "True",
+                "type": "ResourcesAvailable"
+              },
+              {
+                "lastTransitionTime": "2026-09-10T20:31:40.817369Z",
+                "message": "Started deployed execution in 1m15.77s.",
+                "status": "True",
+                "type": "Started"
+              },
+              {
+                "lastTransitionTime": "2026-09-10T20:30:24.873320Z",
+                "message": "Imported container image in 14.6s.",
+                "status": "True",
+                "type": "ContainerReady"
+              }
+            ],
+            "startTime": "2026-09-10T20:30:40.156624Z"
+          }
+        },
+        {
+          "metadata": {
+            "name": "daily-price-pull-g8szl"
+          },
+          "status": {
+            "completionTime": "2026-09-09T21:38:39.805167Z",
+            "conditions": [
+              {
+                "lastTransitionTime": "2026-09-09T21:38:39.805167Z",
+                "message": "Execution completed successfully in 1h8m9.83s.",
+                "status": "True",
+                "type": "Completed"
+              },
+              {
+                "lastTransitionTime": "2026-09-09T20:30:10.301381Z",
+                "message": "Provisioned imported containers.",
+                "status": "True",
+                "type": "ResourcesAvailable"
+              },
+              {
+                "lastTransitionTime": "2026-09-09T20:32:07.466243Z",
+                "message": "Started deployed execution in 1m57.16s.",
+                "status": "True",
+                "type": "Started"
+              },
+              {
+                "lastTransitionTime": "2026-09-09T20:30:10.162657Z",
+                "message": "Imported container image in 1.21s.",
+                "status": "True",
+                "type": "ContainerReady"
+              }
+            ],
+            "startTime": "2026-09-09T20:30:29.968772Z"
+          }
+        }
+      ],
+      "listing_sha256": "c3ec12c84a08129407cbe2e50711a833a2ef0362363f25f755b2e9eeaf80fc84",
+      "unfinished": []
+    },
+    "full-data-pull-v2": {
+      "inspected_count": 1,
+      "latest": [
+        {
+          "metadata": {
+            "name": "full-data-pull-v2-8tsmf"
+          },
+          "status": {
+            "completionTime": "2026-05-29T07:54:49.745735Z",
+            "conditions": [
+              {
+                "lastTransitionTime": "2026-05-29T07:54:49.745735Z",
+                "message": "Execution completed successfully in 9h8m37.6s.",
+                "status": "True",
+                "type": "Completed"
+              },
+              {
+                "lastTransitionTime": "2026-05-28T22:46:03.599412Z",
+                "message": "Provisioned imported containers.",
+                "status": "True",
+                "type": "ResourcesAvailable"
+              },
+              {
+                "lastTransitionTime": "2026-05-28T22:47:49.589854Z",
+                "message": "Started deployed execution in 1m45.99s.",
+                "status": "True",
+                "type": "Started"
+              },
+              {
+                "lastTransitionTime": "2026-05-28T22:46:03.477267Z",
+                "message": "Imported container image in 10.97s.",
+                "status": "True",
+                "type": "ContainerReady"
+              }
+            ],
+            "startTime": "2026-05-28T22:46:12.136256Z"
+          }
+        }
+      ],
+      "listing_sha256": "16df90b67239208468d0dc285b38038bf8eb7f12e120e0af7780ed5ec2f5991d",
+      "unfinished": []
+    },
+    "quarterly-financial-pull": {
+      "inspected_count": 79,
+      "latest": [
+        {
+          "metadata": {
+            "name": "quarterly-financial-pull-g5f7z"
+          },
+          "status": {
+            "completionTime": "2026-09-12T23:37:48.044913Z",
+            "conditions": [
+              {
+                "lastTransitionTime": "2026-09-12T23:37:48.044913Z",
+                "message": "Task quarterly-financial-pull-g5f7z-task0 failed with exit code: 1 and message: The container exited with an error.",
+                "reason": "NonZeroExitCode",
+                "status": "False",
+                "type": "Completed"
+              },
+              {
+                "lastTransitionTime": "2026-09-12T16:00:38.427281Z",
+                "message": "Provisioned imported containers.",
+                "status": "True",
+                "type": "ResourcesAvailable"
+              },
+              {
+                "lastTransitionTime": "2026-09-12T16:03:00.008621Z",
+                "message": "Started deployed execution in 2m21.58s.",
+                "status": "True",
+                "type": "Started"
+              },
+              {
+                "lastTransitionTime": "2026-09-12T16:00:38.289991Z",
+                "message": "Imported container image in 12.27s.",
+                "status": "True",
+                "type": "ContainerReady"
+              }
+            ],
+            "startTime": "2026-09-12T16:00:49.267381Z"
+          }
+        },
+        {
+          "metadata": {
+            "name": "quarterly-financial-pull-dr927"
+          },
+          "status": {
+            "completionTime": "2026-09-11T19:54:07.972418Z",
+            "conditions": [
+              {
+                "lastTransitionTime": "2026-09-11T19:54:07.972418Z",
+                "message": "Execution completed successfully in 3h53m33.75s.",
+                "status": "True",
+                "type": "Completed"
+              },
+              {
+                "lastTransitionTime": "2026-09-11T16:00:26.058051Z",
+                "message": "Provisioned imported containers.",
+                "status": "True",
+                "type": "ResourcesAvailable"
+              },
+              {
+                "lastTransitionTime": "2026-09-11T16:01:28.800120Z",
+                "message": "Started deployed execution in 1m2.74s.",
+                "status": "True",
+                "type": "Started"
+              },
+              {
+                "lastTransitionTime": "2026-09-11T16:00:25.901849Z",
+                "message": "Imported container image in 16.04s.",
+                "status": "True",
+                "type": "ContainerReady"
+              }
+            ],
+            "startTime": "2026-09-11T16:00:34.218431Z"
+          }
+        },
+        {
+          "metadata": {
+            "name": "quarterly-financial-pull-82ftz"
+          },
+          "status": {
+            "completionTime": "2026-09-10T19:55:12.186699Z",
+            "conditions": [
+              {
+                "lastTransitionTime": "2026-09-10T19:55:12.186699Z",
+                "message": "Execution completed successfully in 3h54m6.88s.",
+                "status": "True",
+                "type": "Completed"
+              },
+              {
+                "lastTransitionTime": "2026-09-10T16:00:56.736231Z",
+                "message": "Provisioned imported containers.",
+                "status": "True",
+                "type": "ResourcesAvailable"
+              },
+              {
+                "lastTransitionTime": "2026-09-10T16:02:53.922657Z",
+                "message": "Started deployed execution in 1m57.18s.",
+                "status": "True",
+                "type": "Started"
+              },
+              {
+                "lastTransitionTime": "2026-09-10T16:00:55.766407Z",
+                "message": "Imported container image in 13.62s.",
+                "status": "True",
+                "type": "ContainerReady"
+              }
+            ],
+            "startTime": "2026-09-10T16:01:05.300098Z"
+          }
+        }
+      ],
+      "listing_sha256": "17ad713a39222c0e36040e07e7490d19301e53e4432df759e0e30214109208fe",
+      "unfinished": []
+    },
+    "weekly-estimate-pull": {
+      "inspected_count": 79,
+      "latest": [
+        {
+          "metadata": {
+            "name": "weekly-estimate-pull-tstbh"
+          },
+          "status": {
+            "completionTime": "2026-09-12T12:57:58.124452Z",
+            "conditions": [
+              {
+                "lastTransitionTime": "2026-09-12T12:57:58.124452Z",
+                "message": "Execution completed successfully in 2h57m33.52s.",
+                "status": "True",
+                "type": "Completed"
+              },
+              {
+                "lastTransitionTime": "2026-09-12T10:00:06.588392Z",
+                "message": "Provisioned imported containers.",
+                "status": "True",
+                "type": "ResourcesAvailable"
+              },
+              {
+                "lastTransitionTime": "2026-09-12T10:01:35.034925Z",
+                "message": "Started deployed execution in 1m28.44s.",
+                "status": "True",
+                "type": "Started"
+              },
+              {
+                "lastTransitionTime": "2026-09-12T10:00:06.467167Z",
+                "message": "Imported container image.",
+                "status": "True",
+                "type": "ContainerReady"
+              }
+            ],
+            "startTime": "2026-09-12T10:00:24.603183Z"
+          }
+        },
+        {
+          "metadata": {
+            "name": "weekly-estimate-pull-qxhnq"
+          },
+          "status": {
+            "completionTime": "2026-09-11T12:59:21.661812Z",
+            "conditions": [
+              {
+                "lastTransitionTime": "2026-09-11T12:59:21.661812Z",
+                "message": "Execution completed successfully in 2h58m44.75s.",
+                "status": "True",
+                "type": "Completed"
+              },
+              {
+                "lastTransitionTime": "2026-09-11T10:00:28.590338Z",
+                "message": "Provisioned imported containers.",
+                "status": "True",
+                "type": "ResourcesAvailable"
+              },
+              {
+                "lastTransitionTime": "2026-09-11T10:02:30.704055Z",
+                "message": "Started deployed execution in 2m2.11s.",
+                "status": "True",
+                "type": "Started"
+              },
+              {
+                "lastTransitionTime": "2026-09-11T10:00:28.469171Z",
+                "message": "Imported container image in 11.27s.",
+                "status": "True",
+                "type": "ContainerReady"
+              }
+            ],
+            "startTime": "2026-09-11T10:00:36.911654Z"
+          }
+        },
+        {
+          "metadata": {
+            "name": "weekly-estimate-pull-wfqct"
+          },
+          "status": {
+            "completionTime": "2026-09-10T12:59:41.974860Z",
+            "conditions": [
+              {
+                "lastTransitionTime": "2026-09-10T12:59:41.974860Z",
+                "message": "Execution completed successfully in 2h59m15.57s.",
+                "status": "True",
+                "type": "Completed"
+              },
+              {
+                "lastTransitionTime": "2026-09-10T10:00:11.421155Z",
+                "message": "Provisioned imported containers.",
+                "status": "True",
+                "type": "ResourcesAvailable"
+              },
+              {
+                "lastTransitionTime": "2026-09-10T10:02:18.011018Z",
+                "message": "Started deployed execution in 2m6.58s.",
+                "status": "True",
+                "type": "Started"
+              },
+              {
+                "lastTransitionTime": "2026-09-10T10:00:11.294453Z",
+                "message": "Imported container image in 1.02s.",
+                "status": "True",
+                "type": "ContainerReady"
+              }
+            ],
+            "startTime": "2026-09-10T10:00:26.403790Z"
+          }
+        }
+      ],
+      "listing_sha256": "0c9333a7a56acb0808034b7d8ffeb2d848cbb4eb4d0d262caeca9261ebfe0880",
+      "unfinished": []
+    }
+  },
+  "github_runs": {
+    "api": 34739763601,
+    "conclusion": "success",
+    "jobs": 34739763602
+  },
+  "images": {
+    "api": "sha256:e3c45705ba70f550926da521e7c600ce2a4212eaec6c818458c91e812add31ab",
+    "daily-prices": "sha256:d9f7b58b2141d9f51526ba03e63c59c98568b5cdd209b4b830e8062628a78af1",
+    "quarterly-financials": "sha256:ff6a6d1d7ef0f3a090218e669e5b47c35c46db2b23c4097c0d108cf9ac0276a6",
+    "weekly-estimates": "sha256:5b2f0085856d4957433ecd724e78595efef89e4dfb16c3717b9c399c06a85d6b"
+  },
+  "jobs": {
+    "daily-price-pull": {
+      "spec": {
+        "template": {
+          "spec": {
+            "template": {
+              "spec": {
+                "containers": [
+                  {
+                    "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/daily-prices:latest"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "quarterly-financial-pull": {
+      "spec": {
+        "template": {
+          "spec": {
+            "template": {
+              "spec": {
+                "containers": [
+                  {
+                    "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/quarterly-financials:latest"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "weekly-estimate-pull": {
+      "spec": {
+        "template": {
+          "spec": {
+            "template": {
+              "spec": {
+                "containers": [
+                  {
+                    "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/weekly-estimates:latest"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "project": "yfinance-cli",
+  "region": "us-central1",
+  "sec_fallback_mode": "apply",
+  "writers_drained": true
+}

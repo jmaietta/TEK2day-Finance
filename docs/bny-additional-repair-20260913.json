@@ -1,0 +1,79 @@
+{
+  "activation_prerequisite": {
+    "current_profile": "us-gaap-bank-bny-v1",
+    "proposed_profile": "us-gaap-bank-bny-v2",
+    "prospective_binding_sha256": "24b1ed899eb25a3adbdc724f6597fde33777fe91c8aad26544fe3da0b38f3afd",
+    "status": "Separate approval required; current live binding rejects this staged candidate"
+  },
+  "candidate_key": "d2ee2bf7f1f3ff49ff14c00c59bfa1404b6b8e75536c5d9af1eac7d0a794f171",
+  "candidate_sha256": "ff62d8dd0bfb349c84ff2aef8bcf4c8a77a3b02d11e710b29169a68ca4a0f2fe",
+  "captured_at": "2026-09-13T05:28:53.284435+00:00",
+  "conflict_count": 0,
+  "database": "(default)",
+  "filled_fields": [
+    "balance_sheet.Common Stock Equity",
+    "cash_flow.Cash Dividends Paid",
+    "income.Pretax Income"
+  ],
+  "original_collections": [
+    "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/financials/2026-Q2/identity_observations"
+  ],
+  "original_tree": [
+    {
+      "exists": true,
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/financials/2026-Q2",
+      "sha256": "6bb1108d1bcefa3020fcef0e8bd6e1ea5a11a4e46ceb19a0f4443abf046efe74",
+      "update_time": {
+        "__firestore_timestamp__": "2026-09-13T03:47:44.132463+00:00"
+      }
+    },
+    {
+      "exists": true,
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/financials/2026-Q2/identity_observations/sec-1d0d3aa5275462a6d911d0b2332d87df854a5cf671d1138481e340e18f0b989b",
+      "sha256": "b8a0b845d8076f8440d107adfb92a31ed1434b628e394c2d785a470c3686a04d",
+      "update_time": {
+        "__firestore_timestamp__": "2026-09-13T03:47:44.132463+00:00"
+      }
+    }
+  ],
+  "period": "2026-Q2",
+  "plan_sha256": "05fbe370165a5a2118b157c4647df5c949b5a78dbbddc3c290f3e41d58591f04",
+  "project": "yfinance-cli",
+  "proposed_writes": [
+    {
+      "operation": "conditional set in one transaction",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/financials/2026-Q2",
+      "template_sha256": "f438cd457f1c0bb980cd7740dfe9f72ff87435749f85a6796b7a43ad3fba7440"
+    },
+    {
+      "operation": "conditional set in one transaction",
+      "path": "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/financials/2026-Q2/identity_observations/sec-d2ee2bf7f1f3ff49ff14c00c59bfa1404b6b8e75536c5d9af1eac7d0a794f171",
+      "template_sha256": "9bfce2bd84dcdeb874202fe4c909eabcf0c490e21ba35833dea09d64f54062e0"
+    }
+  ],
+  "rollback": {
+    "candidate_key": "d2ee2bf7f1f3ff49ff14c00c59bfa1404b6b8e75536c5d9af1eac7d0a794f171",
+    "entrypoint": "sec_maintenance.rollback_candidate",
+    "original_sha256": "6bb1108d1bcefa3020fcef0e8bd6e1ea5a11a4e46ceb19a0f4443abf046efe74",
+    "period": "2026-Q2",
+    "requirements": "Pause reviewed route; require unchanged applied record and no later descendants; restore exact original, retain audit/rollback marker, verify before resuming route",
+    "symbol": "BNY"
+  },
+  "route_path": "security_routes/bny-common-2026-05-21",
+  "route_sha256": "64dd47e8f5edacd3e50a375f2fd0cf56daa3ffa573fa87e64a6bcbb8d5221cce",
+  "scope": "One BNY financial period and its audit; all nested observations retained. No quotes, estimates, metadata, other periods or scheduler changes.",
+  "source_capture": {
+    "bytes": 7827785,
+    "retrieved_at": "2026-09-12T23:46:47.552784+00:00",
+    "sha256": "5e1d416fbbc5df89085c4e9d2f32ee91dfae321cb8f3a29a107699e974d926cd",
+    "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001390777.json"
+  },
+  "status": "PREPARED; NOT EXECUTED",
+  "symbol": "BNY",
+  "timestamp_policy": "Only sec_backfilled_at and audit.recorded_at use actual execution time; audit approval_plan_sha256 uses this plan digest; applied_sha256 is recomputed. All source/report timestamps and existing fetched_at stay frozen.",
+  "values": {
+    "balance_sheet.Common Stock Equity": 39910000000,
+    "cash_flow.Cash Dividends Paid": -453000000,
+    "income.Pretax Income": 2267000000
+  }
+}

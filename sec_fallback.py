@@ -245,6 +245,19 @@ def build_candidate(facts, receipt, binding, filing, all_filings):
         value = None if any(v is None for v in terms) else {"value": sum(v["value"] for v in terms),
                  "formula": " + ".join(tags), "unit": "USD", "terms": terms}
         put("balance_sheet", field, value)
+    for section, formulas in profile.get("statement_formulas", {}).items():
+        require(section in SECTIONS, "Unknown formula statement")
+        for field, specifications in formulas.items():
+            require(specifications and all(sign in (-1, 1) for _, sign in specifications),
+                    "Invalid reviewed formula")
+            terms = []
+            for tag, sign in specifications:
+                term = cash(tag, "USD") if section == "cash_flow" else read(tag, begin=None if section == "balance_sheet" else start)
+                terms.append(None if term is None else {**term, "coefficient": sign})
+            value = None if any(t is None for t in terms) else {
+                "value": sum(t["coefficient"] * t["value"] for t in terms),
+                "formula": "signed sum of reviewed SEC concepts", "unit": "USD", "terms": terms}
+            put(section, field, value)
     cf = doc["cash_flow"]
     if all(finite(cf.get(f)) for f in ("Operating Cash Flow", "Capital Expenditure")):
         put("cash_flow", "Free Cash Flow", {"value": cf["Operating Cash Flow"] + cf["Capital Expenditure"],
@@ -270,6 +283,8 @@ def build_candidate(facts, receipt, binding, filing, all_filings):
         "filing": deepcopy(filing), "source_capture": deepcopy(receipt), "fields": lineage,
         "unmapped_or_missing": gaps, "limitations": profile["limitations"],
         "per_share_basis": "as filed; only explicitly reviewed periods"}
+    if profile.get("mapping_evidence"):
+        doc["sec_provenance"]["mapping_evidence"] = deepcopy(profile["mapping_evidence"])
     return doc
 
 
@@ -314,6 +329,8 @@ def mapped_missing(doc, binding, end):
     expected = {s: set(COMMON[s]) | set(profile[s]) for s in SECTIONS}
     expected["income"].add("Total Revenue")
     expected["balance_sheet"].update(profile.get("balance_formulas", {}))
+    for section, formulas in profile.get("statement_formulas", {}).items():
+        expected[section].update(formulas)
     expected["cash_flow"].add("Free Cash Flow")
     if end in binding.get("per_share_periods", []):
         expected["income"].update({"Basic EPS", "Diluted EPS", "Basic Average Shares", "Diluted Average Shares"})

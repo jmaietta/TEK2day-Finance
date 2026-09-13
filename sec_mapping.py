@@ -3,6 +3,8 @@
 Adding an issuer requires review of its reporting basis, security and sources.
 The engine supports 10-Q/10-K periods; initial live eligibility stays BNY-only.
 """
+from copy import deepcopy
+
 from security_identity import BNY_EVENT, digest
 
 # Exact concepts, units and signs. No fuzzy field-name matching. A missing or
@@ -61,6 +63,26 @@ PROFILES = {
 
 BNY_Q2_URL = "https://www.bny.com/content/dam/bnymellon/documents/pdf/investor-relations/form-10-q-2q26.pdf"
 BNY_Q1_URL = "https://www.bny.com/assets/corporate/documents/pdf/investor-relations/form-10-q-1q26-final.pdf"
+
+# Staged for a separately approved repair/enrollment change. BINDINGS below
+# continues using v1; merely deploying this profile cannot add live fields.
+PROFILES["us-gaap-bank-bny-v2"] = deepcopy(PROFILES["us-gaap-bank-bny-v1"])
+PROFILES["us-gaap-bank-bny-v2"].update({
+    "review": "September 13, 2026: three additional definitions checked against Q1/Q2 statements",
+    "cash_flow": {"Cash Dividends Paid": ("PaymentsOfDividends", "USD", -1)},
+    "statement_formulas": {
+        "income": {"Pretax Income": [("ProfitLoss", 1), ("IncomeTaxExpenseBenefit", 1)]},
+        "balance_sheet": {"Common Stock Equity": [("StockholdersEquity", 1), ("PreferredStockValue", -1)]},
+    },
+    "mapping_evidence": [
+        {"url": BNY_Q2_URL, "sha256": "7e004391586962b2d0ff73c43d540f88b45bc80052b4099b4dd65a99fe2dce2d",
+         "pages": [46, 48, 49, 50],
+         "basis": "Consolidated pretax income; parent common equity excluding preferred; cash dividends paid, not declared"},
+        {"url": BNY_Q1_URL, "sha256": "ba5624c10f0e70b7fea1b71a3fb32ed040fcf671eaa2156213cfa518cb45f63c",
+         "pages": [44, 46, 47],
+         "basis": "Same consolidated basis and first-quarter cash payment used for the reviewed YTD bridge"},
+    ],
+})
 BINDINGS = {
     "BNY": {
         "symbol": "BNY", "cik": "0001390777", "currency": "USD",
