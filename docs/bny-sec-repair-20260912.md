@@ -12,6 +12,15 @@ nulls outside the reviewed mappings, dates and ingestion timestamp survive.
 March and every other financial period are outside this repair. No financial
 database writes have been executed. Automatic fallback remains `observe`.
 
+Safeguards were pushed and deployed as commit
+`8e04f0237668fb9c209b471a28df120942b7ff6a`, API revision
+`tek2day-api-00131-jnd` at 100% traffic. API workflow `34735420348` and
+maintenance workflow `34735420363` succeeded. All three maintenance image
+digests match that commit; writers were drained and `observe` was reverified.
+The [deployment receipt](bny-sec-repair-deployment-20260913.json) records exact
+digests and the successful native plan check. This deployed code has not
+executed the financial repair or enabled automatic SEC writes.
+
 ## Evidence and scope
 
 - Firestore: existing project `yfinance-cli`, Native `(default)`, `us-east1`.

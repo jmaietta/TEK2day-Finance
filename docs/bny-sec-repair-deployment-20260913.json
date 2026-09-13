@@ -1,0 +1,137 @@
+{
+  "api": {
+    "spec": {
+      "template": {
+        "spec": {
+          "containers": [
+            {
+              "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/api:8e04f0237668fb9c209b471a28df120942b7ff6a"
+            }
+          ]
+        }
+      }
+    },
+    "status": {
+      "latestReadyRevisionName": "tek2day-api-00131-jnd",
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100,
+          "revisionName": "tek2day-api-00131-jnd"
+        }
+      ]
+    }
+  },
+  "api_revision": {
+    "status": {
+      "imageDigest": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/api@sha256:674bc98a1e367f38db9ffb65b05055d05cbf08a67f6feb3cea7281aaf1f8fb80"
+    }
+  },
+  "api_workflow": {
+    "conclusion": "success",
+    "id": 34735420348
+  },
+  "checked_at": "2026-09-13T03:29:22.453346+00:00",
+  "commit": "8e04f0237668fb9c209b471a28df120942b7ff6a",
+  "completed_at": "2026-09-13T03:30:05.528878+00:00",
+  "images": {
+    "api": "sha256:674bc98a1e367f38db9ffb65b05055d05cbf08a67f6feb3cea7281aaf1f8fb80",
+    "daily-prices": "sha256:1e100e09380c7074800df0d641e75ff7f25f820b8dade75c00482bea0e829d6f",
+    "quarterly-financials": "sha256:72901276c16856e5e01fbbf5634392ce28b284b2868c4872f0cf523485708568",
+    "weekly-estimates": "sha256:33e97d87925107b8468e6eb03747accaaf96bebeae8b3e6adad4382c5e9b0d31"
+  },
+  "jobs": {
+    "daily-price-pull": {
+      "spec": {
+        "template": {
+          "spec": {
+            "template": {
+              "spec": {
+                "containers": [
+                  {
+                    "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/daily-prices:latest"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "quarterly-financial-pull": {
+      "spec": {
+        "template": {
+          "spec": {
+            "template": {
+              "spec": {
+                "containers": [
+                  {
+                    "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/quarterly-financials:latest"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "weekly-estimate-pull": {
+      "spec": {
+        "template": {
+          "spec": {
+            "template": {
+              "spec": {
+                "containers": [
+                  {
+                    "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/weekly-estimates:latest"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "kilby_offline_assertions": 53,
+  "live_partner_checks": false,
+  "maintenance_workflow": {
+    "conclusion": "success",
+    "id": 34735420363
+  },
+  "native_preflight": {
+    "action": "check",
+    "audit_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+    "audit_update_time": null,
+    "completed_at": "2026-09-13T03:18:36.010527+00:00",
+    "outcome": "fill",
+    "plan_sha256": "1d2d3401552330e6c2ef12645e44482a8d4765ea3f9eb47e5869c208565eecd1",
+    "source_recheck": {
+      "candidate_key": "1d0d3aa5275462a6d911d0b2332d87df854a5cf671d1138481e340e18f0b989b",
+      "companyfacts": {
+        "bytes": 7827785,
+        "retrieved_at": "2026-09-13T03:18:33.547774+00:00",
+        "sha256": "5e1d416fbbc5df89085c4e9d2f32ee91dfae321cb8f3a29a107699e974d926cd",
+        "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001390777.json"
+      },
+      "notices": [
+        {
+          "reason": "recent_submission_history_only; older archives not scanned",
+          "status": "scope"
+        }
+      ]
+    },
+    "target_sha256": "a78646db847dbcd714c2c56aa612ddef3c6bd5a285a91df30577688f80301662",
+    "target_update_time": {
+      "__firestore_timestamp__": "2026-09-12T16:31:51.304941+00:00"
+    }
+  },
+  "offline_tests": 146,
+  "plan_sha256": "1d2d3401552330e6c2ef12645e44482a8d4765ea3f9eb47e5869c208565eecd1",
+  "private_rollout_sha256": "f9f46d44c687f38961b7b38f71a4dfde19b12b03e15b2660f60b813ac4adb3bb",
+  "project": "yfinance-cli",
+  "region": "us-central1",
+  "sec_fallback_mode": "observe",
+  "status": "DEPLOYED GUARDS; FINANCIAL REPAIR NOT EXECUTED",
+  "writers_drained": true
+}

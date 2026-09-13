@@ -1,4 +1,4 @@
-"""Read-only deployed commit/image and writer-drain verification for XOM."""
+"""Read-only deployed commit/image and writer-drain verification (XOM default)."""
 import argparse
 from datetime import datetime, timezone
 import json
@@ -13,9 +13,13 @@ from security_identity import require, digest
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--commit', default='e9e28afd0536c5d8bc1ee552dee6449466fdbb11',
+                        help='Expected source commit; can verify subsequent SEC repair guard builds')
     args = parser.parse_args()
     require(not args.output.exists(), 'Use a new receipt path')
-    sha = 'e9e28afd0536c5d8bc1ee552dee6449466fdbb11'
+    sha = args.commit
+    import re
+    require(re.fullmatch(r'[0-9a-f]{40}', sha) is not None, 'Expected full source commit required')
     registry = 'us-central1-docker.pkg.dev/yfinance-cli/tek2day/'
     receipt = {'checked_at': datetime.now(timezone.utc).isoformat(), 'commit': sha,
                'project': 'yfinance-cli', 'region': 'us-central1', 'images': {}, 'jobs': {}, 'executions': {}}

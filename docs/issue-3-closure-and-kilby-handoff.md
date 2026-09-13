@@ -12,11 +12,11 @@ passed 53 assertions. Financial execution and automatic apply await approval.
 | Item | Recorded state |
 | --- | --- |
 | GitHub source base | e39cdd98707974ba324a2d6ebb67a96353f48e07 |
-| Serving API revision | tek2day-api-00130-cxf; 100% traffic, verified September 12 |
-| Serving API immutable image | sha256:745ff6a066f1d9cbd3b3462643aa8a56f72ae248ca3fcc05a4ab6015bfd303c7 |
+| Serving API revision | tek2day-api-00131-jnd; 100% traffic, verified September 13 UTC (September 12 Eastern) |
+| Serving API immutable image | sha256:674bc98a1e367f38db9ffb65b05055d05cbf08a67f6feb3cea7281aaf1f8fb80 |
 | Implementation commit | 30d6b90646fade38609f3df21e4ab31af5066170; published |
-| Deployed commit | e9e28afd0536c5d8bc1ee552dee6449466fdbb11 |
-| Build/deploy runs | API 34700569623; maintenance images 34700569634; both successful |
+| Deployed commit | 8e04f0237668fb9c209b471a28df120942b7ff6a |
+| Build/deploy runs | API 34735420348; maintenance images 34735420363; both successful; [exact receipt](bny-sec-repair-deployment-20260913.json) |
 | SEC fallback | Deployed, BNY-only observe mode; no SEC financial writes or manual job execution |
 | Live repair/migration writes in this session | BK/BNY migration September 10; approved XOM identity publication September 12; retained original history and audit snapshots; no SEC financial backfill executed |
 | Migration status | Published 2026-09-10T18:09:20.380321Z, plan 17f04fb3c5f56030356764b271a6fb860531be71915849798d30f019d2ab3bfd |
@@ -120,6 +120,11 @@ replace the pending receipt entries with verified final values first.
 > 2026-07-31T20:31:16Z, eligible after August 7 at 20:31:16Z. The verified source
 > is https://www.bny.com/content/dam/bnymellon/documents/pdf/investor-relations/form-10-q-2q26.pdf.
 > Statements remain explicitly partial where unsupported bank mappings are absent.
+> The guarded repair code was subsequently deployed as commit
+> 8e04f0237668fb9c209b471a28df120942b7ff6a / tek2day-api-00131-jnd,
+> with API workflow 34735420348 and maintenance workflow 34735420363 successful.
+> Exact images are in docs/bny-sec-repair-deployment-20260913.json. Observation
+> mode was reverified; this deployment did not apply the June financial repair.
 >
 > The verified event is the May 21, 2026 BK→BNY ticker change for The Bank of
 > New York Mellon Corporation common stock, $0.01 par, CUSIP 064058100, NYSE
