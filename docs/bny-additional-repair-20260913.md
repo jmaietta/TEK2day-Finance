@@ -1,9 +1,19 @@
 # Proposed BNY June repair: three additional fields
 
-**Approved September 13; execution receipt pending.** The user approved the
-BNY-only three-field repair and activation of its reviewed mapping. The local
-binding is v2; deployment and execution are recorded separately below when
-verified. The original preparation manifest remains immutable.
+**Applied September 13, 2026 at Firestore commit time 05:59:14.439028Z.**
+The user approved this BNY-only three-field repair and mapping activation.
+The exact two writes committed atomically, with three fills and zero conflicts.
+The [execution receipt](bny-additional-execution-20260913.json) records native
+verification, deployment and first-party checks. The original preparation
+manifest remains immutable; the following proposal/review describes the approved
+operation and its rollback.
+
+Native verification preserved the earlier 22-field repair, its audit, all 21
+other financial records/descendants, metadata, 1,288 prices and ten estimate
+observations. Repair replay and a BNY-only fallback rerun made zero additional
+writes. Both reviewed quarters report stored mapped coverage. This was a bounded
+function check, not a manual Cloud Run execution; the next ordinary scheduled
+job is still pending. No rollback was executed.
 
 The [exact public manifest](bny-additional-repair-20260913.json) identifies plan
 `05fbe370165a5a2118b157c4647df5c949b5a78dbbddc3c290f3e41d58591f04`,
@@ -94,6 +104,11 @@ the filing's 73 distribution/servicing expense, suggesting a netting convention;
 Yahoo's method has not been independently established. Preserve both source
 observations and the selected history. Incomplete 2021-FY needs its own dated
 historical filing review.
+
+The [exact date inventory](bny-price-gap-inventory-20260913.json) lists the 42
+missing stored daily bars: one in June, 18 in July, 21 in August and two in
+September. These gaps concern stored daily open/high/low/close and volume,
+separately from current quote availability.
 
 The price comparison found 42 absent dates and 16 revised overlaps in a bounded
 63-session capture. All 21 overlapping stored closes equal fresh **unadjusted**

@@ -1,5 +1,13 @@
 # SEC financial fallback: BNY apply mode enabled
 
+Additional approval on September 13 activated BNY profile
+`us-gaap-bank-bny-v2`. Its June repair added pretax income, common equity and
+cash dividends paid in two atomic writes at 05:59:14.439028Z. The original
+22-field repair remains intact. See the [additional execution receipt](bny-additional-execution-20260913.json)
+and [review/rollback](bny-additional-repair-20260913.md). BNY remains the only
+enrolled issuer; the seven-day filing delay and all identity/period constraints
+are unchanged. The next ordinary scheduled run remains an acceptance check.
+
 After explicit BNY-only approval, the June repair was applied and verified on
 September 13, 2026: 22 gap fills and two atomic writes, preserving populated
 values and all other datasets. The existing financial job now uses `apply`,

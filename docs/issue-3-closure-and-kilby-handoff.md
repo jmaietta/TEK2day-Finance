@@ -11,15 +11,17 @@ data; the balance sheet also matches TEK2day. These authorized-path display
 checks pass. Raw partner response and authorization checks remain separate.
 
 The maintenance correction originated at `db81352fe071eafaa2555ce61ef5023b297dd1e7`.
-The final serving build includes the inactive mapping and review artifacts at
-`beb5a413f3dbd66fa4ade6653a8be6fdfca10b80`, revision `tek2day-api-00133-rrj`,
-API build 34740802990 and job builds 34740802977, all successful;
-[immutable image and 12 first-party check receipt](bny-staged-deployment-20260913.json).
-The [three-field follow-up repair](bny-additional-repair-20260913.md) is prepared
-with a native read-only preflight and exact rollback, but NOT executed. Its v2
-mapping is staged; BNY's active binding remains v1. Do not report those three
-additional fields as repaired or include their proposed values in live-response
-fixtures until approved execution and verification are recorded.
+The final serving build activates the approved BNY v2 mapping at
+`c96d36cc0d59cad53405b7272ce73ac152934eec`, revision `tek2day-api-00134-xfn`,
+API build 34741645100 and job builds 34741645108, all successful;
+[execution, immutable image and first-party check receipt](bny-additional-execution-20260913.json).
+The [three-field follow-up repair](bny-additional-repair-20260913.md) was approved
+and applied at Firestore commit time 2026-09-13T05:59:14.439028Z: pretax income
+2,267 million USD, common equity 39,910 million USD and cash dividends paid
+-453 million USD. Two writes, zero conflicts; the earlier repair and its audit
+were preserved. BNY's active binding is v2. New Kilby display checks for these
+three fields remain to be supplied through its authorized path; the earlier
+screenshots only verify the preceding repair.
 
 September 13 financial follow-up: the approved BNY June repair was applied and
 verified. The [execution receipt](bny-sec-repair-execution-20260913.json) records
@@ -32,19 +34,19 @@ pre-execution validation included 146 offline tests and 53 pinned Kilby assertio
 | Item | Recorded state |
 | --- | --- |
 | GitHub source base | e39cdd98707974ba324a2d6ebb67a96353f48e07 |
-| Serving API revision | tek2day-api-00133-rrj; 100% traffic, verified September 13 UTC |
-| Serving API immutable image | sha256:cfb3cee9d002f80ccc819238e71152c8c93e8412a7e78104dffc2659cdfafe7a |
+| Serving API revision | tek2day-api-00134-xfn; 100% traffic, verified September 13 UTC |
+| Serving API immutable image | sha256:743d1571e722eb934dca8ac585437f425ee835ce0606005fd399959c5fc6d92c |
 | Implementation commit | 30d6b90646fade38609f3df21e4ab31af5066170; published |
-| Deployed commit | beb5a413f3dbd66fa4ade6653a8be6fdfca10b80 |
-| Build/deploy runs | API 34740802990; maintenance images 34740802977; both successful; [exact receipt](bny-staged-deployment-20260913.json) |
+| Deployed commit | c96d36cc0d59cad53405b7272ce73ac152934eec |
+| Build/deploy runs | API 34741645100; maintenance images 34741645108; both successful; [exact receipt](bny-additional-execution-20260913.json) |
 | SEC fallback | BNY-only apply mode, financial job generation 4 Ready; no manual Cloud Run job execution |
-| Live repair/migration writes in this session | BK/BNY migration September 10; XOM identity publication September 12; approved BNY June SEC repair September 13 at 03:47:44.132463Z, 22 fields/two writes; originals and other history retained |
+| Live repair/migration writes in this session | BK/BNY migration September 10; XOM identity publication September 12; BNY June SEC repair September 13 at 03:47:44.132463Z, 22 fields/two writes; additional repair at 05:59:14.439028Z, three fields/two writes; originals and other history retained |
 | Migration status | Published 2026-09-10T18:09:20.380321Z, plan 17f04fb3c5f56030356764b271a6fb860531be71915849798d30f019d2ab3bfd |
 | Live partner checks | User-supplied Kilby screenshots confirm all three statement displays; raw response and authorization checks remain pending through that authorized path |
-| Latest offline validation | 173 tests; 53 pinned Kilby producer/consumer assertions; native prospective repair preflight passed with zero writes |
+| Latest offline validation | 173 tests and 53 pinned Kilby assertions against the active v2 binding; native post-repair reruns made zero writes |
 | Runtime validation limit | Pinned image builds, Cloud Run startup and workflow smoke test passed; native migration/readers and no-op maintenance guards passed; live Kilby acceptance pending |
 | Corporate event | BK→BNY, ordinary common stock, 2026-05-21; issuer CIK 0001390777; CUSIP 064058100; NYSE/XNYS; provider-observed USD |
-| BNY financial coverage | June's 22 gaps filled; SEC subset explicitly partial. March retained; its revenue basis difference and incomplete 2021-FY remain separate limitations |
+| BNY financial coverage | June's 22 plus three approved gaps filled; SEC subset explicitly partial. March retained; its revenue basis difference and incomplete 2021-FY remain separate limitations |
 | API rollout mode | Route active: BNY canonical, BK 409; no security_resolution or redirect payload |
 | Issue #3 | OPEN; not ready for closure |
 | Chatllm #221 | Remains OPEN |
@@ -127,18 +129,23 @@ replace the pending receipt entries with verified final values first.
 >
 > Independently verify the final TEK2day state in
 > docs/issue-3-closure-and-kilby-handoff.md. The serving commit is
-> beb5a413f3dbd66fa4ade6653a8be6fdfca10b80, revision tek2day-api-00133-rrj,
-> with API build 34740802990 and maintenance build 34740802977 successful.
-> Exact image digests are in docs/bny-staged-deployment-20260913.json.
-> This includes db81352's scheduled-refresh correction and a staged, inactive
-> three-field mapping. The active BNY profile remains v1. Plan
+> c96d36cc0d59cad53405b7272ce73ac152934eec, revision tek2day-api-00134-xfn,
+> with API build 34741645100 and maintenance build 34741645108 successful.
+> Exact image digests are in docs/bny-additional-execution-20260913.json.
+> This includes db81352's scheduled-refresh correction and the approved active
+> BNY v2 mapping. Plan
 > 05fbe370165a5a2118b157c4647df5c949b5a78dbbddc3c290f3e41d58591f04
-> is PREPARED, NOT EXECUTED; review docs/bny-additional-repair-20260913.md.
-> Native read-only preflight, 173 offline tests, 53 pinned Kilby assertions and
-> 12 first-party checks passed. The next scheduled financial job is Monday,
+> was applied in two atomic writes at 2026-09-13T05:59:14.439028Z, adding June
+> pretax income 2,267 million USD, common equity 39,910 million USD and cash
+> dividends paid -453 million USD. Earlier selected values and audits remain
+> intact. Review docs/bny-additional-repair-20260913.md and its execution receipt.
+> Native post-repair reruns made zero writes; 173 offline tests and 53 pinned
+> Kilby assertions passed against v2. All 12 first-party checks passed after the
+> existing financial cache TTL. The next scheduled financial job is Monday,
 > September 14, noon America/New_York; no apply-mode scheduled run has yet
 > occurred. User screenshots confirm Kilby receives all three repaired statement
-> displays; raw partner/authorization checks remain pending.
+> displays for the earlier 22-field repair. Kilby checks for the three new
+> fields, and raw partner/authorization checks, remain pending.
 > The BK/BNY continuity migration was published September 10 at
 > 18:09:20.380321Z; its plan is
 > 17f04fb3c5f56030356764b271a6fb860531be71915849798d30f019d2ab3bfd.

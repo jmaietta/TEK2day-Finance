@@ -1,0 +1,251 @@
+{
+  "active_profile": "us-gaap-bank-bny-v2",
+  "applied": {
+    "audit_sha256": "b804677727d5ad9ee0165dc39a05daadcb57827c09fedfefe8fc66aff7e43eaf",
+    "audit_update_time": {
+      "__firestore_timestamp__": "2026-09-13T05:59:14.439028+00:00"
+    },
+    "completed_at": "2026-09-13T05:59:08.325040+00:00",
+    "outcome": "fill",
+    "target_sha256": "7a0d1a301baf0c17e62b56749553d70a449944ce49240dd55c67cd94150fc52e",
+    "target_update_time": {
+      "__firestore_timestamp__": "2026-09-13T05:59:14.439028+00:00"
+    }
+  },
+  "chatllm_221": "OPEN",
+  "chatllm_233": "CLOSED; unchanged",
+  "chatllm_modified": false,
+  "clock_policy": "Preserve server commit and client timestamps independently; client clock precedes server commit clock. Use Firestore update time for write ordering.",
+  "conflict_count": 0,
+  "database": "(default)",
+  "deployment": {
+    "api": {
+      "spec": {
+        "template": {
+          "spec": {
+            "containers": [
+              {
+                "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/api:c96d36cc0d59cad53405b7272ce73ac152934eec"
+              }
+            ]
+          }
+        }
+      },
+      "status": {
+        "latestReadyRevisionName": "tek2day-api-00134-xfn",
+        "traffic": [
+          {
+            "latestRevision": true,
+            "percent": 100,
+            "revisionName": "tek2day-api-00134-xfn"
+          }
+        ]
+      }
+    },
+    "api_revision": {
+      "status": {
+        "imageDigest": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/api@sha256:743d1571e722eb934dca8ac585437f425ee835ce0606005fd399959c5fc6d92c"
+      }
+    },
+    "checked_at": "2026-09-13T06:03:10.784236+00:00",
+    "completed_at": "2026-09-13T06:03:53.493227+00:00",
+    "images": {
+      "api": "sha256:743d1571e722eb934dca8ac585437f425ee835ce0606005fd399959c5fc6d92c",
+      "daily-prices": "sha256:b6a859dda3825d0624878abc345cd786a3d2d0a424c456346ec236303cd86ce8",
+      "quarterly-financials": "sha256:3f3a14cb507b89169003a1d3a2b5a6723059434e6e877fde74741ab4b6e71c59",
+      "weekly-estimates": "sha256:0a6057b67c986d4a0aef0f268860d0e30370b0cd9b0df0630b1a4abe42921167"
+    },
+    "jobs": {
+      "daily-price-pull": {
+        "spec": {
+          "template": {
+            "spec": {
+              "template": {
+                "spec": {
+                  "containers": [
+                    {
+                      "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/daily-prices:latest"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "quarterly-financial-pull": {
+        "spec": {
+          "template": {
+            "spec": {
+              "template": {
+                "spec": {
+                  "containers": [
+                    {
+                      "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/quarterly-financials:latest"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "weekly-estimate-pull": {
+        "spec": {
+          "template": {
+            "spec": {
+              "template": {
+                "spec": {
+                  "containers": [
+                    {
+                      "image": "us-central1-docker.pkg.dev/yfinance-cli/tek2day/weekly-estimates:latest"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "sec_fallback_mode": "apply",
+    "writers_drained": true
+  },
+  "enrollment": [
+    "BNY"
+  ],
+  "filled_fields": [
+    "balance_sheet.Common Stock Equity",
+    "cash_flow.Cash Dividends Paid",
+    "income.Pretax Income"
+  ],
+  "financial_documents_including_audits": 23,
+  "financial_periods": 11,
+  "first_party_checks": {
+    "cache_policy": "Existing 300-second financial TTL elapsed before verification",
+    "checks": [
+      "BK:inc:exact_verified_financials",
+      "BK:bal:exact_verified_financials",
+      "BK:cf:exact_verified_financials",
+      "BK:metadata:unchanged",
+      "BNY:inc:exact_verified_financials",
+      "BNY:bal:exact_verified_financials",
+      "BNY:cf:exact_verified_financials",
+      "BNY:metadata:unchanged",
+      "estimates:all_observations_retained",
+      "prices:stored_history_connected",
+      "quote:matched_price_with_separate_observation_time",
+      "financial_repeat:stable"
+    ],
+    "completed_at": "2026-09-13T06:05:33.229125+00:00"
+  },
+  "github_runs": {
+    "api": 34741645100,
+    "conclusion": "success",
+    "maintenance": 34741645108
+  },
+  "issue_3": "OPEN",
+  "kilby_assertions": 53,
+  "live_partner_checks": "No local partner API calls. User testing of the three additional fields remains pending through Kilby. Prior screenshots covered the earlier repair.",
+  "native_verification": {
+    "exact_two_payloads": true,
+    "legacy_split_recreated": false,
+    "metadata_prices_estimates_unchanged": true,
+    "native_reruns_write_counts": [
+      0,
+      0
+    ],
+    "operation_recorded_at": "2026-09-13T05:59:06.392397+00:00",
+    "original_audited": true,
+    "other_financial_records_and_descendants_unchanged": 21,
+    "retired_write_and_strict_read_rejected": true,
+    "same_server_commit": true,
+    "scheduled_fallback_rerun": {
+      "failures": [],
+      "results": [
+        {
+          "reason": "recent_submission_history_only; older archives not scanned",
+          "status": "scope",
+          "symbol": "BNY"
+        },
+        {
+          "mode": "apply",
+          "period": "2026-Q1",
+          "source": "stored reviewed mapping",
+          "status": "stored_complete",
+          "symbol": "BNY"
+        },
+        {
+          "mode": "apply",
+          "period": "2026-Q2",
+          "source": "stored reviewed mapping",
+          "status": "stored_complete",
+          "symbol": "BNY"
+        }
+      ],
+      "scope": "BNY-only function invocation; all nonempty commits blocked; no Cloud Run execution"
+    },
+    "server_commit_time": {
+      "__firestore_timestamp__": "2026-09-13T05:59:14.439028+00:00"
+    }
+  },
+  "offline_tests": 173,
+  "paths": [
+    "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/financials/2026-Q2",
+    "security_data/security-d8ce554c-6d7b-4bba-9846-559a7e3c7b93/versions/95d50ef03127c3d502bec0ff8e03cbdf3328f0c9b974958fdc97f9994c4aaa6f/financials/2026-Q2/identity_observations/sec-d2ee2bf7f1f3ff49ff14c00c59bfa1404b6b8e75536c5d9af1eac7d0a794f171"
+  ],
+  "period": "2026-Q2",
+  "plan_sha256": "05fbe370165a5a2118b157c4647df5c949b5a78dbbddc3c290f3e41d58591f04",
+  "preserved_counts": {
+    "estimates": 10,
+    "prices": 1288
+  },
+  "private_evidence_digests": {
+    "bny-additional-activation-deployment.json": "c6ad4250e0c26618a26bdc5fbcd3887760baed6a3e3c3c93b60004f8e7b2244f",
+    "bny-additional-applied-20260913.json": "1edbc930559381894c33c90927999ae19a6ee427e22789c4815235f05e36467f",
+    "bny-additional-approved-check.json": "f1ba8ab9ab20d810aea44276780c0f13516cf4945b0b73b6398a270c1b45c85a",
+    "bny-additional-before-activation-cloud.json": "218a5cb7afc68b602e78575f0081045b9b6717e92dc8e13e6d7d18929ddd22c0",
+    "bny-additional-execution-after.json": "30b46f49c3fdcd58c1dce911524b21ae1fff2a097253708889737ef41ca1058d",
+    "bny-additional-execution-before.json": "f898835230ea3ccb569eac74c939a8894a643c1f11787a8cbde9107873c08ee2",
+    "bny-additional-website-after.json": "5e2d09926b04b5f197f214a69b8c0b57e1ea64bdf1dc89e014ab83dcb3ecec8e"
+  },
+  "project": "yfinance-cli",
+  "remaining": [
+    "Next ordinary scheduled financial execution: September 14 noon America/New_York",
+    "42 historical price gaps and historical adjustment-basis review",
+    "Other unsupported financial mappings",
+    "Incomplete 2021-FY",
+    "March revenue-basis reconciliation",
+    "Authorized Kilby additional-field/raw partner verification"
+  ],
+  "rollback": {
+    "executed": false,
+    "note": "Plan-bound pause, conditional restoration and retained rollback marker; earlier 22-field repair remains intact. Revert binding to v1 if reversing activation.",
+    "plan": "docs/bny-additional-repair-20260913.json",
+    "retained_original_sha256": "6bb1108d1bcefa3020fcef0e8bd6e1ea5a11a4e46ceb19a0f4443abf046efe74"
+  },
+  "source_capture": {
+    "candidate_key": "d2ee2bf7f1f3ff49ff14c00c59bfa1404b6b8e75536c5d9af1eac7d0a794f171",
+    "companyfacts": {
+      "bytes": 7827785,
+      "retrieved_at": "2026-09-13T05:59:04.747096+00:00",
+      "sha256": "5e1d416fbbc5df89085c4e9d2f32ee91dfae321cb8f3a29a107699e974d926cd",
+      "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001390777.json"
+    },
+    "notices": [
+      {
+        "reason": "recent_submission_history_only; older archives not scanned",
+        "status": "scope"
+      }
+    ]
+  },
+  "source_commit": "c96d36cc0d59cad53405b7272ce73ac152934eec",
+  "status": "APPLIED, DEPLOYED AND VERIFIED",
+  "symbol": "BNY",
+  "values": {
+    "balance_sheet.Common Stock Equity": 39910000000,
+    "cash_flow.Cash Dividends Paid": -453000000,
+    "income.Pretax Income": 2267000000
+  },
+  "write_count": 2
+}
