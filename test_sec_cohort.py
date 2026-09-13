@@ -215,8 +215,11 @@ def test_batch_interruption_replays_only_uncheckpointed_symbol(db):
     assert seen == ['BETA']
 
 
-def test_empty_packaged_catalog_preserves_existing_enrollment():
-    assert load_catalog() == {} and set(BINDINGS) == {'BNY'}
+def test_packaged_catalog_matches_approved_amzn_enrollment():
+    from pathlib import Path
+    approved = json.loads((Path(__file__).parent / 'docs/amzn-proposed-enrollment-20260913.json').read_text())['bindings'][0]
+    assert set(BINDINGS) == {'BNY', 'AMZN'}
+    assert digest(load_catalog()['AMZN']) == digest(approved)
 
 
 def test_real_amzn_uses_shared_profile_and_exact_quarter():
@@ -328,3 +331,22 @@ def test_generic_q3_ytd_uses_adjacent_noncalendar_fiscal_dates():
     candidate = build_candidate(e['facts'], e['receipt'], b, third, reports)
     assert candidate['cash_flow']['Operating Cash Flow'] == 110
     assert candidate['period_start'] == '2026-06-29'
+
+
+def test_native_execution_verifier_detects_unapproved_descendant_change(db, monkeypatch):
+    from scripts.verify_sec_cohort_execution import verify_exact
+    b = binding(); n = native(db, b)
+    protected = b['root_path'] + '/prices/2026-06-30/observations/kept'
+    db.data[protected] = {'close': 123}
+    cohort = prepare([b], {b['symbol']: n}, {b['symbol']: evidence(b)[0]}, NOW)
+    roots = [b['root_path'], b['control_path']]
+    before = capture(db, roots=roots)
+    activate(db, cohort['items'][0]['activation'], apply=True)
+    monkeypatch.setitem(BINDINGS, b['symbol'], b)
+    for plan in cohort['items'][0]['repairs']:
+        sm.commit_candidate(db, b['symbol'], plan['candidate'], approval=plan, apply=True, now=NOW)
+    after = capture(db, roots=roots)
+    assert verify_exact(cohort, before, after)['payload_count'] == 5
+    after['records'][protected]['data']['close'] = 999
+    with pytest.raises(IdentityError, match='Protected observation'):
+        verify_exact(cohort, before, after)
