@@ -117,6 +117,9 @@ operating income, EBITDA, net income, EPS, and more.
 
 ## Data Sources
 
+For the reviewed multi-security SEC fallback, cohort preparation, recovery and
+rollout, see [SEC cohort backfill](docs/sec-cohort-backfill.md).
+
 - **Firestore** - stored ticker metadata, estimates, prices, and financial statements
 - **Yahoo Finance** - live quote fields, company description, short-interest fallback, and recent news
 - **SEC EDGAR** - regulatory filings (10-K, 10-Q, 8-K, Form 4, etc.)

@@ -49,7 +49,7 @@ def public_manifest(plan):
                          "original_sha256": digest(plan["tree"][plan["path"]]["data"]),
                          "requirements": "Pause reviewed route; require unchanged applied record and no later descendants; "
                                          "restore exact original, retain audit/rollback marker, verify before resuming route"},
-            "scope": "One BNY financial period and its audit; all nested observations retained. "
+            "scope": "One reviewed security's financial period and its audit; all nested observations retained. "
                      "No quotes, estimates, metadata, other periods or scheduler changes."}
 
 

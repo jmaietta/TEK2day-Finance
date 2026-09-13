@@ -8,4 +8,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # died at startup on the import. The extra files are inert - only the
 # entrypoint runs.
 COPY *.py ./
+COPY sec_catalog/ ./sec_catalog/
 ENTRYPOINT ["python", "repair_financials.py", "--scan"]

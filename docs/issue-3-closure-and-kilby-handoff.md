@@ -222,3 +222,22 @@ replace the pending receipt entries with verified final values first.
 > quote or successful migration does not establish financial completeness. Continue the remaining Deep Research
 > hardening under #221 with no paid run or deployment unless separately
 > authorized in that session.
+
+## September 13: scalable cohort implementation
+
+The [cohort workflow](sec-cohort-backfill.md) generalizes ordinary-security
+enrollment and SEC backfill without adding ticker-specific application code.
+The production catalog remains empty; only the previously approved BNY binding
+is active. The [AMZN dry run](amzn-cohort-review-20260913.json) proposes ten gap
+fills through two financial/audit writes and a separate control publication;
+it is not executed or enrolled. Its immutable cohort digest is
+`b08ebdc2b886c1577df06bab0797578a5ff0e454d1b1ac80bfecff43bd925b99`.
+
+For the returning Kilby session, also read `docs/sec-cohort-backfill.md`.
+Ordinary enrollment keeps requested/resolved/payload ticker semantics intact;
+it does not enable the proposed security-resolution contract. The new permitted
+fixture `tests/fixtures/sec_amzn_2026_q2.json` contains bounded public SEC facts,
+not a live partner response or private financial export. Existing acceptance
+items above remain open, including BNY's 42 price-history gaps and ordinary
+scheduled-run verification. TEK2day #3 and chatllm #221 remain open; #233 stays
+closed. This session does not modify chatllm.

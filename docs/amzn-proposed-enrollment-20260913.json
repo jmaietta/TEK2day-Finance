@@ -1,0 +1,49 @@
+{
+  "bindings": [
+    {
+      "cash_flow_policy": "direct_only",
+      "cik": "0001018724",
+      "control_path": "sec_bindings/54247d1b-a77a-429e-9084-82abcaeba8f8",
+      "currency": "USD",
+      "event_type": "existing_security",
+      "evidence": [
+        "https://www.sec.gov/Archives/edgar/data/1018724/000101872426000026/amzn-20260630.htm"
+      ],
+      "exchange": "Nasdaq",
+      "identity_guard": {
+        "cik": "0001018724",
+        "currency": "USD",
+        "exchange": "NMS",
+        "symbol": "AMZN"
+      },
+      "identity_review": {
+        "reporting_basis": "Consolidated three-month April-June 2026 operating results and cash flows, June 30 balance-sheet instants. SEC statements present direct quarter cash flows; no cross-filing subtraction or per-share insertion. Exact standard concepts only; unsupported concepts remain missing.",
+        "reviewed_at": "2026-09-13T06:57:54.547958+00:00",
+        "security_description": "Amazon.com, Inc. common shares, par value USD0.01; Nasdaq. USD trading currency corroborated by stored provider metadata. Proposed internal UUIDs, not external identifiers.",
+        "sources": [
+          {
+            "effective_date": "2026-06-30",
+            "effective_date_basis": "Report-end observation; not an incorporation, listing or corporate-action effective date",
+            "passage": "Common Stock, par value $.01 per share | AMZN | The Nasdaq Stock Market LLC",
+            "publication_date": "2026-07-31",
+            "url": "https://www.sec.gov/Archives/edgar/data/1018724/000101872426000026/amzn-20260630.htm"
+          }
+        ]
+      },
+      "is_adr": false,
+      "issuer_id": "300a8174-c962-43e8-b1ca-d487ddb51424",
+      "per_share_periods": [],
+      "periods_from": "2026-04-01",
+      "periods_through": "2026-06-30",
+      "profile": "us-gaap-industrial-v1",
+      "profile_sha256": "28dc6b805921323e9505cb75a5389e1cefd9b6ede1a7f62e8bbbc6ad9fd40872",
+      "root_path": "tickers/AMZN",
+      "security_id": "54247d1b-a77a-429e-9084-82abcaeba8f8",
+      "share_class": "common",
+      "storage_kind": "existing_symbol",
+      "symbol": "AMZN"
+    }
+  ],
+  "schema": 1,
+  "status": "PROPOSED; NOT ACTIVE"
+}

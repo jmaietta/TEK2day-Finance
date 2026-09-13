@@ -34,6 +34,7 @@ on:
     # missing a module three times.
     paths:
       - "*.py"
+      - "sec_catalog/**"
       - ".github/workflows/deploy-jobs.yml"
       - "requirements.txt"
       - "Dockerfile.daily-prices"

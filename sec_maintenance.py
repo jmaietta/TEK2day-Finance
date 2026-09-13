@@ -18,6 +18,14 @@ from security_identity import digest, event_for, require
 logger = logging.getLogger("ydp.sec_fallback")
 
 
+def control_path(symbol):
+    binding = BINDINGS[symbol]
+    if binding.get('storage_kind') == 'existing_symbol':
+        return binding['control_path']
+    from security_identity import route_path
+    return route_path(event_for(symbol))
+
+
 def checked_binding(db, symbol, transaction=None):
     require(symbol in BINDINGS, "SEC security binding has not been reviewed")
     binding = BINDINGS[symbol]
@@ -28,7 +36,8 @@ def checked_binding(db, symbol, transaction=None):
     require(not meta.get("renamed_to") and not meta.get("identity_retired"), "Retired SEC target")
     require(str(meta.get("cik")).zfill(10) == binding["cik"] and meta.get("currency") == binding["currency"],
             "Stored registrant/currency differs from SEC binding")
-    require(all(meta.get(k) == binding[k] for k in ("issuer_id", "security_id")),
+    identity = state if binding.get('storage_kind') == 'existing_symbol' else meta
+    require(all(identity.get(k) == binding[k] for k in ("issuer_id", "security_id")),
             "Canonical issuer/security binding mismatch; CIK alone cannot authorize this write")
     if event:
         require(digest(event) == binding.get("identity_event_sha256") and state.get("status") == "active",
@@ -85,13 +94,23 @@ def candidate_writes(plan, state, original_update_time, recorded_at, *, approval
     return writes
 
 
-def reviewed_repair(native, candidate):
+def reviewed_repair(native, candidate, *, binding=None):
     """Freeze one captured financial tree; no quotes, estimates or other periods."""
     from security_identity import route_path
     symbol = candidate["symbol"]
     require(native["project"] == "yfinance-cli" and native["database"] == "(default)", "Wrong database")
-    require(symbol in BINDINGS and native["route_path"] == route_path(event_for(symbol)), "Wrong reviewed route")
-    require(native["route"]["status"] == "active" and native["route"]["version_path"] == native["root_path"],
+    if binding is not None:
+        from sec_catalog import validate_binding
+        validate_binding(binding)
+        require(symbol == binding['symbol'] and candidate['sec_provenance']['binding_sha256'] == digest(binding),
+                'Candidate differs from proposed enrollment')
+        expected_control = binding['control_path']
+    else:
+        require(symbol in BINDINGS, 'Unreviewed repair symbol')
+        expected_control = control_path(symbol)
+    require(native["route_path"] == expected_control, "Wrong reviewed route")
+    require(native["route"]["status"] == "active" and
+            native["route"].get("version_path", native["route"].get("root_path")) == native["root_path"],
             "Wrong active canonical root")
     path = native["root_path"] + "/financials/" + candidate["period"]
     tree = {p: v for p, v in native["records"].items() if p == path or p.startswith(path + "/")}
@@ -196,7 +215,8 @@ def rollback_candidate(db, symbol, period, key, *, now=None):
     require(re.fullmatch(r"\d{4}-(?:Q[1-4]|FY)", period) is not None and
             re.fullmatch(r"[0-9a-f]{64}", key) is not None, "Invalid rollback path")
     _, root, event, state = identity_storage.context(db, symbol)
-    require(event and state.get("status") == "paused", "Pause reviewed maintenance before SEC rollback")
+    require((event or BINDINGS.get(symbol, {}).get('storage_kind') == 'existing_symbol')
+            and state.get("status") == "paused", "Pause reviewed maintenance before SEC rollback")
     ref = root.collection("financials").document(period)
     audit_ref = ref.collection("identity_observations").document("sec-" + key)
     # Enumerate ALL levels, including children of missing ancestor documents.
@@ -227,7 +247,7 @@ def rollback_candidate(db, symbol, period, key, *, now=None):
 
     @firestore.transactional
     def restore(tx):
-        route = db.document(route_path(event)).get(transaction=tx).to_dict()
+        route = db.document(control_path(symbol)).get(transaction=tx).to_dict()
         current = ref.get(transaction=tx)
         audit = audit_ref.get(transaction=tx).to_dict()
         held = [(s, s.reference.get(transaction=tx)) for s in descendants]
@@ -250,7 +270,7 @@ def repair_route_status(db, approval, status):
     from google.cloud import firestore
     from security_identity import route_path
     require(status in {"paused", "active"}, "Invalid repair route status")
-    require(approval["route_path"] == route_path(event_for(approval["symbol"])), "Wrong repair route")
+    require(approval["route_path"] == control_path(approval["symbol"]), "Wrong repair route")
     require(approval["route"]["status"] == "active", "Repair did not originate from an active route")
     audit_path = approval["write_templates"][-1]["path"]
 
@@ -277,7 +297,7 @@ def repair_route_status(db, approval, status):
     return change(db.transaction())
 
 
-def run_fallback(active_symbols, *, yahoo_seen=None, client=None, db=None, mode=None, now=None):
+def _run_fallback(active_symbols, *, yahoo_seen=None, client=None, db=None, mode=None, now=None):
     """Daily review of enrolled issuers, independent of their Yahoo tranche.
 
     Financial writes stay off by default. Failures are returned to the parent
@@ -301,7 +321,7 @@ def run_fallback(active_symbols, *, yahoo_seen=None, client=None, db=None, mode=
             filings, notices = filings_from(submissions, binding, now)
             results.extend({"symbol": symbol, **n} for n in notices)
             if any(n["status"] == "review" for n in notices):
-                failures.append(symbol + ":amended_filings_need_review")
+                failures.append(symbol + ":filings_need_review")
             if not filings:
                 continue
             # Current Yahoo gets first chance; reuse this job's existing pulls.
@@ -356,3 +376,22 @@ def run_fallback(active_symbols, *, yahoo_seen=None, client=None, db=None, mode=
     for result in results:
         logger.info("SEC_FALLBACK %s", json.dumps(result, default=str, sort_keys=True))
     return results, failures
+
+
+def run_fallback(active_symbols, **kwargs):
+    """Existing job entrypoint; new cohorts use a bounded resumable worker."""
+    from sec_batch import run_batch
+    ordinary = sorted(s for s in set(active_symbols) & set(BINDINGS)
+                      if BINDINGS[s].get('storage_kind') == 'existing_symbol')
+    if not ordinary:
+        return _run_fallback(active_symbols, **kwargs)
+    mode = kwargs.get('mode') or os.getenv('SEC_FALLBACK_MODE', 'off').strip().lower()
+    if mode == 'off':
+        return _run_fallback(active_symbols, **kwargs)
+    db = kwargs.get('db') or storage.get_db()
+    client = kwargs.get('client') or SecClient()
+    shared = {**kwargs, 'db': db, 'client': client, 'mode': mode}
+    existing = [s for s in active_symbols if s not in set(ordinary)]
+    results, failures = _run_fallback(existing, **shared)
+    more, errors = run_batch(db, ordinary, lambda symbol: _run_fallback([symbol], **shared), mode=mode)
+    return results + more, failures + errors

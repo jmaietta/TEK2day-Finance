@@ -29,6 +29,7 @@ on:
     # Dockerfile.api shipped a container that could not start (Aug 2026).
     paths:
       - "*.py"
+      - "sec_catalog/**"
       - ".github/workflows/deploy-api.yml"
       - "Dockerfile.api"
       - "requirements.txt"

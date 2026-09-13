@@ -1,0 +1,120 @@
+{
+  "activation_write_count": 1,
+  "blocked_symbols": [],
+  "cohort_sha256": "b08ebdc2b886c1577df06bab0797578a5ff0e454d1b1ac80bfecff43bd925b99",
+  "financial_write_count": 2,
+  "items": [
+    {
+      "activation": {
+        "plan_sha256": "c0d634d331892f4e36ba3e831c4fd9b6417dd3c4a7fda7542fbbf37ebfca7951",
+        "rollback": "Pause control; restore applied financial plans before retiring enrollment. Keep control/audits.",
+        "writes": [
+          {
+            "path": "sec_bindings/54247d1b-a77a-429e-9084-82abcaeba8f8",
+            "sha256": "0516a30d1728f0b50b389d0070a07c42253a34b63b4ff817e610b6c019b5d9cd"
+          }
+        ]
+      },
+      "binding_sha256": "289efd69d6e1e77cef555a02797b52a43956efd2f1f9163de1a79216d0f2ea2d",
+      "native_sha256": "80a1c12e9589512dda3fa441bdd73c4275e39a5062f44a5c63e065958036e60c",
+      "notices": [
+        {
+          "reason": "recent_submission_history_only; older archives not scanned",
+          "status": "scope"
+        }
+      ],
+      "observations": [
+        {
+          "candidate_sha256": "850b75a22ecd0458a09882ba3a7cc972ec92944bc88a7bce0a27accf2c7b2a81",
+          "conflicts": [],
+          "filled_fields": [
+            "balance_sheet.Goodwill",
+            "balance_sheet.Retained Earnings",
+            "balance_sheet.Stockholders Equity",
+            "balance_sheet.Total Assets",
+            "cash_flow.Financing Cash Flow",
+            "cash_flow.Investing Cash Flow",
+            "cash_flow.Operating Cash Flow",
+            "income.Net Income",
+            "income.Tax Provision",
+            "income.Total Revenue"
+          ],
+          "period": "2026-Q2",
+          "status": "fill"
+        }
+      ],
+      "repairs": [
+        {
+          "candidate_key": "26e61c1aa67c32ba2a63dcc54fbcf9620d4563c079a659ccdeb4f0e00ceaf1ee",
+          "candidate_sha256": "850b75a22ecd0458a09882ba3a7cc972ec92944bc88a7bce0a27accf2c7b2a81",
+          "captured_at": "2026-09-13T06:57:54.547958+00:00",
+          "conflict_count": 0,
+          "database": "(default)",
+          "filled_fields": [
+            "balance_sheet.Goodwill",
+            "balance_sheet.Retained Earnings",
+            "balance_sheet.Stockholders Equity",
+            "balance_sheet.Total Assets",
+            "cash_flow.Financing Cash Flow",
+            "cash_flow.Investing Cash Flow",
+            "cash_flow.Operating Cash Flow",
+            "income.Net Income",
+            "income.Tax Provision",
+            "income.Total Revenue"
+          ],
+          "original_collections": [],
+          "original_tree": [
+            {
+              "exists": true,
+              "path": "tickers/AMZN/financials/2026-Q2",
+              "sha256": "cdd84a5ce39b41ff3a47f57b291ac51a99a6c1b2f3adf6c46f2c54c84d32a495",
+              "update_time": {
+                "__firestore_timestamp__": "2026-08-03T16:14:02.939865+00:00"
+              }
+            }
+          ],
+          "period": "2026-Q2",
+          "plan_sha256": "9d1d87364726e03da8ecba7fbddd07b537c304c8e6f9b7c7c85b692836878304",
+          "project": "yfinance-cli",
+          "proposed_writes": [
+            {
+              "operation": "conditional set in one transaction",
+              "path": "tickers/AMZN/financials/2026-Q2",
+              "template_sha256": "313eca9a232966d5515cd1d90ca8d93e1da6d06d315db8cc3b8881fc6434afc4"
+            },
+            {
+              "operation": "conditional set in one transaction",
+              "path": "tickers/AMZN/financials/2026-Q2/identity_observations/sec-26e61c1aa67c32ba2a63dcc54fbcf9620d4563c079a659ccdeb4f0e00ceaf1ee",
+              "template_sha256": "b50245fbee25bb890cb25ded0a2d7b9066681a011d732b9d456b9159cd936ea3"
+            }
+          ],
+          "rollback": {
+            "candidate_key": "26e61c1aa67c32ba2a63dcc54fbcf9620d4563c079a659ccdeb4f0e00ceaf1ee",
+            "entrypoint": "sec_maintenance.rollback_candidate",
+            "original_sha256": "cdd84a5ce39b41ff3a47f57b291ac51a99a6c1b2f3adf6c46f2c54c84d32a495",
+            "period": "2026-Q2",
+            "requirements": "Pause reviewed route; require unchanged applied record and no later descendants; restore exact original, retain audit/rollback marker, verify before resuming route",
+            "symbol": "AMZN"
+          },
+          "route_path": "sec_bindings/54247d1b-a77a-429e-9084-82abcaeba8f8",
+          "route_sha256": "0516a30d1728f0b50b389d0070a07c42253a34b63b4ff817e610b6c019b5d9cd",
+          "scope": "One reviewed security's financial period and its audit; all nested observations retained. No quotes, estimates, metadata, other periods or scheduler changes.",
+          "source_capture": {
+            "bytes": 4478611,
+            "retrieved_at": "2026-09-13T06:57:54.547958+00:00",
+            "sha256": "7549fb68446eee40e1f50a166fa06b2d2ee6349e07c8553a4828757e032d3cd4",
+            "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001018724.json"
+          },
+          "status": "PREPARED; NOT EXECUTED",
+          "symbol": "AMZN",
+          "timestamp_policy": "Only sec_backfilled_at and audit.recorded_at use actual execution time; audit approval_plan_sha256 uses this plan digest; applied_sha256 is recomputed. All source/report timestamps and existing fetched_at stay frozen."
+        }
+      ],
+      "source_sha256": "35f1ab324553459dd0e65d362c89121bef5527bfe8f38e9d2fdaa1b1b9446278",
+      "symbol": "AMZN"
+    }
+  ],
+  "prepared_at": "2026-09-13T06:57:54.547958+00:00",
+  "schema": 1,
+  "status": "PREPARED; NO WRITES"
+}

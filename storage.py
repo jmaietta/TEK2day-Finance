@@ -162,7 +162,8 @@ def write_prices_batch(symbol: str, rows: list[dict]) -> None:
     now = _now_iso()
     for row in rows:
         row["fetched_at"] = now
-    if event_for(symbol):
+    from sec_enrollment import binding_for
+    if event_for(symbol) or binding_for(symbol):
         # Each existing price may also preserve an observation. Keep each
         # guarded transaction below 500 writes, including history backfills.
         for start in range(0, len(rows), 200):
@@ -291,7 +292,8 @@ def merge_financial_doc(existing: dict, incoming: dict) -> tuple[dict, list[str]
                 # basis. Only ever replaced by a real, non-zero number.
                 if (field in SHARE_COUNT_FIELDS and new_value and new_value != old_block[field]
                         and not existing.get("sec_provenance") and not existing.get("sec_backfills")
-                        and not _has_reviewed_successor(existing.get("symbol"))):
+                        and not _has_reviewed_successor(existing.get("symbol"))
+                        and not _has_sec_enrollment(existing.get("symbol"))):
                     old_block[field] = new_value
                     filled.append(f"{section}.{field}")
                 continue  # otherwise the existing value is real — leave it alone
@@ -306,6 +308,11 @@ def _has_reviewed_successor(symbol):
     return bool(symbol and succession_for(symbol))
 
 
+def _has_sec_enrollment(symbol):
+    from sec_enrollment import binding_for
+    return bool(symbol and binding_for(symbol))
+
+
 def backfill_financials(symbol: str, period: str, incoming: dict, db=None) -> list[str]:
     """Fill gaps in one stored financial document. Returns the fields filled.
 
@@ -315,6 +322,8 @@ def backfill_financials(symbol: str, period: str, incoming: dict, db=None) -> li
 
     Writes nothing when there is nothing to fill.
     """
+    from sec_enrollment import check_financial_input
+    check_financial_input(symbol, period, incoming)
     db = db or get_db()
     ref = (
         ticker_ref(symbol, db=db)

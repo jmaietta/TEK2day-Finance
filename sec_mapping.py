@@ -108,3 +108,13 @@ BINDINGS = {
         },
     },
 }
+
+# Cohorts are reviewed data; ordinary issuers need no fictional rename event.
+from sec_catalog import load_catalog, validate_profile
+for _symbol, _binding in load_catalog().items():
+    from security_identity import require, event_for
+    from registrant_succession import succession_for
+    require(_symbol not in BINDINGS and not event_for(_symbol) and not succession_for(_symbol),
+            'Enrollment overlaps a reviewed corporate action')
+    validate_profile(_binding, PROFILES, COMMON)
+    BINDINGS[_symbol] = _binding

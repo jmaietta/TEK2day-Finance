@@ -109,6 +109,10 @@ def filings_from(submissions, binding, now):
             continue
         row = {k: recent[k][i] for k in keys}
         filed, end = date.fromisoformat(row["filingDate"]), date.fromisoformat(row["reportDate"])
+        if binding.get('periods_through') and end > date.fromisoformat(binding['periods_through']):
+            notices.append({'status': 'review', 'reason': 'report_outside_reviewed_interval',
+                            'form': form, 'reportDate': row['reportDate']})
+            continue
         if end < date.fromisoformat(binding["periods_from"]):
             continue
         require(end <= filed <= now.date(), "Invalid SEC filing/report date")
@@ -183,12 +187,18 @@ def reporting_start(facts, filing):
 
 
 def build_candidate(facts, receipt, binding, filing, all_filings):
+    if binding.get('storage_kind') == 'existing_symbol':
+        from sec_catalog import validate_binding, validate_profile
+        validate_binding(binding)
+        validate_profile(binding, PROFILES, COMMON)
     require(str(facts.get("cik")).zfill(10) == binding["cik"], "Company Facts registrant mismatch")
     require(binding["profile"] in PROFILES and binding["currency"] == "USD"
             and binding.get("evidence") and not binding.get("is_adr"), "Unreviewed mapping/security basis")
     profile = PROFILES[binding["profile"]]
     end, start = filing["reportDate"], reporting_start(facts, filing)
     require(start >= binding["periods_from"], "Reporting period precedes reviewed issuer/security binding")
+    require(not binding.get('periods_through') or end <= binding['periods_through'],
+            'Reporting period exceeds reviewed issuer/security binding')
     annual = filing["form"] == "10-K"
     # Existing repository IDs use the calendar bucket of the actual end date.
     # Fiscal period dates remain explicit; NVDA July is not called fiscal Q3.
@@ -212,6 +222,25 @@ def build_candidate(facts, receipt, binding, filing, all_filings):
             lineage[key] = {**evidence, "sign": sign}
 
     bridge = binding.get("cash_bridges", {}).get(end)
+    if bridge is None and binding.get('cash_flow_policy') == 'contiguous_ytd' and not annual:
+        # Generic policy uses actual filing dates, never a ticker-specific Q2/Q3
+        # table or calendar-month approximation. Missing/restated prior reports
+        # remain unavailable; independently reviewed reporting scope is required.
+        prior_end = (date.fromisoformat(start) - timedelta(days=1)).isoformat()
+        priors = [f for f in all_filings if f['form'] == '10-Q' and f['reportDate'] == prior_end]
+        if len(priors) == 1:
+            values = facts.get('facts', {}).get('us-gaap', {}).get('NetCashProvidedByUsedInOperatingActivities', {}).get('units', {}).get('USD', [])
+            starts = {v['start'] for v in values if v.get('accn') == filing['accessionNumber']
+                      and v.get('end') == end and v.get('start') and v['start'] < start
+                      and binding['periods_from'] <= v['start'] and
+                      100 <= (date.fromisoformat(end) - date.fromisoformat(v['start'])).days <= 300}
+            require(len(starts) <= 1, 'Ambiguous fiscal YTD duration')
+            if starts:
+                review = binding.get('identity_review') or {}
+                require(review.get('reporting_basis') and review.get('sources'), 'YTD reporting basis review missing')
+                bridge = {'current_accession': filing['accessionNumber'], 'prior_accession': priors[0]['accessionNumber'],
+                          'prior_end': prior_end, 'ytd_start': starts.pop(),
+                          'basis_review': review['reporting_basis'], 'sources': review['sources']}
 
     def cash(tag, unit):
         direct = read(tag, unit)

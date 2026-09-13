@@ -23,6 +23,10 @@ def financial_frequency(data, period):
 
 
 def context(db, symbol, *, public=False, write=False, transaction=None):
+    from sec_enrollment import binding_for, context as enrolled_context
+    if binding_for(symbol):
+        require(event_for(symbol) is None, 'Enrollment overlaps ticker continuity')
+        return enrolled_context(db, symbol, write=write, transaction=transaction)
     from registrant_succession import succession_for
     if succession_for(symbol):
         from succession_storage import context as successor_context
@@ -51,6 +55,10 @@ def guarded_write(db, symbol, entries, *, merge=False, write_once=False, expecte
     entries is [(relative document path or '', data)]. Existing observations
     survive every update at deterministic revision paths. Caller data is copied.
     """
+    from sec_enrollment import binding_for, guarded_write as enrolled_write
+    if binding_for(symbol):
+        require(event_for(symbol) is None, 'Enrollment overlaps ticker continuity')
+        return enrolled_write(db, symbol, entries, merge=merge, write_once=write_once, expected=expected)
     from registrant_succession import succession_for
     if succession_for(symbol):
         from succession_storage import guarded_write as successor_write
