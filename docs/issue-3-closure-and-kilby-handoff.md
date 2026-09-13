@@ -3,6 +3,12 @@
 This record is deliberately incomplete until the acceptance evidence exists.
 It must not be used as authorization to integrate or publish renamed securities.
 
+The [September 13 cross-symbol triage](financial-gap-triage-20260913.md) confirms
+AMZN's June stub, older AMD/GOOGL/JPM quarter-four stubs and NVDA's older annual
+stub. NVDA's formerly missing July record is now present. These findings are
+separate from BNY's approved repairs; other issuers are not enrolled in SEC
+backfill, and the broad report flags are not an approved migration list.
+
 The [September 13 scheduled-refresh follow-up](bny-refresh-followup-20260913.md)
 records the failed Saturday observe-mode execution, the next Monday noon
 Eastern schedule, and two subsequent maintenance corrections. The user supplied

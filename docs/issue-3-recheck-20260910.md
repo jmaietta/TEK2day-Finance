@@ -28,6 +28,11 @@ external state or authorize database changes.
 
 ## Separately reported NVDA July-quarter delay
 
+September 13 follow-up: the July record is now present, with stored fetched_at
+September 10 at 18:29:57.655013Z and 42/69/44 finite income/balance/cash-flow
+fields. The older 2022-FY stub remains. See the [current bounded triage](financial-gap-triage-20260913.md).
+The following September 10 findings are retained as historical evidence.
+
 Only NVDA metadata and its financial documents/descendants were captured, plus
 one bounded Yahoo quarterly fetch. No partner API request or database write was
 made. Private evidence:
