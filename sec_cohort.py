@@ -62,6 +62,13 @@ def prepare(bindings, captures, sources, now):
 
 def public_manifest(cohort):
     from scripts.run_sec_repair import public_manifest as financial_manifest
+    def public_observation(observation):
+        row = deepcopy(observation)
+        if 'conflicts' in row:
+            row['conflicts'] = [{'field': c['field'], 'selected': c['selected'],
+                                  'existing_sha256': digest(c['existing']), 'sec_sha256': digest(c['sec'])}
+                                 for c in row['conflicts']]
+        return row
     return {'schema': 1, 'cohort_sha256': digest(cohort), 'status': cohort['status'],
             'prepared_at': cohort['prepared_at'], 'blocked_symbols': cohort['blocked_symbols'],
             'activation_write_count': cohort['activation_write_count'], 'financial_write_count': cohort['financial_write_count'],
@@ -72,4 +79,5 @@ def public_manifest(cohort):
                            'writes': [{'path': w['path'], 'sha256': digest(w['data'])} for w in i['activation']['writes']],
                            'rollback': i['activation']['rollback']},
                        'repairs': [financial_manifest(p) for p in i['repairs']],
-                       'observations': i['observations'], 'notices': i['notices']} for i in cohort['items']]}
+                       'observations': [public_observation(o) for o in i['observations']],
+                       'notices': i['notices']} for i in cohort['items']]}

@@ -166,6 +166,8 @@ def test_conflicting_zero_blocks_one_symbol_without_losing_other_plan(db):
     cohort = prepare([a, b], captures, {r['symbol']: evidence(r)[0] for r in (a, b)}, NOW)
     assert cohort['blocked_symbols'] == ['ALFA']
     assert len(cohort['items'][1]['repairs']) == 2 and db.writes == 0
+    conflicts = [c for row in public_manifest(cohort)['items'][0]['observations'] for c in row.get('conflicts', [])]
+    assert conflicts and all('existing' not in c and 'sec' not in c and c['existing_sha256'] == digest(0) for c in conflicts)
 
 
 def test_enrolled_history_retained_and_rollback_isolated(db, monkeypatch):
