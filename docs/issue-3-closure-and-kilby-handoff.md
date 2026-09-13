@@ -225,6 +225,14 @@ replace the pending receipt entries with verified final values first.
 
 ## September 13: scalable cohort implementation
 
+Current serving code is `ed341e71c6177f16cd37ddc99c349164c1341079`, including
+the cohort implementation `650c4fe1c21acb59963353c6b70ac9604ff302d3`.
+API revision `tek2day-api-00136-5h2` has 100% traffic. All three maintenance
+images match the serving commit and old writer executions are drained.
+See [exact build/verification record](sec-cohort-deployment-20260913.json).
+This supersedes the earlier serving-build references above, while the actual
+BNY and XOM database execution receipts remain unchanged.
+
 The [cohort workflow](sec-cohort-backfill.md) generalizes ordinary-security
 enrollment and SEC backfill without adding ticker-specific application code.
 The production catalog remains empty; only the previously approved BNY binding

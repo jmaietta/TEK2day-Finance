@@ -1,0 +1,77 @@
+{
+  "active_sec_bindings": [
+    "BNY"
+  ],
+  "amzn": {
+    "cohort_sha256": "b08ebdc2b886c1577df06bab0797578a5ff0e454d1b1ac80bfecff43bd925b99",
+    "control_writes_proposed": 1,
+    "financial_writes_proposed": 2,
+    "missing_fields_proposed": 10,
+    "native_preflight": [
+      {
+        "outcome": "planned",
+        "symbol": "AMZN"
+      }
+    ],
+    "status": "PREPARED; NOT ENROLLED OR REPAIRED"
+  },
+  "api_revision": "tek2day-api-00136-5h2",
+  "github_runs": {
+    "api": 34745199205,
+    "conclusion": "success",
+    "jobs": 34745199233
+  },
+  "images": {
+    "api": "sha256:c364ba611fcb6dca3a081d1ec2e6276fd49a110c4bbf7ff2d3d083a3963d6eeb",
+    "daily-prices": "sha256:9b40f924d7d0b6332ccd13eaea232f1266dcefb903770b2597be98724c1cf73a",
+    "quarterly-financials": "sha256:d9b6e7bb6fefa02c1af8f8f8d1953514861870579e3b1fe1294513758ee05985",
+    "weekly-estimates": "sha256:4c3264e3db20261e6f39ec4a856edb3edf8017fe4b5df50b1de5f43c1fa64713"
+  },
+  "implementation_commit": "650c4fe1c21acb59963353c6b70ac9604ff302d3",
+  "issue_state": {
+    "chatllm_221": "OPEN",
+    "chatllm_233": "CLOSED",
+    "tek2day_3": "OPEN"
+  },
+  "new_catalog_bindings": 0,
+  "private_receipt_digests": {
+    "amzn_control_preflight": "02519e51c84b42508e63cd2d4f4a77664a4187214bcad03404379132c37ce121",
+    "deployment": "d2495774d6b5a2deae15335d94b730d44e0dcfd90faa92f181aef9e6281782a6",
+    "first_party": "d9b074b71bae4328d90a1217335ca16d45fd6f6d4bb194a721961d076cca57d5"
+  },
+  "remaining": [
+    "Approve concrete additional cohort before activation or repair",
+    "Verify next ordinary BNY scheduled refresh",
+    "BNY price-history backfill and other issue-3 acceptance items remain open",
+    "Live partner checks only through authorized Kilby path"
+  ],
+  "sec_fallback_mode": "apply",
+  "serving_commit": "ed341e71c6177f16cd37ddc99c349164c1341079",
+  "status": "DEPLOYED; NO NEW SECURITY ENROLLMENTS OR DATABASE REPAIRS",
+  "traffic_percent": 100,
+  "verification": {
+    "architecture_checks": 7,
+    "database_repair_writes": 0,
+    "deployment_completed_at": "2026-09-13T07:30:16.517246+00:00",
+    "first_party_checks": [
+      "BK:inc:exact_verified_financials",
+      "BK:bal:exact_verified_financials",
+      "BK:cf:exact_verified_financials",
+      "BK:metadata:unchanged",
+      "BNY:inc:exact_verified_financials",
+      "BNY:bal:exact_verified_financials",
+      "BNY:cf:exact_verified_financials",
+      "BNY:metadata:unchanged",
+      "estimates:all_observations_retained",
+      "prices:stored_history_connected",
+      "quote:matched_price_with_separate_observation_time",
+      "financial_repeat:stable"
+    ],
+    "live_partner_api_called": false,
+    "new_enrollment_writes": 0,
+    "offline_tests": 203,
+    "pinned_kilby_assertions": 53,
+    "website_completed_at": "2026-09-13T07:29:45.861047+00:00"
+  },
+  "writers_drained": true
+}

@@ -7,6 +7,16 @@ The catalog is initially empty; BNY's already approved binding remains active.
 No additional production security or historical repair was activated by this
 framework change.
 
+Deployed build: `ed341e71c6177f16cd37ddc99c349164c1341079`, API revision
+`tek2day-api-00136-5h2`, with all three maintenance images verified and old
+writers drained. Implementation commit:
+`650c4fe1c21acb59963353c6b70ac9604ff302d3`. Both GitHub workflows passed.
+The [deployment record](sec-cohort-deployment-20260913.json) contains exact
+image digests, verification receipts and outstanding acceptance items.
+All twelve first-party BK/BNY checks passed at 07:29:45 UTC on September 13.
+AMZN's read-only native enrollment preflight passed; no AMZN control or repair
+was written. No live partner API was called.
+
 ## Shared pipeline
 
 1. Capture a named cohort's metadata and complete financial document trees,
