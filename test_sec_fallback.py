@@ -22,7 +22,10 @@ NOW = datetime(2026, 9, 10, 23, tzinfo=timezone.utc)
 
 @pytest.fixture
 def evidence():
-    return json.loads((Path(__file__).parent / "tests/fixtures/sec_bny_2026.json").read_text())
+    result = json.loads((Path(__file__).parent / "tests/fixtures/sec_bny_2026.json").read_text())
+    additional = json.loads((Path(__file__).parent / "tests/fixtures/sec_bny_2026_additional.json").read_text())
+    result['facts']['facts']['us-gaap'].update(additional['us-gaap'])
+    return result
 
 
 def translated(evidence):

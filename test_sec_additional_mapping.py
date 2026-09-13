@@ -1,4 +1,4 @@
-"""Staged mapping: real SEC values, synthetic storage, no live enrollment."""
+"""Approved mapping: real SEC values, synthetic storage, no live data writes."""
 from copy import deepcopy
 import json
 from pathlib import Path
@@ -34,12 +34,15 @@ def test_three_fields_match_filing_and_quarter_arithmetic(db, evidence):
     assert q1['income']['Pretax Income'] == 2_016_000_000
     assert q1['balance_sheet']['Common Stock Equity'] == 39_452_000_000
     assert q1['cash_flow']['Cash Dividends Paid'] == -434_000_000
-    assert BINDINGS['BNY']['profile'] == 'us-gaap-bank-bny-v1'
+    assert set(BINDINGS) == {'BNY'}
+    assert BINDINGS['BNY']['profile'] == 'us-gaap-bank-bny-v2'
+    legacy_binding = {**deepcopy(binding), 'profile': 'us-gaap-bank-bny-v1'}
+    old = build_candidate(evidence['facts'], evidence['source_capture'], legacy_binding, reports[-1], reports)
     with pytest.raises(IdentityError, match='binding changed'):
-        commit_candidate(db, 'BNY', q2, apply=True)
-    assert db.writes == 0  # Publishing the staged profile cannot activate it.
-    old = build_candidate(evidence['facts'], evidence['source_capture'], BINDINGS['BNY'], reports[-1], reports)
-    assert mapped_missing(old, BINDINGS['BNY'], '2026-06-30') == []
+        commit_candidate(db, 'BNY', old, apply=True)
+    assert commit_candidate(db, 'BNY', q2)['action'] == 'fill'
+    assert db.writes == 0
+    assert mapped_missing(old, legacy_binding, '2026-06-30') == []
     merged, filled, conflicts = merge_candidate(old, q2)
     assert filled == ['balance_sheet.Common Stock Equity', 'cash_flow.Cash Dividends Paid', 'income.Pretax Income']
     assert not conflicts
@@ -92,7 +95,8 @@ def test_staged_repair_recovery_preserves_earlier_repair(db, evidence, monkeypat
     from sec_maintenance import reviewed_repair, rollback_candidate, candidate_key
     binding, reports = staged(evidence)
     q2 = candidate(evidence, binding, reports)
-    prior = build_candidate(evidence['facts'], evidence['source_capture'], BINDINGS['BNY'], reports[-1], reports)
+    legacy_binding = {**deepcopy(binding), 'profile': 'us-gaap-bank-bny-v1'}
+    prior = build_candidate(evidence['facts'], evidence['source_capture'], legacy_binding, reports[-1], reports)
     path = db.root + '/financials/2026-Q2'
     db.data[path] = deepcopy(prior)
     db.times[path] = NOW - timedelta(days=1)
@@ -103,7 +107,7 @@ def test_staged_repair_recovery_preserves_earlier_repair(db, evidence, monkeypat
     plan = reviewed_repair({'project': 'yfinance-cli', 'database': '(default)', 'root_path': db.root,
                             'route_path': route_path(BNY_EVENT), 'route': db.data[route_path(BNY_EVENT)],
                             'captured_at': NOW.isoformat(), **tree}, q2)
-    monkeypatch.setitem(BINDINGS, 'BNY', binding)  # Offline simulation of a separately approved activation.
+    assert BINDINGS['BNY'] == binding  # Exercise the approved active mapping.
     db.fail_at = 2
     with pytest.raises(RuntimeError):
         commit_candidate(db, 'BNY', q2, approval=plan, apply=True, now=NOW)

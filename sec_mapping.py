@@ -64,8 +64,8 @@ PROFILES = {
 BNY_Q2_URL = "https://www.bny.com/content/dam/bnymellon/documents/pdf/investor-relations/form-10-q-2q26.pdf"
 BNY_Q1_URL = "https://www.bny.com/assets/corporate/documents/pdf/investor-relations/form-10-q-1q26-final.pdf"
 
-# Staged for a separately approved repair/enrollment change. BINDINGS below
-# continues using v1; merely deploying this profile cannot add live fields.
+# BNY-only v2 activation approved September 13, 2026, with the exact three-field
+# repair. The v1 definition remains immutable for historical audit verification.
 PROFILES["us-gaap-bank-bny-v2"] = deepcopy(PROFILES["us-gaap-bank-bny-v1"])
 PROFILES["us-gaap-bank-bny-v2"].update({
     "review": "September 13, 2026: three additional definitions checked against Q1/Q2 statements",
@@ -87,7 +87,7 @@ BINDINGS = {
     "BNY": {
         "symbol": "BNY", "cik": "0001390777", "currency": "USD",
         "issuer_id": BNY_EVENT["issuer_id"], "security_id": BNY_EVENT["security_id"],
-        "identity_event_sha256": digest(BNY_EVENT), "profile": "us-gaap-bank-bny-v1",
+        "identity_event_sha256": digest(BNY_EVENT), "profile": "us-gaap-bank-bny-v2",
         "share_class": "common", "exchange": "NYSE", "is_adr": False,
         "periods_from": "2026-01-01",
         "evidence": [source["url"] for source in BNY_EVENT["sources"]],

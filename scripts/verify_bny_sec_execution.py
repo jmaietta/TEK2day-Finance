@@ -18,7 +18,10 @@ from scripts.run_sec_repair import read, save
 from sec_maintenance import checked_binding, commit_candidate, candidate_writes, make_plan, run_fallback
 from security_identity import digest, require, RetiredSymbol
 
-APPROVED = "1d2d3401552330e6c2ef12645e44482a8d4765ea3f9eb47e5869c208565eecd1"
+APPROVED_PLANS = {
+    "1d2d3401552330e6c2ef12645e44482a8d4765ea3f9eb47e5869c208565eecd1",
+    "05fbe370165a5a2118b157c4647df5c949b5a78dbbddc3c290f3e41d58591f04",
+}
 
 
 def snapshot(s):
@@ -34,7 +37,8 @@ def main():
     require(not args.output.exists() and not args.output.resolve().is_relative_to(Path(__file__).resolve().parents[1]),
             "Use a new private receipt path")
     plan = read(args.plan)
-    require(digest(plan) == APPROVED and plan["symbol"] == "BNY", "Wrong approved repair")
+    approved = digest(plan)
+    require(approved in APPROVED_PLANS and plan["symbol"] == "BNY", "Wrong approved repair")
     token = subprocess.run(["gcloud.cmd", "auth", "print-access-token", "--account=jmaietta@ceorater.com"],
                            check=True, capture_output=True, text=True).stdout.strip()
     from google.cloud import firestore
@@ -52,13 +56,13 @@ def main():
         rows = list(root.collection(name).limit(2001).stream(timeout=30))
         require(len(rows) <= 2000, "Dataset bound reached")
         datasets[name] = {s.reference.path: snapshot(s) for s in rows}
-    result = {"checked_at": datetime.now(timezone.utc).isoformat(), "plan_sha256": APPROVED,
+    result = {"checked_at": datetime.now(timezone.utc).isoformat(), "plan_sha256": approved,
               "financial_tree": tree, "protected_metadata": protected, "datasets": datasets,
               "period_count": len(refs), "financial_record_count": len(tree["records"]),
               "dataset_counts": {k: len(v) for k, v in datasets.items()}}
     if args.before:
         before = read(args.before)
-        require(before["plan_sha256"] == APPROVED, "Wrong baseline")
+        require(before["plan_sha256"] == approved, "Wrong baseline")
         require(digest(protected) == digest(before["protected_metadata"]), "Metadata or route changed")
         require(digest(datasets) == digest(before["datasets"]), "Prices or estimates changed")
         audit_path = plan["write_templates"][-1]["path"]
@@ -66,7 +70,7 @@ def main():
         audit = audit_record["data"]
         original = plan["tree"][plan["path"]]
         expected = candidate_writes(make_plan(plan["path"], original["data"], plan["candidate"]),
-                                    plan["route"], original["update_time"], audit["recorded_at"], approval_sha256=APPROVED)
+                                    plan["route"], original["update_time"], audit["recorded_at"], approval_sha256=approved)
         for write in expected:
             require(digest(tree["records"][write["path"]]["data"]) == digest(write["data"]), "Applied payload mismatch")
         require(tree["records"][plan["path"]]["update_time"] == audit_record["update_time"], "Writes were not atomic")

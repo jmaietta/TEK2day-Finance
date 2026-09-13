@@ -1,8 +1,9 @@
 # Proposed BNY June repair: three additional fields
 
-**Prepared, not executed.** The active binding remains `us-gaap-bank-bny-v1`.
-The staged v2 profile cannot write through the current binding. Approval is
-required for this exact BNY-only repair and subsequent activation of v2.
+**Approved September 13; execution receipt pending.** The user approved the
+BNY-only three-field repair and activation of its reviewed mapping. The local
+binding is v2; deployment and execution are recorded separately below when
+verified. The original preparation manifest remains immutable.
 
 The [exact public manifest](bny-additional-repair-20260913.json) identifies plan
 `05fbe370165a5a2118b157c4647df5c949b5a78dbbddc3c290f3e41d58591f04`,

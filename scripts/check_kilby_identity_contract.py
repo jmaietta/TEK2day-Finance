@@ -67,6 +67,8 @@ def main():
         from sec_fallback import filings_from, build_candidate
         from sec_mapping import BINDINGS
         evidence = json.loads((ROOT / "tests/fixtures/sec_bny_2026.json").read_text())
+        extra = json.loads((ROOT / "tests/fixtures/sec_bny_2026_additional.json").read_text())
+        evidence['facts']['facts']['us-gaap'].update(extra['us-gaap'])
         filings, _ = filings_from(evidence["submissions"], BINDINGS["BNY"], datetime(2026, 9, 10, 23, tzinfo=timezone.utc))
         recovered = build_candidate(evidence["facts"], evidence["source_capture"], BINDINGS["BNY"], filings[-1], filings)
         financials[:] = [recovered]
