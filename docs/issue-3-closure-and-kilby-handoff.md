@@ -249,3 +249,43 @@ not a live partner response or private financial export. Existing acceptance
 items above remain open, including BNY's 42 price-history gaps and ordinary
 scheduled-run verification. TEK2day #3 and chatllm #221 remain open; #233 stays
 closed. This session does not modify chatllm.
+
+## September 13: approved AMZN execution completed
+
+This entry supersedes the earlier AMZN proposal and serving-build status.
+The exact approved cohort was activated and repaired: one control publication,
+then two atomic financial/audit writes recovering ten June 2026 fields, zero
+conflicts. Financial server commit: `2026-09-13T15:36:04.689224Z`. Native
+verification preserved 1,354 other records, including nine other financial
+periods, 1,330 prices, fourteen estimate observations and metadata. All nested
+collections were enumerated. Repair/enrollment replays were no-ops, and the
+observe-mode worker proposed no additional fills. No manual scheduler run.
+
+Current serving code: `14e674ab3985007c4e8f6855f997d6ae0b30ae29`.
+Activation implementation: `783fa87a18827d13771097fb07d923520affed22`.
+API revision: `tek2day-api-00138-gl6`, 100% traffic; all three job images verified,
+old writers drained. Exact image digests, approved paths, receipts and conditional
+rollback are in [the execution record](amzn-execution-20260913.json).
+204 offline tests, 53 pinned Kilby assertions, eight AMZN first-party checks and
+twelve BK/BNY first-party checks passed. First-party completion was 15:48:32 UTC,
+after financial cache expiry. Actual partner verification remains restricted
+to the authorized Kilby path.
+
+Append this to the returning chatllm prompt above:
+
+> Read docs/amzn-execution-20260913.json and docs/sec-cohort-backfill.md in
+> jmaietta/TEK2day-Finance. AMZN June 2026 now has ten reviewed SEC field fills
+> under the approved ordinary-security catalog. Serving commit is
+> 14e674ab3985007c4e8f6855f997d6ae0b30ae29, revision tek2day-api-00138-gl6.
+> Requested/resolved/payload symbol remains AMZN. There is no new ticker
+> redirect or security_resolution envelope. BNY's strict contract is unchanged.
+> The AMZN mapping covers April 1-June 30 only. PPE, liabilities, capex and FCF
+> remain unresolved profile mappings; do not represent the statements as fully
+> complete. Quotes and estimate horizons remain independent observations.
+> Yahoo sector/industry labels are unchanged; no sub-industry API was added.
+> Use tests/fixtures/sec_amzn_2026_q2.json only as a bounded public SEC fixture,
+> not as a captured partner response. Collect live partner responses only
+> through Kilby's existing authorized path. Do not copy private Firestore
+> exports. TEK2day #3 remains open for its remaining acceptance criteria;
+> chatllm #221 must remain open and #233 closed. Do not enable proposed rename
+> integration merely because AMZN or BNY financial data is now populated.

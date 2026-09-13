@@ -3,19 +3,20 @@
 The fallback now supports ordinary existing securities through a packaged JSON
 catalog. Adding another company with the same reviewed accounting profile does
 not require a company-specific Python implementation or a ticker migration.
-The catalog is initially empty; BNY's already approved binding remains active.
-No additional production security or historical repair was activated by this
-framework change.
+The initial framework rollout used an empty ordinary-security catalog. The
+subsequently approved AMZN June 2026 entry is now active alongside BNY, and its
+ten-field repair is complete. See the [AMZN execution record](amzn-execution-20260913.json)
+for exact writes, verification, rollback and remaining mapping limits.
 
-Deployed build: `ed341e71c6177f16cd37ddc99c349164c1341079`, API revision
-`tek2day-api-00136-5h2`, with all three maintenance images verified and old
+Current deployed build: `14e674ab3985007c4e8f6855f997d6ae0b30ae29`, API revision
+`tek2day-api-00138-gl6`, with all three maintenance images verified and old
 writers drained. Implementation commit:
 `650c4fe1c21acb59963353c6b70ac9604ff302d3`. Both GitHub workflows passed.
-The [deployment record](sec-cohort-deployment-20260913.json) contains exact
-image digests, verification receipts and outstanding acceptance items.
-All twelve first-party BK/BNY checks passed at 07:29:45 UTC on September 13.
-AMZN's read-only native enrollment preflight passed; no AMZN control or repair
-was written. No live partner API was called.
+The [framework baseline record](sec-cohort-deployment-20260913.json) preserves
+the earlier empty-catalog deployment. The AMZN execution record supersedes it
+for the current build and active catalog. Eight AMZN and twelve BK/BNY
+first-party checks passed after cache expiry at 15:48:32 UTC on September 13.
+No live partner API was called.
 
 ## Shared pipeline
 
@@ -132,7 +133,7 @@ describes CIK-scoped submissions and Company Facts. Standard consolidated facts
 are not a universal mapping of issuer-specific statement definitions; exact
 fiscal dates matter more than calendar frames.
 
-## AMZN validation, not execution
+## AMZN review and approved execution
 
 The read-only AMZN capture contains ten financial documents. Private bundle
 digest: `99d4f81eb76390efe34aea068815477dd0cc7b52a6ca56c0b19cbb8d9d6bd7d0`.
@@ -157,12 +158,25 @@ Absent standard concepts, including this profile's PPE/capital expenditure
 concepts, remain unavailable; this is not a complete balance-sheet mapping.
 
 Cohort digest: `b08ebdc2b886c1577df06bab0797578a5ff0e454d1b1ac80bfecff43bd925b99`.
-No AMZN control, financial repair or scheduled eligibility has been applied.
+The user approved this exact cohort and its June 2026 mapping. One control
+publication and two atomic financial/audit writes were applied. Financial
+server commit: `2026-09-13T15:36:04.689224Z`. The pre/post comparison verified
+all 1,357 final document paths and preserved 1,354 protected records, including
+the other nine financial periods, 1,330 prices, 14 estimate observations and
+metadata. Enrollment and financial replays were no-ops; observe-mode maintenance
+proposed no additional fills, conflicts or deferred work. No scheduler job was
+manually executed. The next ordinary run remains to be verified.
+
+Four profile mappings remain unavailable: Net PPE, Total Liabilities Net
+Minority Interest, Capital Expenditure and Free Cash Flow. Activation covers
+only the reviewed April-June interval; it does not approve later periods or
+unreviewed field definitions. The proposed JSON and dry-run manifest remain
+frozen historical approval artifacts; current status is in the execution record.
 The permitted frozen fixture is `tests/fixtures/sec_amzn_2026_q2.json`, bounded
 public SEC data only. No private Firestore payload is committed or permitted
 as a consumer fixture without separate review.
 
-Validation: 203 offline tests across eight isolated suites, including 30 new
+Validation: 204 offline tests across eight isolated suites, including 31
 cohort tests; 53 pinned Kilby contract assertions; seven repository/cloud
 architecture checks. The new cases include AMZN public-source translation,
 two synthetic issuers through the scheduled worker, interruptions, rollback,

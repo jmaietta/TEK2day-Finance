@@ -1,0 +1,192 @@
+{
+  "atomic_financial_audit_writes": 2,
+  "audit_sha256": "9c907374630157b497bfe19ec8696b0ee20b09b58a282b098534475e24088251",
+  "binding_sha256": "289efd69d6e1e77cef555a02797b52a43956efd2f1f9163de1a79216d0f2ea2d",
+  "candidate_key": "26e61c1aa67c32ba2a63dcc54fbcf9620d4563c079a659ccdeb4f0e00ceaf1ee",
+  "client_recorded_at": "2026-09-13T15:35:57.660253+00:00",
+  "cohort_sha256": "b08ebdc2b886c1577df06bab0797578a5ff0e454d1b1ac80bfecff43bd925b99",
+  "conflicts": 0,
+  "contract": {
+    "frozen_fixtures": "Only public SEC fixture tests/fixtures/sec_amzn_2026_q2.json; raw native/partner exports not published",
+    "industry_fields": "Yahoo sector and industry unchanged; no sub-industry field added",
+    "requested_resolved_payload_symbol": "AMZN",
+    "ticker_redirect_added": false
+  },
+  "control_path": "sec_bindings/54247d1b-a77a-429e-9084-82abcaeba8f8",
+  "control_server_commit_time": {
+    "__firestore_timestamp__": "2026-09-13T14:32:21.829601+00:00"
+  },
+  "database": "(default)",
+  "enrollment_writes": 1,
+  "filled_fields": [
+    "balance_sheet.Goodwill",
+    "balance_sheet.Retained Earnings",
+    "balance_sheet.Stockholders Equity",
+    "balance_sheet.Total Assets",
+    "cash_flow.Financing Cash Flow",
+    "cash_flow.Investing Cash Flow",
+    "cash_flow.Operating Cash Flow",
+    "income.Net Income",
+    "income.Tax Provision",
+    "income.Total Revenue"
+  ],
+  "financial_server_commit_time": {
+    "__firestore_timestamp__": "2026-09-13T15:36:04.689224+00:00"
+  },
+  "idempotence": {
+    "enrollment_replay": "noop",
+    "maintenance_mode": "observe",
+    "maintenance_results": [
+      {
+        "reason": "recent_submission_history_only; older archives not scanned",
+        "status": "scope",
+        "symbol": "AMZN"
+      },
+      {
+        "candidate_sha256": "db2aa7319cfefcc6ef8a84611262858d830246cce02e105c63ceed322b8bd3cf",
+        "conflicts": 0,
+        "fields": 0,
+        "mode": "observe",
+        "path": "tickers/AMZN/financials/2026-Q2",
+        "period": "2026-Q2",
+        "source": "SEC EDGAR",
+        "status": "noop",
+        "symbol": "AMZN"
+      },
+      {
+        "after": "AMZN",
+        "deferred": 0,
+        "mode": "observe",
+        "processed": 1,
+        "status": "cohort_progress",
+        "unresolved": 0
+      }
+    ],
+    "nonempty_commits": 0,
+    "repair_replay": "noop",
+    "scheduled_execution_triggered": false
+  },
+  "issues": {
+    "chatllm_221": "OPEN",
+    "chatllm_233": "CLOSED",
+    "tek2day_3": "OPEN"
+  },
+  "open_acceptance": [
+    "Next ordinary scheduled refresh verification",
+    "BNY price-history repair and remaining issue-3 financial gaps",
+    "Authorized Kilby-path live partner verification"
+  ],
+  "period": "2026-Q2",
+  "period_end": "2026-06-30",
+  "period_start": "2026-04-01",
+  "preserved": {
+    "all_nested_collections_verified": true,
+    "estimate_documents": 14,
+    "financial_periods_total": 10,
+    "metadata_unchanged": true,
+    "other_financial_periods": 9,
+    "price_documents": 1330
+  },
+  "private_receipt_digests": {
+    "after": "8eea98bb337188235f26cc4f92fed5396b9ded22a699855b09b40be8086fb07b",
+    "amzn_views": "c9e726693626447a39a6bbaf117738b360cdf24b4f43a2e6622124117abc8e90",
+    "before": "2d64e83546cb3b745b621b8e1facead31b68a0682efaba097e361e54b02ac353",
+    "bny_views": "2d13fff01408f64360d3b26a4f28e8ae440c98025ff708a66a8c5c682e06cabe",
+    "deployment": "efee60cc5368ac8e0100cf09adc3e0680d1992591b560a630e0423ee0a402693",
+    "enrollment": "ec91d505bce25403bc91846c74a0616657d36ae5f38d9b04f58dcf28b671e359",
+    "financial_apply": "70f3049f94de9d94cd38a4c430beb13b40ba76ca54e37c0896f7862ce79775de"
+  },
+  "project": "yfinance-cli",
+  "remaining_mapping_gaps": {
+    "tickers/AMZN/financials/2026-Q2": [
+      "balance_sheet.Net PPE",
+      "balance_sheet.Total Liabilities Net Minority Interest",
+      "cash_flow.Capital Expenditure",
+      "cash_flow.Free Cash Flow"
+    ]
+  },
+  "repair_plan_sha256": "9d1d87364726e03da8ecba7fbddd07b537c304c8e6f9b7c7c85b692836878304",
+  "rollback": {
+    "original_sha256": "cdd84a5ce39b41ff3a47f57b291ac51a99a6c1b2f3adf6c46f2c54c84d32a495",
+    "pause": "scripts/run_sec_enrollment.py pause with approved cohort digest",
+    "policy": "Conditional exact original restoration; retain audit and nested observations; verify before resume; do not delete enrollment control.",
+    "restore": "scripts/run_sec_repair.py rollback with approved financial plan digest"
+  },
+  "rollout": {
+    "activation_commit": "783fa87a18827d13771097fb07d923520affed22",
+    "active_bindings": [
+      "AMZN",
+      "BNY"
+    ],
+    "amzn_reviewed_interval_only": [
+      "2026-04-01",
+      "2026-06-30"
+    ],
+    "api_revision": "tek2day-api-00138-gl6",
+    "github_runs": {
+      "api": 34764316407,
+      "conclusion": "success",
+      "jobs": 34764316413
+    },
+    "images": {
+      "api": "sha256:8cb78ba560ca2a824c75f4ff9120fe00eec68e9d3ae17c42970e9b7338d558db",
+      "daily-prices": "sha256:c9510ed8a43bae28f3b1f1cc610fa70194fff3bfcb358a48c7bca390546c272b",
+      "quarterly-financials": "sha256:814ee21ecd97cbca6304b606edc64e469ae07fb70411906c26a1bf35e438079d",
+      "weekly-estimates": "sha256:b2c20a290dbd87b804742af72c266f7b5781b4e9e943963dada03e1a9dce4735"
+    },
+    "sec_fallback_mode": "apply",
+    "serving_commit": "14e674ab3985007c4e8f6855f997d6ae0b30ae29",
+    "traffic_percent": 100,
+    "writers_drained": true
+  },
+  "status": "APPROVED AMZN ENROLLMENT AND TEN-FIELD REPAIR COMPLETE",
+  "symbol": "AMZN",
+  "target_sha256": "9780dd714e940898de00d44fe7251d4f6796529d497ecc334e2e4c491353c88c",
+  "timestamp_policy": "Server commit times establish database ordering; client operation/retrieval timestamps retained separately.",
+  "validation": {
+    "amzn_first_party_checks": [
+      "AMZN:inc:exact_financials",
+      "AMZN:bal:exact_financials",
+      "AMZN:cf:exact_financials",
+      "AMZN:metadata:unchanged",
+      "AMZN:estimates:observations_and_horizons_retained",
+      "AMZN:prices:stored_history_retained",
+      "AMZN:quote:price_and_observation_time_verified",
+      "AMZN:financial_repeat:stable"
+    ],
+    "bny_first_party_checks": [
+      "BK:inc:exact_verified_financials",
+      "BK:bal:exact_verified_financials",
+      "BK:cf:exact_verified_financials",
+      "BK:metadata:unchanged",
+      "BNY:inc:exact_verified_financials",
+      "BNY:bal:exact_verified_financials",
+      "BNY:cf:exact_verified_financials",
+      "BNY:metadata:unchanged",
+      "estimates:all_observations_retained",
+      "prices:stored_history_connected",
+      "quote:matched_price_with_separate_observation_time",
+      "financial_repeat:stable"
+    ],
+    "completed_at": "2026-09-13T15:48:32.996061+00:00",
+    "live_partner_api_called": false,
+    "offline_tests": 204,
+    "pinned_kilby_assertions": 53
+  },
+  "verification": {
+    "approved_paths": [
+      "sec_bindings/54247d1b-a77a-429e-9084-82abcaeba8f8",
+      "tickers/AMZN/financials/2026-Q2",
+      "tickers/AMZN/financials/2026-Q2/identity_observations/sec-26e61c1aa67c32ba2a63dcc54fbcf9620d4563c079a659ccdeb4f0e00ceaf1ee"
+    ],
+    "exact_payloads": true,
+    "financial_server_commit_times": {
+      "tickers/AMZN/financials/2026-Q2": {
+        "__firestore_timestamp__": "2026-09-13T15:36:04.689224+00:00"
+      }
+    },
+    "payload_count": 3,
+    "protected_document_count": 1354
+  },
+  "write_count": 3
+}
