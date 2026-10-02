@@ -21,6 +21,7 @@ This document describes how TEK2day Finance captures, stores, and presents finan
 | Estimates | Weekly | `pull_weekly_estimates.py` |
 | Financials | Weekly/quarterly as configured | `pull_quarterly_financials.py` |
 | Ticker metadata | With the existing metadata pull path | `fetchers.fetch_ticker_info()` |
+| Ticker universe (SEC sync) | Daily Mon-Fri, after task 0 of the price pull | `universe_sync.py` |
 
 No new Firestore metadata fields are required for the current Terminal/Web hardening pass.
 
@@ -31,6 +32,21 @@ After a seven-day filing grace period it can fill reviewed missing financial
 fields with atomic original/source audits. Its initial enrollment is BNY; CIK
 alone does not enroll an issuer or join histories. See that document for exact
 period selection, accounting mappings, rollback and coverage limitations.
+
+### The one security master
+
+TEK2day's `tickers` collection is the security master for TEK2day, Kilby and
+CEORater (owner decision, October 2, 2026; Kilby issue #309). `universe_sync.py`
+keeps it current from the SEC exchange list with no Yahoo calls of its own:
+new common tickers on Nasdaq/NYSE/Cboe are added with their SEC name and CIK
+(sector and industry arrive with the weekly metadata refresh; five years of
+prices on their first nightly pull, `universe_sync/state.backfill_pending`);
+active tickers with no stored price for 30 days are deactivated with
+`deactivated_reason: no_price_30d` (data kept; reviewed identity routes never
+touched); a changed CIK or a relisted inactive ticker is only flagged. Each run
+records `universe_sync_runs/{date}`. `UNIVERSE_SYNC_MODE` = off, observe or
+apply (default apply). A run that would add more than 600 or deactivate more
+than 1,500 is refused and logged as an error.
 
 ## 2. Data Storage
 

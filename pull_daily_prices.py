@@ -20,6 +20,7 @@ from google.api_core.exceptions import ResourceExhausted
 
 import fetchers
 import storage
+import universe_sync
 
 logging.basicConfig(
     level=logging.INFO,
@@ -158,12 +159,19 @@ def main():
     success = 0
     failed = 0
     continuity_failed = []
+    # Names the universe sync added get their price history on their first night,
+    # in the one request the job makes for them anyway (no extra Yahoo calls).
+    backfill = universe_sync.backfill_pending() if tickers else set()
+    if backfill & set(tickers):
+        logger.info("%d newly added ticker(s) get %s of history tonight", len(backfill & set(tickers)),
+                    universe_sync.BACKFILL_PERIOD)
 
     for i, symbol in enumerate(tickers, 1):
         yahoo_sym = symbol.replace(".", "-")
 
+        period = universe_sync.BACKFILL_PERIOD if symbol in backfill else PERIOD
         rows = call_with_retry(
-            lambda s=yahoo_sym: fetchers.fetch_prices(s, period=PERIOD),
+            lambda s=yahoo_sym, p=period: fetchers.fetch_prices(s, period=p),
             f"{symbol} prices",
         )
 
@@ -177,6 +185,11 @@ def main():
             if written:
                 logger.info("[%d/%d] %s: %d price rows written", i, total, symbol, len(rows))
                 success += 1
+                if symbol in backfill:
+                    try:
+                        universe_sync.backfill_done(None, symbol)
+                    except Exception as exc:
+                        logger.warning("%s: history written, backfill flag not cleared: %s", symbol, exc)
             else:
                 failed += 1
                 if storage.event_for(symbol):
@@ -203,6 +216,12 @@ def main():
         logger.warning(
             "*** THIS WAS A SMOKE TEST OVER %d TICKER(S), NOT THE NIGHTLY PULL. "
             "The universe has NOT been refreshed. ***", total)
+
+    # The universe sync runs once, after task 0's prices, so it never changes the
+    # list while the other tasks are slicing it. Its changes apply from the next
+    # night. It never raises and never changes this job's result.
+    if task_index == 0 and not smoke:
+        universe_sync.run()
 
     rate = (success / total) if total else 0.0
     if continuity_failed:

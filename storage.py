@@ -89,14 +89,16 @@ def list_active_tickers() -> list[str]:
     return sorted(symbols)
 
 
-def deactivate_ticker(symbol: str) -> None:
+def deactivate_ticker(symbol: str, reason: str | None = None, **detail) -> None:
+    """Stop pulling a ticker; its data is kept. `reason` records why (e.g. universe_sync's no_price_30d)."""
     db = get_db()
-    if identity_storage.guarded_write(db, symbol, [("", {"active": False, "deactivated_at": _now_iso()})], merge=True):
+    fields = {"active": False, "deactivated_at": _now_iso()}
+    if reason:
+        fields["deactivated_reason"] = reason
+        fields.update({f"deactivated_{k}": v for k, v in detail.items()})
+    if identity_storage.guarded_write(db, symbol, [("", fields)], merge=True):
         return
-    db.collection(COLLECTION_ROOT).document(symbol).update({
-        "active": False,
-        "deactivated_at": _now_iso(),
-    })
+    db.collection(COLLECTION_ROOT).document(symbol).update(fields)
 
 
 # ── Estimates ─────────────────────────────────────────────────────────────────
@@ -169,17 +171,19 @@ def write_prices_batch(symbol: str, rows: list[dict]) -> None:
         for start in range(0, len(rows), 200):
             identity_storage.guarded_write(db, symbol, [(f"/prices/{r['date']}", r) for r in rows[start:start + 200]])
         return
-    batch = db.batch()
-    for row in rows:
-        row["fetched_at"] = now
-        ref = (
-            db.collection(COLLECTION_ROOT)
-            .document(symbol)
-            .collection("prices")
-            .document(row["date"])
-        )
-        batch.set(ref, row)
-    batch.commit()
+    # A Firestore batch holds at most 500 writes; a history backfill (five years
+    # is about 1,260 rows) is committed in chunks.
+    for start in range(0, len(rows), 400):
+        batch = db.batch()
+        for row in rows[start:start + 400]:
+            ref = (
+                db.collection(COLLECTION_ROOT)
+                .document(symbol)
+                .collection("prices")
+                .document(row["date"])
+            )
+            batch.set(ref, row)
+        batch.commit()
 
 
 # ── Financials ────────────────────────────────────────────────────────────────

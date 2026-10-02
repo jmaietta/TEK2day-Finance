@@ -1,0 +1,260 @@
+"""The daily SEC sync of the ticker universe (universe_sync.py).
+
+Every rule is tested on the pure plan; the I/O is tested with a fake Firestore.
+"""
+from datetime import date
+
+import pytest
+
+import universe_sync as us
+
+TODAY = date(2026, 10, 2)
+FIELDS = ["cik", "name", "ticker", "exchange"]
+
+
+def test_sec_spellings_become_tek2day_symbols_and_extras_are_left_out():
+    assert us.tek2day_symbol("BRK-B", "NYSE") == "BRK.B"
+    assert us.tek2day_symbol("BF-B", "NYSE") == "BF.B"
+    assert us.tek2day_symbol("NVDA", "Nasdaq") == "NVDA"
+    for extra in ("AAC-WT", "AAC-UN", "AGM-PI", "XYZ-U", "XYZ-W", "XYZ-R"):
+        assert us.tek2day_symbol(extra, "NYSE") is None
+    for extra in ("AACIW", "AACPU", "ALPXR"):     # Nasdaq fifth letter: warrant, unit, right
+        assert us.tek2day_symbol(extra, "Nasdaq") is None
+    assert us.tek2day_symbol("GOOGL", "Nasdaq") == "GOOGL"
+
+
+def test_only_main_exchange_listings_are_read():
+    rows = [[1045810, "NVIDIA CORP", "NVDA", "Nasdaq"], [1, "Some OTC Co", "OTCX", "OTC"],
+            [2, "No Exchange", "NOEX", None], [1067983, "BERKSHIRE", "BRK-B", "NYSE"],
+            [3, "SPAC Warrants", "AAC-WT", "NYSE"]]
+    listed = us.sec_listings(rows, FIELDS)
+    assert set(listed) == {"NVDA", "BRK.B"}
+    assert listed["NVDA"] == {"cik": 1045810, "name": "NVIDIA CORP", "sec_exchange": "Nasdaq"}
+
+
+def _sec(*symbols, cik=100):
+    return {s: {"cik": cik + i, "name": f"{s} Inc", "sec_exchange": "Nasdaq"} for i, s in enumerate(symbols)}
+
+
+def _plan(sec, existing, last_price, identity=(), is_spac=None):
+    return us.plan(sec, existing, last_price, set(identity), TODAY, is_spac=is_spac)
+
+
+def test_new_listings_are_added_spacs_skipped_and_known_names_left_alone():
+    sec = _sec("NEWCO", "OLDCO", "SPACQ")
+    existing = {"OLDCO": {"active": True, "cik": 101, "added_at": "2026-05-26"}}
+    result = _plan(sec, existing, {"OLDCO": "2026-10-01"}, is_spac=lambda s, n: s == "SPACQ")
+    assert result["adds"] == ["NEWCO"] and result["skipped_spacs"] == ["SPACQ"]
+    assert result["deactivate"] == [] and result["cik_changed"] == []
+
+
+def test_deactivation_follows_tekdays_own_prices_never_absence_from_the_sec_list():
+    existing = {
+        "STALE": {"active": True, "added_at": "2026-05-26"},     # last price in July
+        "OTCLIVE": {"active": True, "added_at": "2026-05-26"},   # not on the SEC list, still trading
+        "NEVER": {"active": True, "added_at": "2026-05-26"},     # never priced, long enough to have
+        "FRESH": {"active": True, "added_at": "2026-09-30"},     # never priced, just added: grace
+        "ROUTED": {"active": True, "added_at": "2026-05-26"},    # reviewed identity route: untouched
+        "OFF": {"active": False},
+    }
+    last = {"STALE": "2026-07-15", "OTCLIVE": "2026-10-01", "NEVER": None, "FRESH": None, "ROUTED": "2026-01-02"}
+    result = _plan(_sec("X"), existing, last, identity={"ROUTED"})
+    assert result["deactivate"] == [{"symbol": "NEVER", "last_price_date": None},
+                                    {"symbol": "STALE", "last_price_date": "2026-07-15"}]
+
+
+def test_exactly_thirty_days_is_still_active():
+    existing = {"EDGE": {"active": True}, "OVER": {"active": True}}
+    result = _plan(_sec("X"), existing, {"EDGE": "2026-09-02", "OVER": "2026-09-01"})
+    assert [r["symbol"] for r in result["deactivate"]] == ["OVER"]
+
+
+def test_ticker_reuse_and_relistings_are_flagged_never_acted_on():
+    sec = _sec("REUSE", "BACK", cik=500)
+    existing = {"REUSE": {"active": True, "cik": 42}, "BACK": {"active": False, "cik": 501}}
+    result = _plan(sec, existing, {"REUSE": "2026-10-01"})
+    assert result["cik_changed"] == [{"symbol": "REUSE", "stored_cik": 42, "sec_cik": 500, "sec_name": "REUSE Inc"}]
+    assert result["relisted"] == ["BACK"] and result["adds"] == [] and result["deactivate"] == []
+
+
+def test_renamed_records_are_known_never_readded_or_deactivated():
+    existing = {"OLDNAME": {"active": True, "renamed_to": "NEWNAME"}}
+    result = _plan(_sec("OLDNAME"), existing, {"OLDNAME": None})
+    assert result["adds"] == [] and result["deactivate"] == [] and result["cik_changed"] == []
+
+
+def test_a_run_that_would_change_too_much_is_refused():
+    big = {f"N{i:04d}": {"cik": i, "name": "x", "sec_exchange": "NYSE"} for i in range(us.MIN_SEC_ROWS + 700)}
+    result = _plan(big, {}, {})
+    assert any("additions exceeds" in r for r in result["refused"])
+    small = _plan(_sec("A"), {}, {})
+    assert any("SEC list has only" in r for r in small["refused"])
+    stale = {f"S{i}": {"active": True} for i in range(us.MAX_DEACTIVATIONS + 1)}
+    assert any("deactivations exceeds" in r for r in _plan(big, stale, {})["refused"])
+
+
+# ── run() with a fake Firestore ──────────────────────────────────────────────
+
+class _Doc:
+    def __init__(self, store, path):
+        self.store, self.path = store, path
+
+    def set(self, data, merge=False):
+        current = self.store.setdefault(self.path, {}) if merge else {}
+        for key, value in data.items():
+            if isinstance(value, _ArrayRemove):
+                current[key] = [v for v in (current.get(key) or []) if v not in value.values]
+            elif isinstance(value, _ArrayUnion):
+                current[key] = sorted(set(current.get(key) or []) | set(value.values))
+            else:
+                current[key] = value
+        self.store[self.path] = current
+
+    def get(self):
+        data = self.store.get(self.path)
+        return type("Snap", (), {"exists": data is not None, "to_dict": lambda _s: dict(data or {})})()
+
+
+class _Col:
+    def __init__(self, store, name):
+        self.store, self.name = store, name
+
+    def document(self, key):
+        return _Doc(self.store, f"{self.name}/{key}")
+
+
+class _DB:
+    def __init__(self):
+        self.store = {}
+
+    def collection(self, name):
+        return _Col(self.store, name)
+
+
+class _ArrayUnion:
+    def __init__(self, values):
+        self.values = values
+
+
+class _ArrayRemove(_ArrayUnion):
+    pass
+
+
+@pytest.fixture
+def fake(monkeypatch):
+    import storage
+    from google.cloud import firestore
+    db = _DB()
+    written, deactivated = {}, []
+    monkeypatch.setattr(firestore, "ArrayUnion", _ArrayUnion)
+    monkeypatch.setattr(firestore, "ArrayRemove", _ArrayRemove)
+    monkeypatch.setattr(us, "fetch_sec", lambda: _sec(*[f"T{i:04d}" for i in range(us.MIN_SEC_ROWS)], "NEWCO"))
+    existing = {f"T{i:04d}": {"active": True, "added_at": "2026-05-26"} for i in range(us.MIN_SEC_ROWS)}
+    existing["DEAD"] = {"active": True, "added_at": "2026-05-26"}
+    monkeypatch.setattr(us, "read_existing", lambda db_: existing)
+    monkeypatch.setattr(us, "read_last_prices", lambda db_, symbols: {s: ("2026-06-01" if s == "DEAD" else "2026-10-01")
+                                                                     for s in symbols})
+    monkeypatch.setattr(storage, "event_for", lambda s: None)
+    monkeypatch.setattr(storage, "write_ticker_meta", lambda s, m: written.__setitem__(s, m))
+    monkeypatch.setattr(storage, "deactivate_ticker", lambda s, **kw: deactivated.append((s, kw)))
+    return db, written, deactivated
+
+
+def test_observe_reports_and_changes_nothing(fake, monkeypatch):
+    db, written, deactivated = fake
+    monkeypatch.setattr(us, "MODE", "observe")
+    result = us.run(db=db, today=TODAY)
+    assert result["adds"] == ["NEWCO"] and [r["symbol"] for r in result["deactivate"]] == ["DEAD"]
+    assert written == {} and deactivated == []
+    report = db.store["universe_sync_runs/2026-10-02"]
+    assert report["mode"] == "observe" and report["applied"] is False
+    assert report["counts"]["adds"] == 1 and report["adds"] == ["NEWCO"]
+    assert "universe_sync/state" not in db.store
+
+
+def test_apply_adds_with_sec_identity_queues_history_and_deactivates_with_reason(fake, monkeypatch):
+    db, written, deactivated = fake
+    monkeypatch.setattr(us, "MODE", "apply")
+    us.run(db=db, today=TODAY)
+    meta = written["NEWCO"]
+    assert meta["name"] == "NEWCO Inc" and meta["cik"] == us.MIN_SEC_ROWS + 100 and meta["active"] is True
+    assert meta["added_by"] == "universe_sync" and meta["sector"] == "" and "exchange" not in meta
+    assert db.store["universe_sync/state"]["backfill_pending"] == ["NEWCO"]
+    assert deactivated == [("DEAD", {"reason": "no_price_30d", "last_price_date": "2026-06-01"})]
+    assert db.store["universe_sync_runs/2026-10-02"]["applied"] is True
+    us.backfill_done(db, "NEWCO")
+    assert db.store["universe_sync/state"]["backfill_pending"] == []
+    assert us.backfill_pending(db) == set()
+
+
+def test_a_refused_run_changes_nothing_even_in_apply(fake, monkeypatch):
+    db, written, deactivated = fake
+    monkeypatch.setattr(us, "MODE", "apply")
+    monkeypatch.setattr(us, "MAX_ADDS", 0)
+    result = us.run(db=db, today=TODAY)
+    assert result["refused"] and written == {} and deactivated == []
+    assert db.store["universe_sync_runs/2026-10-02"]["applied"] is False
+
+
+def test_a_failing_sync_never_raises(monkeypatch):
+    monkeypatch.setattr(us, "MODE", "apply")
+    monkeypatch.setattr(us, "fetch_sec", lambda: (_ for _ in ()).throw(RuntimeError("SEC down")))
+    assert us.run(db=_DB(), today=TODAY) is None
+
+
+def test_off_does_nothing(monkeypatch):
+    monkeypatch.setattr(us, "MODE", "off")
+    db = _DB()
+    assert us.run(db=db, today=TODAY) is None and db.store == {}
+
+
+# ── inside the daily price job ───────────────────────────────────────────────
+
+def _drive_price_job(monkeypatch, task_index=0, task_count=1, sync=None, pending=()):
+    import pull_daily_prices as pdp
+    periods, calls, cleared = {}, [], []
+    monkeypatch.setattr(pdp, "SYMBOLS", "")
+    monkeypatch.setattr(pdp, "LIMIT", 0)
+    monkeypatch.setattr(pdp.storage, "list_active_tickers", lambda: ["AAA", "BBB", "NEWCO"])
+    monkeypatch.setattr(pdp.storage, "event_for", lambda s: None)
+    monkeypatch.setattr(pdp.fetchers, "fetch_prices",
+                        lambda s, period: periods.__setitem__(s, period) or [{"date": "2026-10-02", "close": 1.0}])
+    monkeypatch.setattr(pdp.storage, "write_prices_batch", lambda s, rows: None)
+    monkeypatch.setattr(pdp.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(pdp, "DELAY", 0)
+    monkeypatch.setenv("CLOUD_RUN_TASK_INDEX", str(task_index))
+    monkeypatch.setenv("CLOUD_RUN_TASK_COUNT", str(task_count))
+    monkeypatch.setattr(us, "backfill_pending", lambda db=None: set(pending))
+    monkeypatch.setattr(us, "backfill_done", lambda db, s: cleared.append(s))
+    monkeypatch.setattr(us, "run", sync or (lambda: calls.append("sync")))
+    pdp.main()
+    return periods, calls, cleared
+
+
+def test_new_names_get_their_history_in_the_one_request_tonight(monkeypatch):
+    periods, _, cleared = _drive_price_job(monkeypatch, pending={"NEWCO"})
+    assert periods == {"AAA": "5d", "BBB": "5d", "NEWCO": us.BACKFILL_PERIOD}
+    assert cleared == ["NEWCO"]
+
+
+def test_the_sync_runs_once_after_task_zero_and_never_in_a_smoke_test(monkeypatch):
+    _, calls, _ = _drive_price_job(monkeypatch, task_index=0, task_count=6)
+    assert calls == ["sync"]
+    _, calls, _ = _drive_price_job(monkeypatch, task_index=3, task_count=6)
+    assert calls == []
+    import pull_daily_prices as pdp
+    monkeypatch.setattr(pdp, "SYMBOLS", "AAA")
+    calls = []
+    monkeypatch.setattr(us, "run", lambda: calls.append("sync"))
+    pdp.main()
+    assert calls == []
+
+
+def test_a_failing_sync_does_not_change_the_price_jobs_result(monkeypatch):
+    # run() never raises by contract; even a raise is the sync's own bug, so it is
+    # pinned here that the real run() swallows its failures.
+    monkeypatch.setattr(us, "MODE", "apply")
+    monkeypatch.setattr(us, "fetch_sec", lambda: (_ for _ in ()).throw(RuntimeError("SEC down")))
+    real_run = us.run
+    periods, _, _ = _drive_price_job(monkeypatch, sync=lambda: real_run(db=_DB()))
+    assert set(periods) == {"AAA", "BBB", "NEWCO"}   # and main() returned normally
