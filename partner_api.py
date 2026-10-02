@@ -302,6 +302,79 @@ def _not_found(requested: dict, detail: str) -> JSONResponse:
     )
 
 
+# ── the security master, whole ───────────────────────────────────────────────
+# Owner, 2026-10-02: TEK2day's `tickers` collection is the one security master
+# for TEK2day, Kilby and CEORater (Kilby issue jmaietta/chatllm#309). Kilby used
+# to ship its own frozen copy; it now reads this once a day instead. One read of
+# the collection serves every caller for a while: the universe changes once a
+# day, after the price pull's universe sync.
+_MASTER_TTL_SECONDS = 15 * 60
+_MASTER_FIELDS = ["name", "long_name", "cik", "exchange", "sec_exchange", "sector", "industry", "active",
+                  "added_at", "deactivated_at", "deactivated_reason", "renamed_to", "security_resolution"]
+_master_cache: dict = {}
+_master_lock = threading.Lock()
+
+
+def _master_rows() -> tuple[list[dict], str]:
+    """Every ticker TEK2day knows (inactive ones included, flagged), and a version tag."""
+    import hashlib
+    import json as _json
+    now = time.monotonic()
+    with _master_lock:
+        cached = _master_cache.get("rows")
+        if cached and cached[2] > now:
+            return cached[0], cached[1]
+        rows = []
+        for doc in storage.get_db().collection("tickers").select(_MASTER_FIELDS).stream():
+            meta = doc.to_dict() or {}
+            if meta.get("renamed_to") or meta.get("security_resolution") is not None:
+                continue   # retired aliases belong to the reviewed identity process
+            cik = meta.get("cik")
+            rows.append({
+                "symbol": doc.id,
+                "name": meta.get("name") or meta.get("long_name") or None,
+                "cik": int(cik) if cik not in (None, "") else None,
+                "exchange": meta.get("exchange") or meta.get("sec_exchange") or None,
+                "sector": meta.get("sector") or None,
+                "industry": meta.get("industry") or None,
+                "active": meta.get("active") is True,
+                "added_at": meta.get("added_at") or None,
+                "deactivated_at": meta.get("deactivated_at") or None,
+                "deactivated_reason": meta.get("deactivated_reason") or None,
+            })
+        rows.sort(key=lambda r: r["symbol"])
+        etag = hashlib.sha256(_json.dumps(rows, sort_keys=True).encode()).hexdigest()[:32]
+        _master_cache["rows"] = (rows, etag, now + _MASTER_TTL_SECONDS)
+        return rows, etag
+
+
+@router.get("/symbols")
+def symbol_master(request: Request):
+    """The whole security master: symbol, name, CIK, exchange, sector, industry, active.
+
+    Sends an ETag; a caller that already holds this version gets 304 and no body.
+    Inactive tickers stay in the list with `active: false` and the reason, so a
+    caller can still name a company that no longer trades.
+    """
+    require_kilby(request)
+    try:
+        rows, etag = _master_rows()
+    except Exception as exc:
+        logger.error("symbol master unavailable: %s", exc)
+        raise HTTPException(status_code=503, detail="Symbol master temporarily unavailable") from exc
+    quoted = f'"{etag}"'
+    if str(request.headers.get("if-none-match") or "").strip() == quoted:
+        from fastapi import Response  # noqa: PLC0415
+        return Response(status_code=304, headers={"ETag": quoted})
+    active = sum(1 for r in rows if r["active"])
+    body = envelope.build(
+        "symbol_master",
+        {"symbols": rows, "counts": {"total": len(rows), "active": active, "inactive": len(rows) - active}},
+        {}, {}, currency=None,
+    )
+    return JSONResponse(content=body, headers={"ETag": quoted, "Cache-Control": "private, max-age=900"})
+
+
 @router.get("/symbols/resolve")
 def resolve_symbol(request: Request, symbol: str = Query(..., min_length=1, max_length=13)):
     """Confirm a ticker exists and return its canonical symbol and name.
