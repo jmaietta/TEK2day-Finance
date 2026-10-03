@@ -131,6 +131,9 @@ def main():
     # Makes no price requests.
     if os.environ.get("UNIVERSE_SYNC_ONLY", "").strip() in {"1", "true", "yes"}:
         logger.info("Universe sync only: no prices this run")
+        if int(os.getenv("CLOUD_RUN_TASK_INDEX", "0")) != 0:
+            logger.info("Universe sync only: task 0 runs it; this task has nothing to do")
+            sys.exit(0)
         result = universe_sync.run()
         sys.exit(0 if result is not None else 1)
     start = datetime.now(timezone.utc)

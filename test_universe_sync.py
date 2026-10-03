@@ -349,3 +349,14 @@ def test_kilby_queues_its_customers_names(monkeypatch):
     body = partner_api._Priority(symbols=["hona", "brk-b", ""])
     assert partner_api.symbol_priority(object(), body) == {"queued": 2}
     assert db.store["universe_sync/state"]["priority"] == ["BRK.B", "HONA"]
+
+
+def test_a_sync_only_run_happens_once_even_with_six_tasks(monkeypatch):
+    import pull_daily_prices as pdp
+    calls = []
+    monkeypatch.setenv("UNIVERSE_SYNC_ONLY", "1")
+    monkeypatch.setenv("CLOUD_RUN_TASK_INDEX", "3")
+    monkeypatch.setattr(us, "run", lambda: calls.append("sync") or {})
+    with pytest.raises(SystemExit) as done:
+        pdp.main()
+    assert done.value.code == 0 and calls == []
