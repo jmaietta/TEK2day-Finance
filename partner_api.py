@@ -348,6 +348,29 @@ def _master_rows() -> tuple[list[dict], str]:
         return rows, etag
 
 
+class _Priority(__import__("pydantic").BaseModel):
+    symbols: list[str]
+
+
+@router.post("/symbols/priority")
+def symbol_priority(request: Request, body: _Priority):
+    """Names a Kilby customer holds or follows that lack a sector: filled first tonight.
+
+    The one write the partner API accepts. It only queues tickers for TEK2day's
+    own nightly fill; it never changes a security's data.
+    """
+    require_kilby(request)
+    if len(body.symbols) > 2000:
+        raise HTTPException(status_code=400, detail="At most 2,000 symbols per request")
+    import universe_sync
+    try:
+        queued = universe_sync.add_priority(storage.get_db(), body.symbols)
+    except Exception as exc:
+        logger.error("priority queue unavailable: %s", exc)
+        raise HTTPException(status_code=503, detail="Priority queue temporarily unavailable") from exc
+    return {"queued": queued}
+
+
 @router.get("/symbols")
 def symbol_master(request: Request):
     """The whole security master: symbol, name, CIK, exchange, sector, industry, active.

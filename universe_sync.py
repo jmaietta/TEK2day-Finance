@@ -50,6 +50,12 @@ EXCHANGES = {"Nasdaq", "NYSE", "CBOE"}
 STALE_DAYS = 30
 BACKFILL_PERIOD = "5y"   # what storage.get_prices_history reads back (1,260 rows)
 STATE = ("universe_sync", "state")
+# Names with no sector get it from Yahoo right away instead of waiting for the
+# weekly refresh (owner, 2026-10-02: Randy's team should not "see a bunch of
+# blanks"). Rationed (#183): at most this many Yahoo calls a night, about 1% of
+# the nightly price pull. A manual run may raise it with UNIVERSE_FILL_LIMIT.
+FILL_LIMIT = int(os.environ.get("UNIVERSE_FILL_LIMIT", "100") or 100)
+PRIORITY_MAX = 2000
 RUNS = "universe_sync_runs"
 
 # A run that would change more than this is a bad parse or a broken price feed,
@@ -143,6 +149,33 @@ def plan(sec: dict[str, dict], existing: dict[str, dict], last_price: dict[str, 
             "skipped_spacs": skipped_spacs, "refused": refused}
 
 
+def fill_order(existing: dict[str, dict], identity_managed: set[str], priority: list[str],
+               just_added: list[str], limit: int) -> list[str]:
+    """Which names get their sector from Yahoo tonight, in order. Pure.
+
+    First: names a Kilby customer holds or follows (priority), including ones
+    TEK2day does not cover yet. Then names the sync added tonight. Then any other
+    active name still without a sector, newest first.
+    """
+    def blank(symbol):
+        meta = existing.get(symbol)
+        return meta is None or (meta.get("active") is not False and not meta.get("sector"))
+
+    retired = {s for s, m in existing.items() if m.get("renamed_to") or m.get("security_resolution") is not None}
+    skip = identity_managed | retired
+    order, seen = [], set()
+    rest = sorted((s for s, m in existing.items() if m.get("active") is True and not m.get("sector")),
+                  key=lambda s: str(existing[s].get("added_at") or ""), reverse=True)
+    for symbol in [*priority, *just_added, *rest]:
+        if symbol in seen or symbol in skip or not blank(symbol):
+            continue
+        seen.add(symbol)
+        order.append(symbol)
+        if len(order) >= limit:
+            break
+    return order
+
+
 # ── I/O ──────────────────────────────────────────────────────────────────────
 
 def fetch_sec() -> dict[str, dict]:
@@ -157,7 +190,7 @@ def fetch_sec() -> dict[str, dict]:
 def read_existing(db) -> dict[str, dict]:
     from config import COLLECTION_ROOT
     out = {}
-    fields = ["active", "cik", "added_at", "onboarded_at", "renamed_to", "security_resolution"]
+    fields = ["active", "cik", "added_at", "onboarded_at", "renamed_to", "security_resolution", "sector"]
     for doc in db.collection(COLLECTION_ROOT).select(fields).stream():
         out[doc.id] = doc.to_dict() or {}
     return out
@@ -195,6 +228,58 @@ def backfill_pending(db=None) -> set[str]:
         return set()
 
 
+def read_priority(db) -> list[str]:
+    try:
+        snap = db.collection(STATE[0]).document(STATE[1]).get()
+        return list((snap.to_dict() or {}).get("priority") or []) if snap.exists else []
+    except Exception as exc:
+        logger.warning("priority list unreadable: %s", exc)
+        return []
+
+
+def add_priority(db, symbols: list[str]) -> int:
+    """Kilby's names that should get a sector first (from /partner/v1/symbols/priority)."""
+    from google.cloud import firestore
+    clean = sorted({str(s or "").strip().upper().replace("-", ".") for s in symbols if str(s or "").strip()})[:PRIORITY_MAX]
+    if clean:
+        db.collection(STATE[0]).document(STATE[1]).set({"priority": firestore.ArrayUnion(clean)}, merge=True)
+    return len(clean)
+
+
+def fill(db, storage, order: list[str], existing: dict[str, dict], delay: float | None = None) -> dict:
+    """Ask Yahoo for each name's details and save them. Never raises."""
+    import time
+    import fetchers
+    from google.cloud import firestore
+    if delay is None:
+        from config import FETCH_DELAY as delay
+    filled, no_sector, unknown, failed = [], [], [], []
+    now = datetime.now(timezone.utc).isoformat()
+    for symbol in order:
+        try:
+            meta = fetchers.fetch_ticker_info(symbol.replace(".", "-"))
+            if not meta:
+                unknown.append(symbol)          # Yahoo does not know it: left for review
+                continue
+            meta["symbol"] = symbol
+            if symbol not in existing:
+                # A name a customer holds that TEK2day did not cover: covered from now on.
+                meta.update(added_at=now, added_by="kilby_priority")
+            storage.write_ticker_meta(symbol, meta)
+            (filled if meta.get("sector") else no_sector).append(symbol)
+        except Exception as exc:
+            failed.append(symbol)
+            logger.warning("%s: sector fill failed: %s", symbol, exc)
+        time.sleep(delay)
+    done = [s for s in order if s not in failed]
+    if done:
+        try:
+            db.collection(STATE[0]).document(STATE[1]).set({"priority": firestore.ArrayRemove(done)}, merge=True)
+        except Exception as exc:
+            logger.warning("priority list not trimmed: %s", exc)
+    return {"filled": filled, "no_sector": no_sector, "unknown": unknown, "failed": failed}
+
+
 def backfill_done(db, symbol: str) -> None:
     from google.cloud import firestore
     if db is None:
@@ -228,6 +313,9 @@ def run(db=None, today: date | None = None) -> dict | None:
         applied = MODE == "apply" and not result["refused"]
         if applied:
             _apply(db, storage, sec, result)
+        order = fill_order(existing, identity_managed, read_priority(db), result["adds"] if applied else [], FILL_LIMIT)
+        filled = fill(db, storage, order, existing) if MODE == "apply" else {"would_fill": order}
+        result["fill"] = filled
         _report(db, today, result, applied, unread)
         return result
     except Exception as exc:
@@ -252,7 +340,10 @@ def _apply(db, storage, sec, result):
 
 
 def _report(db, today, result, applied, unread):
+    fill_result = result.pop("fill", {}) or {}
     summary = {k: len(v) for k, v in result.items()}
+    fill_counts = {k: len(v) for k, v in fill_result.items()}
+    logger.info("UNIVERSE FILL %s", " ".join(f"{k}={v}" for k, v in fill_counts.items()) or "nothing to fill")
     line = ("UNIVERSE SYNC mode=%s applied=%s adds=%d deactivate=%d cik_changed=%d relisted=%d "
             "skipped_spacs=%d unreadable=%d refused=%s")
     args = (MODE, applied, summary["adds"], summary["deactivate"], summary["cik_changed"], summary["relisted"],
@@ -264,4 +355,6 @@ def _report(db, today, result, applied, unread):
         "adds": result["adds"][:1000], "deactivate": result["deactivate"][:1500],
         "cik_changed": result["cik_changed"][:200], "relisted": result["relisted"][:500],
         "skipped_spacs": result["skipped_spacs"][:500],
+        "fill": {k: v[:500] for k, v in fill_result.items()}, "fill_counts": fill_counts,
     })
+    result["fill"] = fill_result

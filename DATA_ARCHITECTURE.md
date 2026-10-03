@@ -48,6 +48,17 @@ records `universe_sync_runs/{date}`. `UNIVERSE_SYNC_MODE` = off, observe or
 apply (default apply). A run that would add more than 600 or deactivate more
 than 1,500 is refused and logged as an error.
 
+After the sync, the same step fills blank sectors from Yahoo right away instead
+of waiting for the weekly refresh: names a Kilby customer holds first (queued by
+Kilby through `POST /partner/v1/symbols/priority`, which only queues tickers;
+names TEK2day did not cover are added), then names added tonight, then any other
+active name without a sector. At most `UNIVERSE_FILL_LIMIT` (default 100) Yahoo
+calls a night. ETFs and funds get a label rather than a blank: sector "ETF",
+"Mutual fund" or "Money market fund", industry Yahoo's category
+(`fetchers.fund_labels`, used by every metadata write). To run only the sync and
+fill by hand, with no price requests:
+`gcloud run jobs execute daily-price-pull --tasks=1 --update-env-vars=UNIVERSE_SYNC_ONLY=1`.
+
 ## 2. Data Storage
 
 Firestore is the durable data store.

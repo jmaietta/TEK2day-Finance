@@ -125,6 +125,14 @@ def firestore_write_with_retry(fn, label):
 
 
 def main():
+    # A manual run of just the universe sync and the sector fill (owner, 2026-10-02:
+    # "The first fill will run this weekend as we will manually push a job"):
+    #   gcloud run jobs execute daily-price-pull --tasks=1 --update-env-vars=UNIVERSE_SYNC_ONLY=1
+    # Makes no price requests.
+    if os.environ.get("UNIVERSE_SYNC_ONLY", "").strip() in {"1", "true", "yes"}:
+        logger.info("Universe sync only: no prices this run")
+        result = universe_sync.run()
+        sys.exit(0 if result is not None else 1)
     start = datetime.now(timezone.utc)
     logger.info("Daily price pull starting (period=%s)", PERIOD)
 

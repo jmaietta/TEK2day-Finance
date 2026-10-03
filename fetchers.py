@@ -46,6 +46,31 @@ def _log_fetch_failure(kind: str, symbol: str, exc: Exception) -> None:
         logger.error("%s: %s fetch failed: %s", symbol, kind, exc)
 
 
+def fund_labels(info: dict) -> tuple[str, str]:
+    """(sector, industry) for any security, funds included.
+
+    Yahoo gives operating companies a sector and industry, and ETFs and funds
+    neither; they carry a quoteType and a category instead. A fund's sector is
+    what it is ("ETF", "Mutual fund", "Money market fund") and its industry is
+    Yahoo's category ("Technology", "Large Blend"), so a holding list never shows
+    a blank for SGOV or XLK (owner, 2026-10-02: Randy's team should not "see a
+    bunch of blanks in the sector/indtsyr fields"). Every metadata write uses
+    this, so the weekly refresh keeps the same labels.
+    """
+    sector, industry = info.get("sector") or "", info.get("industry") or ""
+    if sector:
+        return sector, industry
+    kind = str(info.get("quoteType") or "").upper()
+    category = str(info.get("category") or "")
+    if kind == "MONEYMARKET" or "money market" in category.lower():
+        return "Money market fund", category
+    if kind == "ETF":
+        return "ETF", category
+    if kind == "MUTUALFUND":
+        return "Mutual fund", category
+    return sector, industry
+
+
 def fetch_ticker_info(symbol: str) -> dict | None:
     """Fetch metadata: name, sector, industry, exchange, market cap."""
     try:
@@ -57,12 +82,15 @@ def fetch_ticker_info(symbol: str) -> dict | None:
         if not info.get("shortName"):
             logger.warning("%s: no info returned", symbol)
             return None
+        sector, industry = fund_labels(info)
         return {
             "symbol": symbol,
             "name": info.get("shortName", ""),
             "long_name": info.get("longName", ""),
-            "sector": info.get("sector", ""),
-            "industry": info.get("industry", ""),
+            "sector": sector,
+            "industry": industry,
+            "quote_type": info.get("quoteType", ""),
+            "category": info.get("category") or "",
             "exchange": info.get("exchange", ""),
             "market_cap": info.get("marketCap"),
             "shares_outstanding": info.get("sharesOutstanding"),

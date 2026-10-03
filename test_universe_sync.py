@@ -157,6 +157,11 @@ def fake(monkeypatch):
     monkeypatch.setattr(storage, "event_for", lambda s: None)
     monkeypatch.setattr(storage, "write_ticker_meta", lambda s, m: written.__setitem__(s, m))
     monkeypatch.setattr(storage, "deactivate_ticker", lambda s, **kw: deactivated.append((s, kw)))
+    # Never Yahoo in a test: the fill is recorded, not run.
+    filled = []
+    monkeypatch.setattr(us, "fill", lambda db_, storage_, order, existing_, delay=None: filled.append(order) or
+                        {"filled": [], "no_sector": [], "unknown": [], "failed": []})
+    monkeypatch.setattr(us, "read_priority", lambda db_: ["NSRGY"])
     return db, written, deactivated
 
 
@@ -258,3 +263,89 @@ def test_a_failing_sync_does_not_change_the_price_jobs_result(monkeypatch):
     real_run = us.run
     periods, _, _ = _drive_price_job(monkeypatch, sync=lambda: real_run(db=_DB()))
     assert set(periods) == {"AAA", "BBB", "NEWCO"}   # and main() returned normally
+
+
+
+# ── the sector fill ──────────────────────────────────────────────────────────
+
+def test_fill_order_puts_customer_names_first_then_tonights_adds_then_the_rest():
+    existing = {
+        "OLDBLANK": {"active": True, "sector": "", "added_at": "2026-05-01"},
+        "NEWBLANK": {"active": True, "sector": None, "added_at": "2026-09-01"},
+        "HASSECTOR": {"active": True, "sector": "Technology"},
+        "DEAD": {"active": False, "sector": ""},
+        "ROUTED": {"active": True, "sector": ""},
+        "OLDNAME": {"active": True, "sector": "", "renamed_to": "NEWNAME"},
+    }
+    order = us.fill_order(existing, {"ROUTED"}, ["NSRGY", "HASSECTOR", "OLDBLANK"], ["TONIGHT"], limit=10)
+    assert order == ["NSRGY", "OLDBLANK", "TONIGHT", "NEWBLANK"]
+    assert us.fill_order(existing, set(), [], [], limit=1) == ["NEWBLANK"]
+
+
+def test_fill_saves_yahoo_details_covers_new_customer_names_and_never_raises(monkeypatch):
+    import fetchers
+    import storage
+    answers = {"HONA": {"name": "Honeywell Aerospace", "sector": "Industrials", "industry": "Aerospace & Defense"},
+               "XLK": {"name": "Technology Select Sector SPDR", "sector": "ETF", "industry": "Technology"},
+               "ZZZZ": None}
+    monkeypatch.setattr(fetchers, "fetch_ticker_info",
+                        lambda s: (_ for _ in ()).throw(RuntimeError("Yahoo down")) if s == "BOOM" else
+                        (dict(answers[s]) if answers.get(s) else None))
+    written = {}
+    monkeypatch.setattr(storage, "write_ticker_meta", lambda s, m: written.__setitem__(s, m))
+    from google.cloud import firestore
+    monkeypatch.setattr(firestore, "ArrayUnion", _ArrayUnion)
+    monkeypatch.setattr(firestore, "ArrayRemove", _ArrayRemove)
+    db = _DB()
+    us.add_priority(db, ["hona", "XLK", "ZZZZ", "BOOM"])
+    result = us.fill(db, storage, ["HONA", "XLK", "ZZZZ", "BOOM"], {"HONA": {"active": True}}, delay=0)
+    assert result == {"filled": ["HONA", "XLK"], "no_sector": [], "unknown": ["ZZZZ"], "failed": ["BOOM"]}
+    assert written["HONA"]["sector"] == "Industrials" and "added_by" not in written["HONA"]
+    assert written["XLK"]["added_by"] == "kilby_priority"          # a customer's name TEK2day now covers
+    assert db.store["universe_sync/state"]["priority"] == ["BOOM"]  # retried next night
+
+
+def test_funds_get_a_label_instead_of_a_blank():
+    import fetchers
+    assert fetchers.fund_labels({"quoteType": "ETF", "category": "Technology"}) == ("ETF", "Technology")
+    assert fetchers.fund_labels({"quoteType": "MONEYMARKET"}) == ("Money market fund", "")
+    assert fetchers.fund_labels({"quoteType": "MUTUALFUND", "category": "Money Market - Taxable"}) == (
+        "Money market fund", "Money Market - Taxable")
+    assert fetchers.fund_labels({"quoteType": "MUTUALFUND", "category": "Large Blend"}) == ("Mutual fund", "Large Blend")
+    assert fetchers.fund_labels({"quoteType": "EQUITY", "sector": "Healthcare", "industry": "Drug Manufacturers"}) == (
+        "Healthcare", "Drug Manufacturers")
+    assert fetchers.fund_labels({"quoteType": "EQUITY"}) == ("", "")
+
+
+def test_a_run_fills_after_the_sync_and_observe_only_lists_what_it_would_fill(fake, monkeypatch):
+    db, written, deactivated = fake
+    monkeypatch.setattr(us, "MODE", "observe")
+    result = us.run(db=db, today=TODAY)
+    assert result["fill"]["would_fill"][0] == "NSRGY" and len(result["fill"]["would_fill"]) == us.FILL_LIMIT
+    monkeypatch.setattr(us, "MODE", "apply")
+    result = us.run(db=db, today=TODAY)
+    assert db.store["universe_sync_runs/2026-10-02"]["fill_counts"] == {"filled": 0, "no_sector": 0, "unknown": 0, "failed": 0}
+
+
+def test_the_job_can_run_only_the_sync_and_fill(monkeypatch):
+    import pull_daily_prices as pdp
+    calls = []
+    monkeypatch.setenv("UNIVERSE_SYNC_ONLY", "1")
+    monkeypatch.setattr(us, "run", lambda: calls.append("sync") or {})
+    monkeypatch.setattr(pdp.fetchers, "fetch_prices", lambda *a, **k: calls.append("PRICE REQUEST"))
+    with pytest.raises(SystemExit) as done:
+        pdp.main()
+    assert done.value.code == 0 and calls == ["sync"]
+
+
+def test_kilby_queues_its_customers_names(monkeypatch):
+    import partner_api
+    import storage
+    db = _DB()
+    monkeypatch.setattr(storage, "get_db", lambda: db)
+    monkeypatch.setattr(partner_api, "require_kilby", lambda request: "kilby")
+    from google.cloud import firestore
+    monkeypatch.setattr(firestore, "ArrayUnion", _ArrayUnion)
+    body = partner_api._Priority(symbols=["hona", "brk-b", ""])
+    assert partner_api.symbol_priority(object(), body) == {"queued": 2}
+    assert db.store["universe_sync/state"]["priority"] == ["BRK.B", "HONA"]
