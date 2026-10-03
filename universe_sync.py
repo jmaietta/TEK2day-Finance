@@ -44,6 +44,11 @@ from datetime import date, datetime, timedelta, timezone
 logger = logging.getLogger("ydp.universe_sync")
 
 MODE = os.environ.get("UNIVERSE_SYNC_MODE", "apply").strip().lower()
+# Deactivations are held until the owner has reviewed them (owner, 2026-10-03: the first
+# run would deactivate 1,132 tickers; "we can begin investigating them ... AFTER I am done
+# with Watchlist"). Adds and the sector fill still apply. Held deactivations are reported
+# in every run's record. Set UNIVERSE_SYNC_DEACTIVATE=1 once they are reviewed.
+DEACTIVATE = os.environ.get("UNIVERSE_SYNC_DEACTIVATE", "0").strip().lower() in {"1", "true", "yes"}
 SEC_EXCHANGE_URL = "https://www.sec.gov/files/company_tickers_exchange.json"
 USER_AGENT = "TEK2day Finance support@tek2day.com"
 EXCHANGES = {"Nasdaq", "NYSE", "CBOE"}
@@ -103,7 +108,7 @@ def sec_listings(rows: list[list], fields: list[str]) -> dict[str, dict]:
 
 
 def plan(sec: dict[str, dict], existing: dict[str, dict], last_price: dict[str, str | None],
-         identity_managed: set[str], today: date, is_spac=None) -> dict:
+         identity_managed: set[str], today: date, is_spac=None, deactivations: bool = True) -> dict:
     """What a run would change. Pure: no I/O, so every rule is testable."""
     cutoff = (today - timedelta(days=STALE_DAYS)).isoformat()
     # Renamed or resolved records belong to the reviewed identity process: known,
@@ -143,7 +148,8 @@ def plan(sec: dict[str, dict], existing: dict[str, dict], last_price: dict[str, 
         refused.append(f"SEC list has only {len(sec)} common tickers (expected over {MIN_SEC_ROWS})")
     if len(adds) > MAX_ADDS:
         refused.append(f"{len(adds)} additions exceeds the {MAX_ADDS} limit")
-    if len(deactivate) > MAX_DEACTIVATIONS:
+    # Held deactivations change nothing, so their count cannot refuse a run's adds.
+    if deactivations and len(deactivate) > MAX_DEACTIVATIONS:
         refused.append(f"{len(deactivate)} deactivations exceeds the {MAX_DEACTIVATIONS} limit")
     return {"adds": adds, "deactivate": deactivate, "cik_changed": cik_changed, "relisted": relisted,
             "skipped_spacs": skipped_spacs, "refused": refused}
@@ -352,7 +358,8 @@ def run(db=None, today: date | None = None) -> dict | None:
         unread = [s for s in active if s not in identity_managed and s not in last_price]
         for s in unread:
             last_price[s] = today.isoformat()
-        result = plan(sec, existing, last_price, identity_managed, today, is_spac=is_likely_spac)
+        result = plan(sec, existing, last_price, identity_managed, today, is_spac=is_likely_spac,
+                      deactivations=DEACTIVATE)
         applied = MODE == "apply" and not result["refused"]
         if applied:
             _apply(db, storage, sec, result)
@@ -378,6 +385,10 @@ def _apply(db, storage, sec, result):
     if result["adds"]:
         db.collection(STATE[0]).document(STATE[1]).set(
             {"backfill_pending": firestore.ArrayUnion(result["adds"])}, merge=True)
+    if not DEACTIVATE:
+        logger.warning("UNIVERSE SYNC deactivations held: %d not applied (set UNIVERSE_SYNC_DEACTIVATE=1 after review)",
+                       len(result["deactivate"]))
+        return
     for row in result["deactivate"]:
         storage.deactivate_ticker(row["symbol"], reason="no_price_30d", last_price_date=row["last_price_date"])
 
@@ -393,7 +404,8 @@ def _report(db, today, result, applied, unread):
             summary["skipped_spacs"], len(unread), "; ".join(result["refused"]) or "no")
     (logger.error if result["refused"] else logger.info)(line, *args)
     db.collection(RUNS).document(today.isoformat()).set({
-        "mode": MODE, "applied": applied, "at": datetime.now(timezone.utc).isoformat(),
+        "mode": MODE, "applied": applied, "deactivations_held": not DEACTIVATE,
+        "at": datetime.now(timezone.utc).isoformat(),
         "counts": summary, "refused": result["refused"], "unreadable": len(unread),
         "adds": result["adds"][:1000], "deactivate": result["deactivate"][:1500],
         "cik_changed": result["cik_changed"][:200], "relisted": result["relisted"][:500],

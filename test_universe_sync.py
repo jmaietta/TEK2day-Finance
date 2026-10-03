@@ -180,6 +180,7 @@ def test_observe_reports_and_changes_nothing(fake, monkeypatch):
 def test_apply_adds_with_sec_identity_queues_history_and_deactivates_with_reason(fake, monkeypatch):
     db, written, deactivated = fake
     monkeypatch.setattr(us, "MODE", "apply")
+    monkeypatch.setattr(us, "DEACTIVATE", True)
     us.run(db=db, today=TODAY)
     meta = written["NEWCO"]
     assert meta["name"] == "NEWCO Inc" and meta["cik"] == us.MIN_SEC_ROWS + 100 and meta["active"] is True
@@ -190,6 +191,19 @@ def test_apply_adds_with_sec_identity_queues_history_and_deactivates_with_reason
     us.backfill_done(db, "NEWCO")
     assert db.store["universe_sync/state"]["backfill_pending"] == []
     assert us.backfill_pending(db) == set()
+
+
+def test_deactivations_are_held_by_default_while_adds_apply(fake, monkeypatch):
+    """Owner, 2026-10-03: the 1,132 deactivations wait for his review; new listings do not."""
+    db, written, deactivated = fake
+    monkeypatch.setattr(us, "MODE", "apply")
+    assert us.DEACTIVATE is False
+    monkeypatch.setattr(us, "MAX_DEACTIVATIONS", 0)   # a held count never refuses the adds
+    result = us.run(db=db, today=TODAY)
+    assert not result["refused"] and "NEWCO" in written and deactivated == []
+    report = db.store["universe_sync_runs/2026-10-02"]
+    assert report["applied"] is True and report["deactivations_held"] is True
+    assert [r["symbol"] for r in report["deactivate"]] == ["DEAD"]   # listed for review
 
 
 def test_a_refused_run_changes_nothing_even_in_apply(fake, monkeypatch):
