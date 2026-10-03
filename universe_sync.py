@@ -159,12 +159,14 @@ def fill_order(existing: dict[str, dict], identity_managed: set[str], priority: 
     """
     def blank(symbol):
         meta = existing.get(symbol)
-        return meta is None or (meta.get("active") is not False and not meta.get("sector"))
+        return meta is None or (meta.get("active") is not False and not meta.get("sector")
+                                and not meta.get("sector_override"))
 
     retired = {s for s, m in existing.items() if m.get("renamed_to") or m.get("security_resolution") is not None}
     skip = identity_managed | retired
     order, seen = [], set()
-    rest = sorted((s for s, m in existing.items() if m.get("active") is True and not m.get("sector")),
+    rest = sorted((s for s, m in existing.items()
+                   if m.get("active") is True and not m.get("sector") and not m.get("sector_override")),
                   key=lambda s: str(existing[s].get("added_at") or ""), reverse=True)
     for symbol in [*priority, *just_added, *rest]:
         if symbol in seen or symbol in skip or not blank(symbol):
@@ -190,7 +192,8 @@ def fetch_sec() -> dict[str, dict]:
 def read_existing(db) -> dict[str, dict]:
     from config import COLLECTION_ROOT
     out = {}
-    fields = ["active", "cik", "added_at", "onboarded_at", "renamed_to", "security_resolution", "sector"]
+    fields = ["active", "cik", "added_at", "onboarded_at", "renamed_to", "security_resolution", "sector",
+              "sector_override", "name", "long_name"]
     for doc in db.collection(COLLECTION_ROOT).select(fields).stream():
         out[doc.id] = doc.to_dict() or {}
     return out
@@ -258,8 +261,20 @@ def fill(db, storage, order: list[str], existing: dict[str, dict], delay: float 
     for symbol in order:
         try:
             meta = fetchers.fetch_ticker_info(symbol.replace(".", "-"))
+            stored = existing.get(symbol) or {}
+            if not meta and not stored:
+                unknown.append(symbol)          # nobody knows it: left for review
+                continue
+            meta = meta or {}
+            if not meta.get("sector"):
+                # Yahoo knows the security but cannot classify it (often a foreign
+                # name). Next: the SEC industry code, then the same company's
+                # listing elsewhere.
+                found = classify_elsewhere(symbol, meta, stored)
+                if found:
+                    meta.update(found)
             if not meta:
-                unknown.append(symbol)          # Yahoo does not know it: left for review
+                unknown.append(symbol)
                 continue
             meta["symbol"] = symbol
             if symbol not in existing:
@@ -278,6 +293,34 @@ def fill(db, storage, order: list[str], existing: dict[str, dict], delay: float 
         except Exception as exc:
             logger.warning("priority list not trimmed: %s", exc)
     return {"filled": filled, "no_sector": no_sector, "unknown": unknown, "failed": failed}
+
+
+def classify_elsewhere(symbol: str, meta: dict, stored: dict) -> dict | None:
+    """Sector fields from the SEC industry code, else from the home listing. Never raises."""
+    import fetchers
+    import sec_sectors
+    try:
+        found = sec_sectors.sector_from_sec(stored.get("cik") or meta.get("cik"))
+        if found:
+            return {"sector": found[0], "industry": found[1], "sector_source": "sec_sic"}
+        name = meta.get("long_name") or meta.get("name") or stored.get("long_name") or stored.get("name") or ""
+        hit = fetchers.search_sector(name, exclude=symbol.replace(".", "-"))
+        if hit:
+            return {"sector": hit[0], "industry": hit[1], "sector_source": f"home_listing:{hit[2]}"}
+    except Exception as exc:
+        logger.warning("%s: classification elsewhere failed: %s", symbol, exc)
+    return None
+
+
+def set_override(db, symbol: str, sector: str, industry: str, by: str, note: str = "") -> dict:
+    """#4: a person's sector for a name nothing else can classify. No job ever writes over it."""
+    from config import COLLECTION_ROOT
+    entry = {"sector_override": sector.strip(), "industry_override": industry.strip(),
+             "override_by": by, "override_note": note.strip(),
+             "override_at": datetime.now(timezone.utc).isoformat()}
+    db.collection(COLLECTION_ROOT).document(symbol.upper()).set(entry, merge=True)
+    db.collection("sector_overrides").document().set(dict(entry, symbol=symbol.upper()))   # every change kept
+    return entry
 
 
 def backfill_done(db, symbol: str) -> None:

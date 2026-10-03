@@ -74,7 +74,7 @@ def test_every_known_ticker_with_identity_sector_and_status(db):
     rows = {r["symbol"]: r for r in body["data"]["symbols"]}
     assert set(rows) == {"DEAD", "NEWCO", "NVDA"}            # the retired alias is left out
     assert rows["NVDA"] == {"symbol": "NVDA", "name": "NVIDIA Corporation", "cik": 1045810, "exchange": "NMS",
-                            "sector": "Technology", "industry": "Semiconductors", "active": True,
+                            "sector": "Technology", "industry": "Semiconductors", "sector_source": None, "active": True,
                             "added_at": None, "deactivated_at": None, "deactivated_reason": None}
     assert rows["NEWCO"]["exchange"] == "Nasdaq" and rows["NEWCO"]["sector"] is None   # blank until the weekly refresh
     assert rows["DEAD"]["active"] is False and rows["DEAD"]["deactivated_reason"] == "no_price_30d"

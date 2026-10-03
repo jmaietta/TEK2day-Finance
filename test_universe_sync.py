@@ -360,3 +360,78 @@ def test_a_sync_only_run_happens_once_even_with_six_tasks(monkeypatch):
     with pytest.raises(SystemExit) as done:
         pdp.main()
     assert done.value.code == 0 and calls == []
+
+
+# ── foreign names: SEC industry code, home listing, manual override ─────────
+
+def test_the_fill_tries_yahoo_then_the_sec_code_then_the_home_listing(monkeypatch):
+    import fetchers
+    import sec_sectors
+    import storage
+    from google.cloud import firestore
+    monkeypatch.setattr(firestore, "ArrayUnion", _ArrayUnion)
+    monkeypatch.setattr(firestore, "ArrayRemove", _ArrayRemove)
+    yahoo = {"YAHOO": {"name": "Yahoo Classified", "sector": "Technology", "industry": "Software", "sector_source": "yahoo"},
+             "SECCO": {"name": "Foreign Filer PLC"},      # Yahoo knows it, no sector
+             "ADRCO": {"name": "Nestle SA-Spons ADR"},
+             "NOWHERE": {"name": "Unclassifiable Co"}}
+    monkeypatch.setattr(fetchers, "fetch_ticker_info", lambda s: dict(yahoo[s]) if s in yahoo else None)
+    monkeypatch.setattr(sec_sectors, "sector_from_sec", lambda cik: ("Industrials", "Aircraft Engines") if cik == 77 else None)
+    monkeypatch.setattr(fetchers, "search_sector", lambda name, exclude="": ("Consumer Defensive", "Packaged Foods", "NESN.SW")
+                        if fetchers.company_key(name) == "nestle" else None)
+    written = {}
+    monkeypatch.setattr(storage, "write_ticker_meta", lambda s, m: written.__setitem__(s, m))
+    existing = {"SECCO": {"active": True, "cik": 77}, "ADRCO": {"active": True}, "NOWHERE": {"active": True},
+                "YAHOO": {"active": True}}
+    result = us.fill(_DB(), storage, ["YAHOO", "SECCO", "ADRCO", "NOWHERE", "GHOST"], existing, delay=0)
+    assert result == {"filled": ["YAHOO", "SECCO", "ADRCO"], "no_sector": ["NOWHERE"], "unknown": ["GHOST"], "failed": []}
+    assert (written["SECCO"]["sector"], written["SECCO"]["sector_source"]) == ("Industrials", "sec_sic")
+    assert written["ADRCO"]["sector_source"] == "home_listing:NESN.SW"
+    assert "sector" not in written["NOWHERE"]       # a blank is never written over a stored sector
+
+
+def test_an_override_wins_and_no_job_ever_fills_over_it(monkeypatch):
+    db = _DB()
+    from config import COLLECTION_ROOT
+
+    class _Col(type(db.collection("x"))):
+        pass
+    # set_override writes the ticker and a history record
+    calls = []
+    monkeypatch.setattr(db, "collection", lambda name: type("C", (), {
+        "document": lambda self, key=None: type("D", (), {"set": lambda s, data, merge=False: calls.append((name, key, data))})()})())
+    entry = us.set_override(db, "nsrgy", "Consumer Defensive", "Packaged Foods", "owner", "home listing NESN.SW")
+    assert entry["sector_override"] == "Consumer Defensive"
+    assert [c[0] for c in calls] == [COLLECTION_ROOT, "sector_overrides"] and calls[0][1] == "NSRGY"
+    existing = {"NSRGY": {"active": True, "sector": "", "sector_override": "Consumer Defensive"}}
+    assert us.fill_order(existing, set(), ["NSRGY"], [], limit=10) == []
+
+
+def test_the_master_serves_the_override_first(monkeypatch):
+    import partner_api
+    import storage
+    docs = {"NSRGY": {"name": "Nestle", "sector": "", "sector_override": "Consumer Defensive",
+                      "industry_override": "Packaged Foods", "active": True},
+            "SECCO": {"name": "Foreign Filer", "sector": "Industrials", "sector_source": "sec_sic", "active": True}}
+
+    class _Doc:
+        def __init__(self, k, v):
+            self.id, self._v = k, v
+
+        def to_dict(self):
+            return dict(self._v)
+    db = type("DB", (), {"collection": lambda self, n: type("Q", (), {
+        "select": lambda s, f: s, "stream": lambda s: [_Doc(k, v) for k, v in docs.items()]})()})()
+    monkeypatch.setattr(storage, "get_db", lambda: db)
+    monkeypatch.setattr(partner_api, "_master_cache", {})
+    rows, _ = partner_api._master_rows()
+    by = {r["symbol"]: r for r in rows}
+    assert (by["NSRGY"]["sector"], by["NSRGY"]["industry"], by["NSRGY"]["sector_source"]) == (
+        "Consumer Defensive", "Packaged Foods", "override")
+    assert by["SECCO"]["sector_source"] == "sec_sic"
+
+
+def test_company_names_match_only_exactly():
+    import fetchers
+    assert fetchers.company_key("Nestlé S.A.") == fetchers.company_key("NESTLE SA-SPONS ADR") == "nestle"
+    assert fetchers.company_key("Nestlé India Limited") == "nestle india"

@@ -8,6 +8,7 @@ import logging
 import math
 import os
 import platform
+import re
 import sys
 from datetime import date, datetime, timezone
 
@@ -83,7 +84,7 @@ def fetch_ticker_info(symbol: str) -> dict | None:
             logger.warning("%s: no info returned", symbol)
             return None
         sector, industry = fund_labels(info)
-        return {
+        meta = {
             "symbol": symbol,
             "name": info.get("shortName", ""),
             "long_name": info.get("longName", ""),
@@ -98,9 +99,58 @@ def fetch_ticker_info(symbol: str) -> dict | None:
             "currency": info.get("currency"),
             "active": True,
         }
+        if not sector:
+            # Yahoo has no sector for it. Leave whatever is stored (from the SEC
+            # industry code, the home listing or a manual override) untouched;
+            # writing a blank would erase it at the next weekly refresh.
+            meta.pop("sector")
+            meta.pop("industry")
+        else:
+            meta["sector_source"] = "yahoo"
+        return meta
     except Exception as exc:
         logger.error("%s: info fetch failed: %s", symbol, exc)
         return None
+
+
+_NAME_NOISE = {"sa", "s", "a", "ag", "nv", "n", "v", "plc", "ltd", "limited", "inc", "incorporated", "corp",
+               "corporation", "co", "company", "group", "holding", "holdings", "se", "spa", "ab", "asa", "oyj",
+               "bhd", "berhad", "kk", "the", "adr", "ads", "sponsored", "unsponsored", "spons", "shs", "sh",
+               "ord", "ordinary", "class", "cl", "de", "cv"}
+
+
+def company_key(name: str) -> str:
+    """A company name reduced to its words: "Nestlé S.A." and "NESTLE SA-SPONS ADR" are both "nestle"."""
+    import unicodedata
+    text = unicodedata.normalize("NFKD", str(name or "")).encode("ascii", "ignore").decode().lower()
+    words = [w for w in re.split(r"[^a-z0-9]+", text) if w and w not in _NAME_NOISE]
+    return " ".join(words)
+
+
+def search_sector(name: str, exclude: str = "") -> tuple[str, str, str] | None:
+    """(sector, industry, symbol) of the same company's listing elsewhere, from Yahoo's search.
+
+    For a US over-the-counter or ADR ticker Yahoo cannot classify, the home
+    listing (NSRGY -> NESN.SW) usually can. Only an exact match on the company's
+    name counts: "Nestle" also returns Nestle India and Nestle Malaysia, which are
+    different companies. One Yahoo request.
+    """
+    key = company_key(name)
+    if not key:
+        return None
+    try:
+        quotes = yf.Search(key, max_results=10).quotes or []   # the cleaned name finds the listings
+    except Exception as exc:
+        logger.warning("search for %r failed: %s", name, exc)
+        return None
+    for q in quotes:
+        if str(q.get("quoteType") or "").upper() != "EQUITY" or not q.get("sector"):
+            continue
+        if q.get("symbol") == exclude:
+            continue
+        if company_key(q.get("longname") or q.get("shortname") or "") == key:
+            return q["sector"], q.get("industry") or "", q.get("symbol") or ""
+    return None
 
 
 def fetch_estimates(symbol: str) -> dict | None:

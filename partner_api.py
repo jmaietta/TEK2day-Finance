@@ -309,7 +309,8 @@ def _not_found(requested: dict, detail: str) -> JSONResponse:
 # the collection serves every caller for a while: the universe changes once a
 # day, after the price pull's universe sync.
 _MASTER_TTL_SECONDS = 15 * 60
-_MASTER_FIELDS = ["name", "long_name", "cik", "exchange", "sec_exchange", "sector", "industry", "active",
+_MASTER_FIELDS = ["name", "long_name", "cik", "exchange", "sec_exchange", "sector", "industry", "sector_source",
+                  "sector_override", "industry_override", "active",
                   "added_at", "deactivated_at", "deactivated_reason", "renamed_to", "security_resolution"]
 _master_cache: dict = {}
 _master_lock = threading.Lock()
@@ -335,8 +336,10 @@ def _master_rows() -> tuple[list[dict], str]:
                 "name": meta.get("name") or meta.get("long_name") or None,
                 "cik": int(cik) if cik not in (None, "") else None,
                 "exchange": meta.get("exchange") or meta.get("sec_exchange") or None,
-                "sector": meta.get("sector") or None,
-                "industry": meta.get("industry") or None,
+                # A person's override wins over every source.
+                "sector": meta.get("sector_override") or meta.get("sector") or None,
+                "industry": meta.get("industry_override") or meta.get("industry") or None,
+                "sector_source": "override" if meta.get("sector_override") else (meta.get("sector_source") or None),
                 "active": meta.get("active") is True,
                 "added_at": meta.get("added_at") or None,
                 "deactivated_at": meta.get("deactivated_at") or None,

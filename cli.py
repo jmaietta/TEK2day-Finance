@@ -22,6 +22,7 @@ Usage:
     python cli.py query estimates-date 2026-05-25    All tickers' estimates for a date
 """
 import logging
+import os
 import time
 
 import click
@@ -212,6 +213,19 @@ def ticker_add_list(filepath):
         time.sleep(FETCH_DELAY)
 
     click.echo(f"Added {added}, skipped {skipped} ({len(symbols)} total)")
+
+
+@ticker.command("set-sector")
+@click.argument("symbol")
+@click.argument("sector")
+@click.argument("industry", required=False, default="")
+@click.option("--note", default="", help="Why, for the record.")
+@click.option("--by", default=os.environ.get("USER") or os.environ.get("USERNAME") or "owner")
+def ticker_set_sector(symbol, sector, industry, note, by):
+    """Set a ticker's sector by hand when no source can classify it. Jobs never overwrite it."""
+    import universe_sync
+    entry = universe_sync.set_override(storage.get_db(), symbol, sector, industry, by, note)
+    click.echo(f"{symbol.upper()}: {entry['sector_override']} / {entry['industry_override'] or '-'} (override, by {by})")
 
 
 @ticker.command("remove")
