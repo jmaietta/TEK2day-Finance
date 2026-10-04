@@ -20,8 +20,13 @@ Never delete a ticker. Mark its status, keep its history, and say plainly what h
 | TEK2day site `/stock/BK` | BK, renamed to BNY | Redirects to BNY with current prices. | Yes |
 | TEK2day `/api/ticker/AVB` | AVB | `active: true`, no status. Its 1,260 stored prices and filed financials are intact. | Data yes, status no |
 
-Two sources give two different prices for the same dead stock ($68.14 vs $184.06).
-Not yet seen: Kilby `/AVB inc`, `/AVB bal`, `/AVB cf`, `/comp AVB EQR`, AVB news (step 1).
+| Kilby `/AVB inc`, `/AVB bal`, `/AVB cf` | AVB | The statements as filed through the quarter ended June 30, 2026, source TEK2day. No word that AVB no longer files. | Data yes, status no |
+| Kilby `/comp AVB EQR` | AVB | AVB at $184.06, market cap $72.91B, EV $82.02B, P/E 71.0x, forward P/E 36.6x, beside EQR as if both trade. Footer: "TEK2day Finance · as of 2026-10-04". | No |
+
+Two different prices for the same dead stock: $184.06 is Yahoo's frozen last quote, which both
+Kilby's quote card and TEK2day's comparison endpoint use; $68.14 is the last row of TEK2day's
+stored price history (Aug 24, 2026), which the TEK2day site shows.
+Step 1 done 2026-10-03 (owner's screenshots). News not checked: Kilby has no `/AVB news` command.
 
 Deactivation (`storage.deactivate_ticker`) already keeps every stored price, financial and
 estimate; it only stops the nightly pulls. `/partner/v1/symbols` already lists inactive tickers
@@ -89,8 +94,8 @@ Each step is tested before the next starts; nothing ships without the owner's wo
    add the status there, so summary, financials, comparisons, metrics and estimates all carry it.
    A retired ticker's summary returns the last trade, labeled, and no live quote.
 5. **Kilby shows it.** The quote card, statements, comp table and chat read the status from
-   TEK2day. Kilby never falls back to Yahoo for a ticker TEK2day marks retired; that fallback is
-   where $184.06 came from.
+   TEK2day. Neither Kilby nor TEK2day asks Yahoo for a live quote on a ticker TEK2day marks
+   retired; Yahoo's frozen last quote is where $184.06 came from, on the card and in /comp.
 6. **TEK2day site shows it.** `/stock/{symbol}` and the terminal show the status header.
 7. **Apply the review.** With the owner's approval: deactivate the reviewed tickers, record the
    decision and date in the audit trail, and link the 167 renames to their new tickers through
