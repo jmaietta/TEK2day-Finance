@@ -31,6 +31,7 @@ on:
       - "*.py"
       - "sec_catalog/**"
       - ".github/workflows/deploy-api.yml"
+      - ".github/workflows/tests.yml"
       - "Dockerfile.api"
       - "requirements.txt"
       - "static/**"
@@ -49,7 +50,12 @@ env:
   RUNTIME_SERVICE_ACCOUNT: tek2day-api@yfinance-cli.iam.gserviceaccount.com
 
 jobs:
+  # Every test must pass before anything deploys (owner, 2026-10-03).
+  tests:
+    uses: ./.github/workflows/tests.yml
+
   deploy:
+    needs: tests
     runs-on: ubuntu-latest
 
     steps:
