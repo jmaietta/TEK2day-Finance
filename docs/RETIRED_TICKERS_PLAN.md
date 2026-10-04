@@ -86,6 +86,24 @@ Each step is tested before the next starts; nothing ships without the owner's wo
 2. **Read the identity code** (`security_identity.py`, `ticker_migration.py`, `identity_storage.py`,
    `registrant_succession.py`) before changing anything. Status must sit on the security, keyed by
    CIK / security ID, so a reused ticker never inherits another company's history.
+
+   Done 2026-10-03. What it is: two hand-reviewed registries, written as Python constants, one
+   event each so far: the BK → BNY rename (`security_identity.BNY_EVENT`) and the XOM holding-company
+   succession (`registrant_succession.XOM_SUCCESSION`). Each event carries CUSIP, share class,
+   exchange, internal issuer and security IDs and primary sources, and moves its stored history
+   through a staged, verified, resumable Firestore migration (`ticker_migration`,
+   `succession_migration`). It is built for exact, one-at-a-time cases, and it refuses anything else
+   (ADRs, conversions, chained or reused tickers).
+
+   What that means here:
+   - **Acquired, delisted, deregistered** need none of it: nothing moves; the ticker's record just
+     gains its status fields. Writes go through `storage` / `identity_storage.guarded_write`, which
+     already protects identity-managed tickers.
+   - **Renames** do not need history moved either. Yahoo already carries five years of history under
+     the new ticker (checked: EFOR, AHRT, VAI, AIFA each return 1,255 days from 2021-10-04), and the
+     new tickers the sync added today get that history at the next price pull. So a rename is a
+     pointer, old → new with its SEC evidence, not a migration. The reviewed-rename process stays
+     for cases where the history cannot come from Yahoo.
 3. **Store the status.** On each retired ticker: `status` (acquired, delisted, deregistered,
    renamed, no longer priced), `status_date`, `status_evidence` (form and SEC link), `successor`
    (acquirer or new ticker), `last_trade_price`, `last_trade_date`. Filled from the audit trail in
@@ -98,8 +116,7 @@ Each step is tested before the next starts; nothing ships without the owner's wo
    retired; Yahoo's frozen last quote is where $184.06 came from, on the card and in /comp.
 6. **TEK2day site shows it.** `/stock/{symbol}` and the terminal show the status header.
 7. **Apply the review.** With the owner's approval: deactivate the reviewed tickers, record the
-   decision and date in the audit trail, and link the 167 renames to their new tickers through
-   the identity process.
+   decision and date in the audit trail, and point the 167 renames at their new tickers (see step 2).
 8. **Keep it current.** The daily universe sync records the status when it sees a Form 25 or 15,
    so future retirements need no manual review.
 
