@@ -43,16 +43,30 @@ logger = logging.getLogger("tek2day.partner")
 API_VERSION = "1.0.0"
 
 # ── who is allowed to call the protected endpoints ───────────────────────────
-# Kilby's Cloud Run services (chatllm-git = production, chatllm-test, and
-# chatllm-skuttle) all run as this one service account, so a single entry covers
-# production and Kilby's test environment.
+# Kilby production (chatllm-git) runs as cloud-run-chat. Kilby's test site
+# (chatllm-test) has run as its own account, chatllm-test-run, since it moved to
+# its own database on 2026-10-05; while it was refused here, every TEK2day call
+# from test failed with 403.
 #
-# Overridable by env var so staging/preview revisions can point at a different
-# caller without a code change.
-KILBY_SERVICE_ACCOUNT = os.getenv(
-    "PARTNER_ALLOWED_CALLER",
-    "cloud-run-chat@chatapp-488502.iam.gserviceaccount.com",
-).strip()
+# Overridable by env var (comma-separated) so staging/preview revisions can point
+# at different callers without a code change.
+KILBY_SERVICE_ACCOUNTS = frozenset(
+    caller.strip()
+    for caller in os.getenv(
+        "PARTNER_ALLOWED_CALLER",
+        "cloud-run-chat@chatapp-488502.iam.gserviceaccount.com,"
+        "chatllm-test-run@chatapp-488502.iam.gserviceaccount.com",
+    ).split(",")
+    if caller.strip()
+)
+
+
+def caller_allowed(claims: dict) -> bool:
+    """True when Google-verified token claims name one of Kilby's accounts."""
+    # Google states whether it verified the address itself. Without this check a
+    # token carrying an unverified address would pass on the name alone.
+    return str(claims.get("email") or "") in KILBY_SERVICE_ACCOUNTS and bool(claims.get("email_verified"))
+
 
 # Tolerance for clock drift between Google's signing time and this server. Cloud
 # Run clocks are accurate, so 60s is ample in production; the override exists for
@@ -126,13 +140,10 @@ def require_kilby(request: Request) -> str:
             detail="Token carries no email claim; request a full-format identity token",
         )
 
-    caller = str(claims.get("email") or "")
-    # Google states whether it verified the address itself. Without this check a
-    # token carrying an unverified address would pass on the name alone.
-    if caller != KILBY_SERVICE_ACCOUNT or not claims.get("email_verified"):
+    if not caller_allowed(claims):
         raise HTTPException(status_code=403, detail="Caller not authorised")
 
-    return caller
+    return str(claims["email"])
 
 
 def _now_iso() -> str:
