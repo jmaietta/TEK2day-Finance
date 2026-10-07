@@ -182,6 +182,11 @@ def check_action_pins(spec):
             if not m:
                 continue
             ref = m.group(1)
+            # A `./` path is this repo's own workflow file at the deploying
+            # commit (the d7fabce test gate). No maintainer can repoint it, so
+            # there is nothing to pin; flagging it emailed a false drift nightly.
+            if ref.startswith("./"):
+                continue
             if "@" not in ref or not re.fullmatch(r"[0-9a-f]{40}", ref.split("@", 1)[1]):
                 note(f"{wf.name}:{lineno} action is not SHA-pinned: {ref}",
                      "a moving tag can be repointed by its maintainer")
