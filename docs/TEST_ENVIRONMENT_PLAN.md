@@ -83,12 +83,20 @@ Right after the copy I delete the 12 login sessions it brings along, so no
 production sign-in works on the test site. The 3 saved watchlists come along
 too; I will check whose they are first and tell you.
 
+The copy is made once, on a Saturday, at a minute when no data job is running;
+I tell you the minute beforehand. It is not repeated on any schedule. A fresh
+copy is made only when you ask for one, also on a Saturday.
+
 I have not timed a copy of this size. Google's own estimate ranges from under
-an hour to a few hours; I will record how long it actually takes.
+an hour to a few hours; I will time it and tell you how long it took.
+
+Only your four addresses can sign in to the test site:
+jonathanmaietta@gmail.com, jon@cycadcap.com, jmaietta@ceorater.com and
+jmaietta@tek2day.com (section 6).
 
 ## 6. What changes in the code
 
-Five changes. Each is off unless the test site turns it on, so production
+Six changes. Each is off unless the test site turns it on, so production
 behaves exactly as today when they eventually reach it.
 
 1. Which database to use. Today the code always uses `(default)`. A new setting
@@ -107,6 +115,10 @@ behaves exactly as today when they eventually reach it.
 5. No Google Analytics on the test site. The home page, the About page, the
    company pages and the All Tickers page carry production's analytics tag; without this, your visits to the test site would be counted as
    real traffic.
+6. Sign-in limited to your four addresses. Today anyone with a Google account
+   can sign in to production. On the test site, a sign-in from any other
+   address is refused, using the same list that already guards the admin page,
+   and only when Google has verified the address.
 
 Plus a new workflow file that deploys the `test` branch to the test site.
 
@@ -175,9 +187,9 @@ You review this plan with me, one section at a time. Then I do the work below,
 recording each step in the tracker. Nothing in it touches production, and
 nothing goes to `main`.
 
-1. The five code changes and their tests, on a work branch, tried on my machine.
-2. The test account and its fence, then the database copy, then deleting the
-   copied sessions. Here I stop and show you the refusal from section 7.
+1. The six code changes and their tests, on a work branch, tried on my machine.
+2. The test account and its fence, then the database copy on a Saturday
+   (timed), then deleting the copied sessions. Here I stop and show you the refusal from section 7.
 3. Add the test address to sign-in's allowed sites; give the test account
    read-only macro access; create the `test` branch and the workflow; first
    deploy.
