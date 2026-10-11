@@ -430,6 +430,83 @@ def test_the_first_call_after_a_cold_start_still_builds():
     check("cold start builds once", calls == 1, f"{calls} overlays")
 
 
+# ── the age limit: never serve a copy older than ten minutes (issue #1) ──────
+#
+# On 3 Sep 2026 a Kilby reader was served the previous day's dashboard: the
+# copy was served however old it was, and /macro is called a few times a day.
+
+def _age_cache(seconds):
+    """Make the cached copy look `seconds` old and expired."""
+    partner_api._MACRO_PARTNER_CACHE["built_at"] = partner_api.time.monotonic() - seconds
+    partner_api._MACRO_PARTNER_CACHE["expires"] = 0.0
+
+
+def test_a_copy_past_the_age_limit_is_rebuilt_on_the_request():
+    """The request itself waits for a fresh build; the old copy is not served."""
+    with _fake_app(ttl=120) as fake:
+        partner_api.macro(Req())
+        fake.snapshot = _snapshot()
+        fake.snapshot["generated_at"] = "2026-10-11T22:35:00+00:00"   # the evening rebuild
+        _age_cache(partner_api.MACRO_PARTNER_MAX_AGE_SECONDS + 1)
+        before = fake.overlay_calls
+        body = partner_api.macro(Req())
+        during = fake.overlay_calls
+        _join_refresh()
+    check("rebuilt during the request", during == before + 1, f"{before} -> {during} overlays")
+    check("the fresh copy was served", body["data"]["generated_at"] == "2026-10-11T22:35:00+00:00",
+          repr(body["data"]["generated_at"]))
+
+
+def test_a_copy_inside_the_age_limit_is_still_served_at_once():
+    """Below the limit nothing changes: served immediately, refreshed behind."""
+    gate = threading.Event()
+    with _fake_app(ttl=120) as fake:
+        partner_api.macro(Req())
+        fake.block_on = gate
+        _age_cache(partner_api.MACRO_PARTNER_MAX_AGE_SECONDS - 60)
+        before = fake.overlay_calls
+        partner_api.macro(Req())
+        during = fake.overlay_calls
+        gate.set()
+        _join_refresh()
+    check("no rebuild on the request path", during == before, f"{before} -> {during} overlays")
+
+
+def test_a_failed_rebuild_past_the_age_limit_is_a_503_not_the_old_copy():
+    """Kilby then shows its own last good copy, labelled stale. TEK2day must not
+    hand it an unlabelled old one instead."""
+    raised = None
+    with _fake_app(ttl=120) as fake:
+        partner_api.macro(Req())
+        fake.fail_next = True
+        _age_cache(partner_api.MACRO_PARTNER_MAX_AGE_SECONDS + 1)
+        try:
+            partner_api.macro(Req())
+        except Exception as exc:  # HTTPException
+            raised = exc
+    check("503 raised", getattr(raised, "status_code", None) == 503, repr(raised))
+
+
+def test_readers_arriving_together_past_the_age_limit_share_one_build():
+    """⚠️ Each build is three Yahoo requests. Five readers at once must not
+    become fifteen."""
+    gate = threading.Event()
+    with _fake_app(ttl=120) as fake:
+        partner_api.macro(Req())
+        _age_cache(partner_api.MACRO_PARTNER_MAX_AGE_SECONDS + 1)
+        fake.block_on = gate
+        before = fake.overlay_calls
+        readers = [threading.Thread(target=partner_api.macro, args=(Req(),)) for _ in range(5)]
+        for t in readers:
+            t.start()
+        gate.set()
+        for t in readers:
+            t.join(5.0)
+        _join_refresh()
+        built = fake.overlay_calls - before
+    check("one build for five readers", built == 1, f"{built} overlays")
+
+
 # ── envelope contract ────────────────────────────────────────────────────────
 
 def test_response_is_wrapped_in_the_partner_envelope():
