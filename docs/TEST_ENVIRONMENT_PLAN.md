@@ -54,8 +54,11 @@ When you want fresher data, the database is copied from production again.
 
 ## 4. The names
 
-The branch is `test`. Code reaches production in this order: a work branch,
-then `test` (where you look at it), then `main`, only on your word.
+The branch is `test`. GitHub is the record of truth. Code reaches production in
+this order: I make the change on a local `test` branch and push it to the
+`test` branch on GitHub, which deploys it to the test site, where you look at
+it. Then you open a pull request on GitHub from `test` into `main` and merge it
+yourself. That merge is what deploys production.
 
 The website service is `tek2day-test`, next to production's `tek2day-api`. It
 costs nothing when nobody is using it and is capped at 2 copies running at once
@@ -134,8 +137,9 @@ Take the fix for the false morning email, which is waiting now. It goes to the
 that code. The workflow also builds the three data-job programs and checks that
 each one starts and loads all its code, without running any of them against
 Yahoo. (Three times, in June and August, a program shipped missing one of its
-files and died at startup; this check would have caught each one.) You look at the test site. Only then, on your
-word, does the same commit go to `main` and production.
+files and died at startup; this check would have caught each one.) You look at the test site. Only then do you open a
+pull request on GitHub from `test` into `main`; merging it sends that same code
+to production.
 
 ## 9. What the test site shares with production
 
@@ -207,6 +211,6 @@ after deleting the old copy; if not, a refresh goes under a new name.
 Sign-in does not work at first on the test address: checked at the first
 deploy; it only matters for watchlists, exports and the admin page.
 
-The `test` branch drifts from `main`: after each change reaches `main`, `test`
-is reset to match it, so test always shows production plus the one change under
-review.
+The `test` branch drifts from `main`: after each pull request is merged, `test`
+is brought level with `main`, so test always shows production plus the one
+change under review.
