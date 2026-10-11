@@ -1498,8 +1498,24 @@ try:
 except ValueError:
     MACRO_PARTNER_TTL_SECONDS = 120
 
-_MACRO_PARTNER_CACHE: dict[str, object] = {"expires": 0.0, "data": None, "refreshing": False}
+# ⚠️ THE OLDEST COPY THAT MAY EVER BE SERVED. Without it, an expired copy was
+# served however old it was: /macro is called a few times a day, so the first
+# caller after a gap got the copy from the previous call -- on 3 Sep 2026 a full
+# day old, because the gap straddled the evening snapshot (issue #1). A copy
+# older than this is rebuilt on the request instead (0.3-1.8 s measured in Oct
+# 2026 logs; Kilby waits up to 4 s). Ten minutes keeps a burst of readers on
+# the cheap path and never lets a snapshot rollover go unnoticed for long.
+try:
+    MACRO_PARTNER_MAX_AGE_SECONDS = max(0, int(os.getenv("MACRO_PARTNER_MAX_AGE_SECONDS", "600")))
+except ValueError:
+    MACRO_PARTNER_MAX_AGE_SECONDS = 600
+
+_MACRO_PARTNER_CACHE: dict[str, object] = {"expires": 0.0, "data": None, "refreshing": False, "built_at": 0.0}
 _MACRO_PARTNER_LOCK = threading.Lock()
+# One build on the request path at a time: readers that arrive while a build is
+# running wait for it and share its result, so a burst is still three Yahoo
+# requests, not three per reader.
+_MACRO_BUILD_LOCK = threading.Lock()
 
 # Growth rows use prior_period; every other section uses prior_month. Both are
 # read so a consumer never has to know which sections differ.
@@ -1528,6 +1544,7 @@ def _macro_refresh_in_background() -> None:
         _MACRO_PARTNER_CACHE["refreshing"] = False
         if rebuilt is not None:
             _MACRO_PARTNER_CACHE["data"] = rebuilt
+            _MACRO_PARTNER_CACHE["built_at"] = time.monotonic()
             _MACRO_PARTNER_CACHE["expires"] = time.monotonic() + MACRO_PARTNER_TTL_SECONDS
         else:
             # Keep serving the copy we have rather than blanking the dashboard,
@@ -1546,10 +1563,9 @@ def _macro_snapshot() -> dict | None:
     An institutional reader will not accept that, and should not have to.
 
     So an expired entry is served IMMEDIATELY and refreshed on a background
-    thread. The only request that ever pays full price is the first one after a
-    container start. The cost is that a served copy can occasionally be older
-    than the TTL -- on three market indices whose underlying snapshot is written
-    twice a day, which is a trade worth making.
+    thread -- but only up to MACRO_PARTNER_MAX_AGE_SECONDS. An older copy is
+    never served: the request rebuilds it, because a reader waiting a second or
+    two beats a reader shown yesterday's dashboard with nothing to say so.
 
     ⚠️ ONE REFRESH AT A TIME. The `refreshing` flag stops a burst of traffic
     starting a thread each and turning three Yahoo requests into thirty. Yahoo
@@ -1563,6 +1579,9 @@ def _macro_snapshot() -> dict | None:
         cached = _MACRO_PARTNER_CACHE.get("data")
         expires = float(_MACRO_PARTNER_CACHE.get("expires") or 0.0)
         refreshing = bool(_MACRO_PARTNER_CACHE.get("refreshing"))
+        built_at = float(_MACRO_PARTNER_CACHE.get("built_at") or 0.0)
+        if cached is not None and now - built_at > MACRO_PARTNER_MAX_AGE_SECONDS:
+            cached = None                       # too old to serve: rebuild below
         stale = cached is not None and now >= expires
         if stale and not refreshing:
             _MACRO_PARTNER_CACHE["refreshing"] = True
@@ -1579,15 +1598,29 @@ def _macro_snapshot() -> dict | None:
             ).start()
         return cached
 
-    # Nothing cached at all: the first call after a container start. This one
-    # request pays, because there is nothing truthful to serve instead.
-    built = _macro_build()
-    if built is None:
-        return None
-    with _MACRO_PARTNER_LOCK:
-        _MACRO_PARTNER_CACHE["data"] = built
-        _MACRO_PARTNER_CACHE["expires"] = time.monotonic() + MACRO_PARTNER_TTL_SECONDS
-    return built
+    # Nothing servable: the first call after a container start, or a copy past
+    # the age limit. This request builds, because there is nothing truthful to
+    # serve instead. If the build fails the caller gets a 503, never the old
+    # copy -- Kilby then shows its own last good copy, labelled as stale.
+    with _MACRO_BUILD_LOCK:
+        # Another reader may have finished a build while this one waited.
+        with _MACRO_PARTNER_LOCK:
+            fresh = _MACRO_PARTNER_CACHE.get("data")
+            built_at = float(_MACRO_PARTNER_CACHE.get("built_at") or 0.0)
+            if fresh is not None and time.monotonic() - built_at <= MACRO_PARTNER_MAX_AGE_SECONDS:
+                return fresh
+        try:
+            built = _macro_build()
+        except Exception:  # noqa: BLE001 - a failed build is a 503, not a 500
+            logger.warning("macro build failed", exc_info=False)
+            built = None
+        if built is None:
+            return None
+        with _MACRO_PARTNER_LOCK:
+            _MACRO_PARTNER_CACHE["data"] = built
+            _MACRO_PARTNER_CACHE["built_at"] = time.monotonic()
+            _MACRO_PARTNER_CACHE["expires"] = time.monotonic() + MACRO_PARTNER_TTL_SECONDS
+        return built
 
 
 def _macro_cell(cell: dict) -> dict:
