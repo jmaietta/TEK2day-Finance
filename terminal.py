@@ -527,9 +527,16 @@ def _live_quote(symbol):
         "day_low": None,
     }
     yahoo_symbol = symbol.replace(".", "-")
+    quote["previous_close_source"] = None
+    bars = None
+    chart_previous_close = None
     try:
         ticker = _yf().Ticker(yahoo_symbol)
-        ticker.history(period="1d", auto_adjust=True)
+        # Five days of daily bars in the same request that brings the quote
+        # metadata (#7): the previous close is read from them by date below.
+        # auto_adjust=False: closes adjusted for splits only, as exchanges
+        # report a previous close; dividend-adjusted closes would shift it.
+        bars = ticker.history(period="5d", interval="1d", auto_adjust=False)
         meta = ticker.history_metadata or {}
         quote["price"] = _to_float(meta.get("regularMarketPrice"))
         if quote["price"] is not None:
@@ -537,7 +544,7 @@ def _live_quote(symbol):
 
             quote["observed_at"] = yahoo_observed_at(meta.get("regularMarketTime"))
             quote["currency"] = _quote_currency(meta.get("currency"))
-        quote["previous_close"] = _to_float(meta.get("previousClose"))
+        chart_previous_close = _to_float(meta.get("previousClose"))
         quote["volume"] = _to_float(meta.get("regularMarketVolume"))
         quote["fifty_two_week_high"] = _to_float(meta.get("fiftyTwoWeekHigh"))
         quote["fifty_two_week_low"] = _to_float(meta.get("fiftyTwoWeekLow"))
@@ -560,6 +567,22 @@ def _live_quote(symbol):
     except Exception:
         pass
 
+    # ── The previous close: the official close of the session BEFORE the quote's
+    # (#7, a credibility issue: BAC showed -2.53% on a -4.76% day). Sources in
+    # order, each recorded in previous_close_source; a derived pre/after-hours
+    # figure is never used:
+    #   1. Yahoo's daily bars, by date (correct before the open, after the close
+    #      and around holidays, unlike fast_info's "second-to-last bar");
+    #   2. Yahoo's chart previousClose, when it sends one;
+    #   3. Yahoo's quote service, regularMarketPreviousClose (below);
+    #   4. TEK2day's own stored daily close, by date (below).
+    from_bars = _previous_close_from_bars(bars, quote["date"])
+    if from_bars is not None:
+        quote["previous_close"], quote["previous_close_source"] = from_bars, "yahoo_daily_bars"
+        _warn_if_previous_closes_disagree(symbol, from_bars, chart_previous_close, "yahoo_chart")
+    elif chart_previous_close is not None:
+        quote["previous_close"], quote["previous_close_source"] = chart_previous_close, "yahoo_chart"
+
     if quote["price"] is None or quote["previous_close"] is None:
         try:
             ticker = _yf().Ticker(yahoo_symbol)
@@ -574,9 +597,12 @@ def _live_quote(symbol):
                     if quote["price"] is not None else None
                 )
                 quote["date"] = None
-            quote["previous_close"] = quote["previous_close"] or _to_float(_fast_value(
-                fast, "previous_close", "previousClose", "regularMarketPreviousClose"
-            ))
+            # No previous close from fast_info (#7). Its "previous_close" is built
+            # from bars that include pre- and after-hours trading (BAC on its
+            # 2026-10-14 earnings morning: a pre-market $52.73, not the official
+            # $53.96, so the day read -2.53% instead of -4.76%), and its
+            # "regular_market_previous_close" is simply the second-to-last daily
+            # bar, which before the open is two sessions back.
             quote["volume"] = quote["volume"] or _to_float(_fast_value(fast, "last_volume", "lastVolume"))
             quote["fifty_two_week_high"] = quote["fifty_two_week_high"] or _to_float(_fast_value(
                 fast, "year_high", "yearHigh"
@@ -609,9 +635,10 @@ def _live_quote(symbol):
                     if quote["price"] is not None else None
                 )
                 quote["date"] = None
-            quote["previous_close"] = quote["previous_close"] or _to_float(
-                info.get("regularMarketPreviousClose") or info.get("previousClose")
-            )
+            if quote["previous_close"] is None:
+                official = _to_float(info.get("regularMarketPreviousClose"))
+                if official is not None:
+                    quote["previous_close"], quote["previous_close_source"] = official, "yahoo_quote"
             quote["volume"] = quote["volume"] or _to_float(info.get("regularMarketVolume"))
             quote["fifty_two_week_high"] = quote["fifty_two_week_high"] or _to_float(
                 info.get("fiftyTwoWeekHigh")
@@ -622,12 +649,59 @@ def _live_quote(symbol):
         except Exception as e:
             console.print(f"[red]Error fetching Yahoo Finance data for {symbol}: {e}[/red]")
 
+    # 4. TEK2day's own stored daily close, by date, when every Yahoo source failed.
+    if quote["price"] is not None and quote["previous_close"] is None:
+        stored = _previous_close_from_storage(symbol, quote["date"])
+        if stored is not None:
+            quote["previous_close"], quote["previous_close_source"] = stored, "tek2day_eod"
+
     price = quote["price"]
     previous_close = quote["previous_close"]
     if price is not None and previous_close:
         quote["change"] = price - previous_close
         quote["change_pct"] = (price - previous_close) / previous_close * 100
     return quote
+
+
+def _previous_close_from_bars(bars, quote_date):
+    """The close of the last daily bar dated before the quote's trading date (#7).
+
+    Dated, not positional: before the open today's bar does not exist yet, so
+    "the second-to-last bar" would be two sessions back."""
+    if bars is None or getattr(bars, "empty", True) or not quote_date or "Close" not in bars:
+        return None
+    for stamp, close in reversed(list(bars["Close"].items())):
+        try:
+            day = stamp.strftime("%Y-%m-%d")
+        except Exception:
+            continue
+        value = _to_float(close)
+        if day < quote_date and value:
+            return value
+    return None
+
+
+def _previous_close_from_storage(symbol, quote_date):
+    """TEK2day's own stored daily close for the session before the quote's (#7)."""
+    if not quote_date or not _has_firestore():
+        return None
+    try:
+        rows = storage.get_prices_history(symbol, 10) or []
+    except Exception:
+        return None
+    for row in reversed(rows):
+        value = _to_float(row.get("close"))
+        if str(row.get("date") or "") < quote_date and value:
+            return value
+    return None
+
+
+def _warn_if_previous_closes_disagree(symbol, used, other, other_source):
+    """Two sources for the same official close should agree; log it when they don't (#7)."""
+    if used and other and abs(used - other) / used > 0.0025:
+        import logging  # noqa: PLC0415
+        logging.getLogger("tek2day.quote").warning(
+            "previous close sources disagree for %s: yahoo_daily_bars=%.4f %s=%.4f", symbol, used, other_source, other)
 
 
 @_ttl_cache(300, should_cache=lambda meta: bool(meta))

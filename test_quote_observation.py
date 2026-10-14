@@ -46,14 +46,21 @@ def no_external_calls(monkeypatch):
     assert not attempts, "An external call was attempted, even if its exception was swallowed"
 
 
-def yahoo(monkeypatch, meta=None, fast=None, info=None, history_error=False):
+def yahoo(monkeypatch, meta=None, fast=None, info=None, history_error=False, bars=None, stored=None):
+    """bars: {"YYYY-MM-DD": close} daily bars from Yahoo; stored: TEK2day's own daily rows."""
     calls = []
+    monkeypatch.setattr(terminal, "_has_firestore", lambda: stored is not None)
+    monkeypatch.setattr(storage, "get_prices_history", lambda symbol, limit=1260: list(stored or []))
 
     class Ticker:
         def history(self, **kwargs):
             calls.append("history")
             if history_error:
                 raise RuntimeError("synthetic outage")
+            if bars:
+                index = pd.DatetimeIndex([pd.Timestamp(d, tz="America/New_York") for d in bars])
+                return pd.DataFrame({"Close": list(bars.values())}, index=index)
+            return None
 
         @property
         def history_metadata(self):
@@ -130,10 +137,64 @@ def test_fast_price_does_not_borrow_primary_observation(monkeypatch):
 
 def test_previous_close_fallback_does_not_replace_primary_provenance(monkeypatch):
     yahoo(monkeypatch, meta={**META, "previousClose": None},
-          fast={"last_price": 99, "previous_close": 23, "currency": "CAD"})
+          fast={"last_price": 99, "currency": "CAD"}, info={"regularMarketPreviousClose": 23})
     quote = RAW_QUOTE("TEST")
     assert (quote["price"], quote["currency"], quote["observed_at"]) == (25, "USD", OBSERVED)
-    assert quote["previous_close"] == 23
+    assert (quote["previous_close"], quote["previous_close_source"]) == (23, "yahoo_quote")
+
+
+# ── #7: the previous close is the official close of the session before the quote's ──
+
+BAC_TIME = 1792008002  # 2026-10-14 16:00 New York, BAC's earnings day
+BAC_META = {"regularMarketPrice": 51.39, "regularMarketTime": BAC_TIME, "currency": "USD", "gmtoffset": -14400,
+            "previousClose": None, "chartPreviousClose": 53.96}  # as yfinance 1.6.0 returned it
+BAC_BARS = {"2026-10-09": 54.32, "2026-10-12": 54.58, "2026-10-13": 53.96, "2026-10-14": 51.39}
+DERIVED = {"previous_close": 52.73, "regular_market_previous_close": 54.58}  # never used
+
+
+def test_bac_earnings_day_reads_the_official_close_from_the_daily_bars(monkeypatch):
+    """BAC, 2026-10-14: TEK2day showed -$1.34 (-2.53%) from a pre-market $52.73. Correct: -$2.57 (-4.76%)."""
+    yahoo(monkeypatch, meta=BAC_META, bars=BAC_BARS, fast=DERIVED)
+    quote = RAW_QUOTE("BAC")
+    assert (quote["previous_close"], quote["previous_close_source"]) == (53.96, "yahoo_daily_bars")
+    assert (round(quote["change"], 2), round(quote["change_pct"], 2)) == (-2.57, -4.76)
+
+
+def test_before_the_open_the_change_is_yesterdays_session(monkeypatch):
+    """Before the open the quote is yesterday's close and today has no bar: the previous close is the
+    session before yesterday, found by date, never "the second-to-last bar" of a list."""
+    yesterday = {**BAC_META, "regularMarketPrice": 53.96, "regularMarketTime": BAC_TIME - 86400}
+    yahoo(monkeypatch, meta=yesterday, bars={d: c for d, c in BAC_BARS.items() if d < "2026-10-14"}, fast=DERIVED)
+    quote = RAW_QUOTE("BAC")
+    assert quote["date"] == "2026-10-13"
+    assert (quote["previous_close"], quote["previous_close_source"]) == (54.58, "yahoo_daily_bars")
+
+
+@pytest.mark.parametrize("source,kwargs,expected", [
+    ("yahoo_chart", {"meta": {**BAC_META, "previousClose": 53.96}}, 53.96),
+    ("yahoo_quote", {"info": {"regularMarketPreviousClose": 53.96}}, 53.96),
+    ("tek2day_eod", {"stored": [{"date": "2026-10-13", "close": 53.96}, {"date": "2026-10-14", "close": 51.39}]}, 53.96),
+])
+def test_each_source_in_the_chain_supplies_the_official_close(monkeypatch, source, kwargs, expected):
+    yahoo(monkeypatch, **{"meta": BAC_META, "fast": DERIVED, **kwargs})
+    quote = RAW_QUOTE("BAC")
+    assert (quote["previous_close"], quote["previous_close_source"]) == (expected, source)
+    assert round(quote["change_pct"], 2) == -4.76
+
+
+def test_a_derived_pre_or_after_hours_close_is_never_used(monkeypatch):
+    """Only when every official source is missing is there no change, never a figure from fast_info."""
+    yahoo(monkeypatch, meta=BAC_META, fast=DERIVED, info={}, stored=[])
+    quote = RAW_QUOTE("BAC")
+    assert quote["previous_close"] is None and quote["change"] is None and quote["change_pct"] is None
+
+
+def test_disagreeing_sources_are_logged(monkeypatch, caplog):
+    yahoo(monkeypatch, meta={**BAC_META, "previousClose": 52.73}, bars=BAC_BARS)
+    with caplog.at_level("WARNING", logger="tek2day.quote"):
+        quote = RAW_QUOTE("BAC")
+    assert quote["previous_close"] == 53.96
+    assert "previous close sources disagree for BAC" in caplog.text
 
 
 def test_info_regular_price_uses_its_own_time_and_currency(monkeypatch):
@@ -265,7 +326,7 @@ def test_old_snapshot_emits_nulls_and_warnings_not_response_time(monkeypatch):
 
 
 def test_summary_fast_fallback_retains_price_but_warns_about_time(monkeypatch):
-    yahoo(monkeypatch, meta={}, fast={"last_price": 26, "currency": "USD", "previous_close": 24})
+    yahoo(monkeypatch, meta={}, fast={"last_price": 26, "currency": "USD", "regular_market_previous_close": 24})
     body = summary(monkeypatch)()
     assert body["data"]["valuation"]["market_cap"] == 260
     assert body["data"]["quote"]["observed_at"] is None
