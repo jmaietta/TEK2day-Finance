@@ -38,8 +38,14 @@ def main():
     requests.sessions.Session.request = blocked
     storage.get_db = blocked
 
-    # Deterministic provider clock, independent of the machine's date.
-    now = datetime(2026, 9, 6, 15, tzinfo=timezone.utc)
+    # Deterministic provider clock, independent of the machine's date. A weekday
+    # with the market open (Tue 2026-09-08, 11:00 New York): since Kilby's
+    # 2026-09-06 change its checker also applies the trading calendar, and the old
+    # clock (Sunday 2026-09-06) is rightly refused as a "live" quote (#9).
+    now = datetime(2026, 9, 8, 15, tzinfo=timezone.utc)
+    # The listing details Kilby's checker now requires (market_identity, #9).
+    listing = {"symbol": "TEST", "exchange": "NMS", "quoteType": "EQUITY",
+               "exchangeTimezoneName": "America/New_York", "currency": "USD"}
     meta = {"regularMarketPrice": 25, "previousClose": 24, "currency": "USD",
             "regularMarketTime": (now - timedelta(minutes=1)).timestamp()}
     ticker = SimpleNamespace(history=lambda **kw: None, history_metadata=meta, fast_info={})
@@ -60,10 +66,11 @@ def main():
             return json.loads(json.dumps(partner_api.equity_summary(
                 SimpleNamespace(headers={}), "TEST"), allow_nan=False))
 
-        valid = normalize_observation(response(), "TEST", fetched_at=now)
+        valid = normalize_observation(response(), "TEST", fetched_at=now, market_identity=listing)
         assert valid["value"] == "250.0"
         assert valid["currency"] == "USD"
-        assert valid["observed_at"] == "2026-09-06T14:59:00+00:00"
+        assert valid["observed_at"] == "2026-09-08T14:59:00+00:00"
+        assert valid["freshness"]["mode"] == "current_regular_session"
         print("PASS: actual TEK2day producer -> JSON -> actual Kilby verifier")
 
         for label, timestamp, currency in [
@@ -76,7 +83,7 @@ def main():
             meta["regularMarketTime"] = timestamp
             meta["currency"] = currency
             try:
-                normalize_observation(response(), "TEST", fetched_at=now)
+                normalize_observation(response(), "TEST", fetched_at=now, market_identity=listing)
             except ValueError:
                 print(f"PASS: rejects {label}")
             else:
