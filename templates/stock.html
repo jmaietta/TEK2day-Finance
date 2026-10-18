@@ -128,7 +128,7 @@
     {% endif %}
 
     {% if quarterly %}
-    <h2>Quarterly Financials</h2>
+    <h2>Quarterly Financials{% if filing_currency %} ({{ filing_currency }}){% endif %}</h2>
     <div class="tbl-wrap">
       <table>
         <thead><tr><th>Metric</th>{% for p in quarterly.periods %}<th>{{ p }}</th>{% endfor %}</tr></thead>
@@ -142,7 +142,7 @@
     {% endif %}
 
     {% if annual %}
-    <h2>Annual Financials</h2>
+    <h2>Annual Financials{% if filing_currency %} ({{ filing_currency }}){% endif %}</h2>
     <div class="tbl-wrap">
       <table>
         <thead><tr><th>Metric</th>{% for p in annual.periods %}<th>{{ p }}</th>{% endfor %}</tr></thead>

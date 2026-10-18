@@ -949,8 +949,11 @@ def equity_financials(
             continue
         collected.append((key, label, values))
 
+    # The FILING currency, not the quote's: TSM trades in US dollars and files
+    # in Taiwan dollars. Unknown stays "USD", as every response said before.
+    currency = terminal.statement_currency(norm)
     unit_label, divisor, decimals = terminal.statement_scale(
-        section, ((key, v) for key, _label, values in collected for v in values)
+        section, ((key, v) for key, _label, values in collected for v in values), currency
     )
 
     rows = [
@@ -958,7 +961,7 @@ def equity_financials(
             "field": key,
             "label": label,
             "values": [envelope.clean(v) for v in values],
-            "display": [_fin_display(statement, key, v, divisor, decimals)
+            "display": [_fin_display(statement, key, v, divisor, decimals, currency)
                         for v in values],
         }
         for key, label, values in collected
@@ -1002,6 +1005,7 @@ def equity_financials(
         "financial_statement", data, requested,
         {"symbol": norm, "name": meta.get("name")},
         record=newest,
+        currency=currency or "USD",
         upstream=envelope.financial_upstream(selected),
         period=periods[0] if periods else None,
         coverage=coverage,
@@ -1009,7 +1013,7 @@ def equity_financials(
     )
 
 
-def _fin_display(statement: str, field: str, value, divisor=None, decimals=0):
+def _fin_display(statement: str, field: str, value, divisor=None, decimals=0, currency=None):
     """Rendered string for a statement figure, by the same rules the site uses.
 
     With `divisor`, the figure is at the statement's single scale and carries no
@@ -1022,7 +1026,7 @@ def _fin_display(statement: str, field: str, value, divisor=None, decimals=0):
     import terminal  # noqa: PLC0415
     try:
         section = _STATEMENTS[statement][0]
-        return terminal.statement_display(section, field, value, divisor, decimals)
+        return terminal.statement_display(section, field, value, divisor, decimals, currency)
     except Exception:
         return None
 
