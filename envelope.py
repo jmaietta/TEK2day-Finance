@@ -57,6 +57,24 @@ def financial_upstream(records):
             sources.add("Yahoo Finance")
     return ", ".join(sorted(sources)) or "Yahoo Finance"
 
+
+def filing_currency(value) -> str | None:
+    """The currency a company's statements are filed in, or None when unknown.
+
+    ⚠️ NOT THE QUOTE CURRENCY. TSM trades in US dollars in New York but files in
+    Taiwan dollars, so its Q2 2026 revenue of 1,270,381,000,000 is NT$, and
+    labelling it "$" read as $1.27T, about 30x too big. Yahoo's
+    `financialCurrency` is the statements' unit; `currency` is the share price's.
+
+    Only a plain three-letter code is accepted. Anything else is unknown, never
+    guessed: no currency conversion is done anywhere, so the label is the whole
+    of the fix and has to be right or absent.
+    """
+    if not isinstance(value, str):
+        return None
+    value = value.strip()
+    return value if len(value) == 3 and value.isascii() and value.isalpha() and value.isupper() else None
+
 # Prices are stored with auto_adjust=True, so every price-derived response must
 # say so rather than leaving a consumer to assume as-traded values.
 ADJUSTED = "split_and_dividend_adjusted"

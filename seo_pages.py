@@ -23,6 +23,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+import envelope
 import storage
 import terminal
 
@@ -135,7 +136,7 @@ def _chart_svg(prices: list[dict], width: int = 920, height: int = 300) -> str |
 """
 
 
-def _income_table(periods: list[dict]) -> dict | None:
+def _income_table(periods: list[dict], currency: str | None = None) -> dict | None:
     if not periods:
         return None
     rows = []
@@ -143,7 +144,10 @@ def _income_table(periods: list[dict]) -> dict | None:
         values = [p.get("income", {}).get(key) for p in periods]
         if not any(v is not None for v in values):
             continue
-        if key == "Diluted EPS":
+        if key == "Diluted EPS" and currency not in (None, "USD"):
+            # Filed in another currency: TSM's EPS is NT$, never "$136.23".
+            rows.append({"label": label, "values": [terminal._eps(v, currency) for v in values]})
+        elif key == "Diluted EPS":
             rows.append({"label": label, "values": [terminal._price(v) for v in values]})
         else:
             rows.append({"label": label, "values": [terminal._fin(v) for v in values]})
@@ -161,6 +165,7 @@ def _build_page(symbol: str) -> str | None:
         return None
 
     name = meta.get("long_name") or meta.get("name") or symbol
+    filing_currency = envelope.filing_currency(meta.get("financial_currency"))
 
     # EOD price history from Firestore (no live quote). One query feeds the
     # latest price, the daily change, and the 1-year chart.
@@ -253,8 +258,10 @@ def _build_page(symbol: str) -> str | None:
         chart=chart,
         metrics=metrics,
         summary=(meta.get("summary") or "").strip() or None,
-        quarterly=_income_table(quarterly_periods),
-        annual=_income_table(annual_periods),
+        quarterly=_income_table(quarterly_periods, filing_currency),
+        annual=_income_table(annual_periods, filing_currency),
+        # Shown beside the statement headings only when it is not US dollars.
+        filing_currency=filing_currency if filing_currency not in (None, "USD") else None,
         short_interest=short_interest,
         year=date.today().year,
     )

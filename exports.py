@@ -144,8 +144,10 @@ def export_financials(request: Request, symbol: str = Query(...),
     if not out_sections:
         raise HTTPException(status_code=404, detail="No financial data.")
 
+    # The statements' own currency (TSM: TWD). Unknown keeps "$", as before.
+    cur = terminal._money_sign(terminal.statement_currency(symbol)).strip()
     data = excel_export.build_workbook(
-        f"{symbol} — {title}  |  $ in millions (EPS in $)",
+        f"{symbol} — {title}  |  {cur} in millions (EPS in {cur})",
         _SOURCE,
         out_sections, sheet_name=title[:31])
     return _xlsx_response(data, _safe(f"{symbol}_{title}") + ".xlsx")
@@ -195,8 +197,10 @@ def export_estimates(request: Request, symbol: str = Query(...), fmt: str = Quer
     if not out_sections:
         raise HTTPException(status_code=404, detail="No estimate data.")
 
+    # Revenue estimates are in the filing currency; EPS estimates keep their note.
+    cur = terminal._money_sign(terminal.statement_currency(symbol)).strip()
     data = excel_export.build_workbook(
-        f"{symbol} — Estimates  |  as of {_us_date(d.get('date'))}  |  $ in millions (EPS in $)",
+        f"{symbol} — Estimates  |  as of {_us_date(d.get('date'))}  |  {cur} in millions (EPS in $)",
         _SOURCE,
         out_sections, sheet_name="Estimates")
     return _xlsx_response(data, _safe(f"{symbol}_estimates") + ".xlsx")

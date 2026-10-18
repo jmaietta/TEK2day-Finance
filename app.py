@@ -332,11 +332,14 @@ def _estimates_payload(symbol: str) -> dict | None:
         unit_label = divisor = None
         decimals = 0
         if prefix == "rev":
+            # Revenue estimates are in the filing currency, like the statements
+            # (see terminal.cmd_estimates). EPS estimates are left as they are.
             unit_label, divisor, decimals = terminal.statement_scale(
                 "revenue_estimates",
                 ((key, metric_map[key].get(period))
                  for key in _REV_MONEY if key in metric_map
                  for period in periods),
+                terminal.statement_currency(symbol),
             )
 
         for metric_key in metric_order:
@@ -488,12 +491,14 @@ def _financial_payload(symbol: str, section: str, fields: list, title: str) -> d
     if not collected:
         return None
 
+    currency = terminal.statement_currency(symbol)
     unit_label, divisor, decimals = terminal.statement_scale(
         section,
         ((key, value)
          for _title, _periods, rows in collected
          for key, _label, values in rows
          for value in values),
+        currency,
     )
 
     sections = [
@@ -503,7 +508,7 @@ def _financial_payload(symbol: str, section: str, fields: list, title: str) -> d
             "rows": [
                 {
                     "label": label,
-                    "values": [terminal.statement_display(section, key, v, divisor, decimals)
+                    "values": [terminal.statement_display(section, key, v, divisor, decimals, currency)
                                for v in values],
                 }
                 for key, label, values in rows

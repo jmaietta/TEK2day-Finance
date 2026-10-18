@@ -14,6 +14,8 @@ from datetime import date, datetime, timezone
 
 import yfinance as yf
 
+from envelope import filing_currency
+
 logger = logging.getLogger("ydp.fetchers")
 
 # ⚠️ THE FIRST FEW FAILURES CARRY THEIR TRACEBACK; THE REST DO NOT.
@@ -99,6 +101,11 @@ def fetch_ticker_info(symbol: str) -> dict | None:
             "currency": info.get("currency"),
             "active": True,
         }
+        # The statements' currency, from the same response: no extra Yahoo call.
+        # Written only when Yahoo gives one, so a thin response cannot erase it.
+        financial_currency = filing_currency(info.get("financialCurrency"))
+        if financial_currency:
+            meta["financial_currency"] = financial_currency
         if not sector:
             # Yahoo has no sector for it. Leave whatever is stored (from the SEC
             # industry code, the home listing or a manual override) untouched;

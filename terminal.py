@@ -93,7 +93,16 @@ _cik_cache = {}
 #
 # _to_float also rejects Inf, so `$infT` and `infB` are gone with it.
 
-def _dollar(val):
+def _money_sign(currency=None):
+    """"$" for US dollars or an unknown currency (as before); "TWD " otherwise.
+
+    The ISO code, not a symbol: Canada, Australia, Hong Kong, Singapore and
+    Mexico all write "$", and "$" is exactly what made TSM's NT$ read as US$.
+    """
+    return "$" if currency in (None, "USD") else f"{currency} "
+
+
+def _dollar(val, currency=None):
     """Money, in the accounting convention: a negative in brackets.
 
     His call, 18 Aug — consistent across every financial figure, so a loss never
@@ -102,15 +111,16 @@ def _dollar(val):
     v = _to_float(val)
     if v is None:
         return "N/A"
+    sign = _money_sign(currency)
     a = abs(v)
     if a >= 1e12:
-        out = f"${a / 1e12:,.2f}T"
+        out = f"{sign}{a / 1e12:,.2f}T"
     elif a >= 1e9:
-        out = f"${a / 1e9:,.2f}B"
+        out = f"{sign}{a / 1e9:,.2f}B"
     elif a >= 1e6:
-        out = f"${a / 1e6:,.1f}M"
+        out = f"{sign}{a / 1e6:,.1f}M"
     else:
-        out = f"${a:,.2f}"
+        out = f"{sign}{a:,.2f}"
     return out if v >= 0 else f"({out})"
 
 
@@ -255,16 +265,18 @@ def _analyst_count(val):
     return "N/A" if v is None else f"{int(v):,}"
 
 
-def _eps(val):
+def _eps(val, currency=None):
     """A per-share figure in the accounting convention: a loss in parentheses.
 
     His call, 18 Aug: positive shows as $x.xx, negative as ($x.xx). A leading
     minus is easy to miss at 12px in a table of forty rows; brackets are not.
+    A statement filed in another currency reads TWD 136.23 / (TWD 136.23).
     """
     v = _to_float(val)
     if v is None:
         return ""
-    return f"${v:,.2f}" if v >= 0 else f"(${abs(v):,.2f})"
+    sign = _money_sign(currency)
+    return f"{sign}{v:,.2f}" if v >= 0 else f"({sign}{abs(v):,.2f})"
 
 
 def _fin(val):
@@ -712,6 +724,17 @@ def _firestore_meta(symbol):
         return storage.get_ticker_meta(symbol) or {}
     except Exception:
         return None
+
+
+def statement_currency(symbol):
+    """The currency `symbol` files its statements in, or None when not known.
+
+    Read from the company record, where the weekly pull keeps Yahoo's
+    `financialCurrency`. None keeps today's "$" label: an unknown is never
+    turned into a guess, and a US filer looks exactly as it did.
+    """
+    import envelope  # noqa: PLC0415
+    return envelope.filing_currency((_firestore_meta(symbol) or {}).get("financial_currency"))
 
 
 @_ttl_cache(300)
@@ -1390,7 +1413,11 @@ def cmd_estimates(symbol):
                 elif mk == "numberofanalysts":
                     row.append(_analyst_count(val))
                 elif prefix == "rev" and mk in ("avg", "high", "low", "yearagorevenue"):
-                    row.append(_dollar(val))
+                    # Revenue estimates come in the filing currency, like the
+                    # statements (TSM: NT$1.46T for a quarter, checked against
+                    # its stored filings 18 Oct 2026). EPS estimates do NOT
+                    # follow one rule, so they keep their form.
+                    row.append(_dollar(val, statement_currency(symbol)))
                 elif prefix == "eps" and mk in ("avg", "high", "low", "yearagoeps"):
                     # ⚠️ _eps, NOT _price. An estimate is still a per-share
                     # figure, so it follows the accounting convention like every
@@ -1461,7 +1488,8 @@ def _show_financials(symbol, section, fields, title, snapshot=False):
         key = field[0] if isinstance(field, tuple) else field
         for period in quarterly + annual:
             scale_cells.append((key, statement_cell(period, section, key)))
-    unit_label, divisor, decimals = statement_scale(section, scale_cells)
+    currency = statement_currency(symbol)
+    unit_label, divisor, decimals = statement_scale(section, scale_cells, currency)
 
     for freq_label, periods in [("Quarterly", quarterly), ("Annual", annual)]:
         if not periods:
@@ -1492,7 +1520,7 @@ def _show_financials(symbol, section, fields, title, snapshot=False):
             if not any(v is not None for v in vals):
                 continue
             has_data = True
-            row = [label] + [statement_display(section, key, v, divisor, decimals)
+            row = [label] + [statement_display(section, key, v, divisor, decimals, currency)
                              for v in vals]
             t.add_row(*row)
 
@@ -1502,7 +1530,7 @@ def _show_financials(symbol, section, fields, title, snapshot=False):
                 all_keys.update(p.get(section, {}).keys())
             for field in sorted(all_keys):
                 vals = [p.get(section, {}).get(field) for p in periods]
-                row = [field] + [statement_display(section, field, v, divisor, decimals)
+                row = [field] + [statement_display(section, field, v, divisor, decimals, currency)
                                  for v in vals]
                 t.add_row(*row)
 
@@ -1616,7 +1644,7 @@ def is_per_share(section, key):
 PER_SHARE_NOTE = "except per share"
 
 
-def statement_scale(section, cells):
+def statement_scale(section, cells, currency=None):
     """Pick one unit for a statement from its own figures.
 
     ⚠️ MILLIONS, LIKE THE 10-Q. His call, 22 Aug 2026. An earlier draft chose the
@@ -1632,6 +1660,9 @@ def statement_scale(section, cells):
     every figure is under a million, where millions would round the entire
     statement to zero — so the scale is still per (ticker, statement), it is just
     that millions is the answer for anything of a normal size.
+
+    `currency` is the FILING currency (see statement_currency): "$M" for US
+    dollars or unknown, as before; "TWD M" for TSM. No figure is converted.
     """
     largest = 0.0
     for key, value in cells:
@@ -1640,12 +1671,13 @@ def statement_scale(section, cells):
         number = _to_float(value)
         if number is not None:
             largest = max(largest, abs(number))
+    sign = _money_sign(currency)
     if largest < 1e6:
-        return ("$K", 1e3, 0)
-    return ("$M", 1e6, 0)
+        return (f"{sign}K", 1e3, 0)
+    return (f"{sign}M", 1e6, 0)
 
 
-def statement_display(section, key, value, divisor=None, decimals=0):
+def statement_display(section, key, value, divisor=None, decimals=0, currency=None):
     """Render one statement cell. Per-share figures use the accounting form.
 
     With `divisor`, the figure is rendered at the card's single scale and carries
@@ -1658,7 +1690,7 @@ def statement_display(section, key, value, divisor=None, decimals=0):
     leading minus is easy to miss in a table of forty rows.
     """
     if is_per_share(section, key):
-        return _eps(value)
+        return _eps(value, currency)
     if divisor:
         number = _to_float(value)
         if number is None:
@@ -1707,13 +1739,14 @@ def cmd_balance(symbol):
             continue
         collected.append((key, label, vals))
 
+    currency = statement_currency(symbol)
     unit_label, divisor, decimals = statement_scale(
-        "balance_sheet", ((key, v) for key, _label, vals in collected for v in vals)
+        "balance_sheet", ((key, v) for key, _label, vals in collected for v in vals), currency
     )
     if collected:
         t.title = f"{symbol} — Balance Sheet  ({unit_label})"
     for key, label, vals in collected:
-        t.add_row(label, *[statement_display("balance_sheet", key, v, divisor, decimals)
+        t.add_row(label, *[statement_display("balance_sheet", key, v, divisor, decimals, currency)
                            for v in vals])
     console.print(t)
 
