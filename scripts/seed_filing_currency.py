@@ -14,9 +14,13 @@ Yahoo has given one, it stands. Without --apply nothing is written.
 
     python scripts/seed_filing_currency.py --csv companies.csv           # dry run
     python scripts/seed_filing_currency.py --csv companies.csv --apply   # write
+
+--backup FILE saves every listed company record, as it stands, before anything
+is written (a new file only). --only TSM,NVO limits the run to those tickers.
 """
 import argparse
 import csv
+import json
 from pathlib import Path
 import sys
 
@@ -30,7 +34,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--csv", type=Path, required=True)
     parser.add_argument("--apply", action="store_true")
+    parser.add_argument("--backup", type=Path)
+    parser.add_argument("--only", help="comma-separated tickers")
     args = parser.parse_args()
+    if args.backup and args.backup.exists():
+        parser.error("use a new backup path")
 
     with args.csv.open(encoding="utf-8") as handle:
         wanted = [(row["Ticker"].strip(), envelope.filing_currency(row["Reports in"]))
@@ -38,6 +46,18 @@ def main():
     bad = [t for t, c in wanted if not c]
     if bad:
         parser.error(f"not a currency code for: {', '.join(bad[:10])}")
+    if args.only:
+        only = {t.strip().upper() for t in args.only.split(",") if t.strip()}
+        unknown = only - {t for t, _ in wanted}
+        if unknown:
+            parser.error(f"not in the list: {', '.join(sorted(unknown))}")
+        wanted = [(t, c) for t, c in wanted if t in only]
+
+    if args.backup:
+        before = {symbol: storage.get_ticker_meta(symbol) for symbol, _ in wanted}
+        with args.backup.open("x", encoding="utf-8") as handle:
+            json.dump(before, handle, indent=1, default=str, sort_keys=True)
+        print(f"saved {len(before)} records to {args.backup}")
 
     db = storage.get_db()
     written = held = missing = 0
