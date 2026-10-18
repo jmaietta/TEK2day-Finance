@@ -4,6 +4,74 @@ Written 2026-10-18 after your rulings in conversation. **Status: proposed,
 nothing built.** Every figure below was read from TEK2day's own database, the
 SEC, or the four Yahoo lookups you approved on 2026-10-18.
 
+## Your decisions, on one page
+
+You can reply "approve all recommendations", or name the ones to change. The
+detail behind each line is further down, if you want it.
+
+**The problem.** 699 companies file in a foreign currency but trade in US
+dollars. TEK2day mixes the two, so their ratios are wrong. TSM shows a P/E of
+1.0x; the right figure is about 27x.
+
+**The fix in one sentence.** Show everything in the company's own currency,
+calculate every ratio in US dollars, and leave US companies untouched.
+
+### Sections 1 to 12: approve as a whole?
+
+1. **What it fixes:** the ratios of 699 companies, everywhere they appear.
+2. **The rule:** own currency on screen, ratios in dollars, US companies unchanged.
+3. **What Yahoo gives (measured on four companies):** statements in the
+   company's currency, price in dollars. Yahoo's own P/E is right; Yahoo's own
+   price-to-sales is wrong.
+4. **Where each ratio comes from:** P/E and forward P/E from Yahoo's dollar EPS.
+   Price-to-sales and the enterprise-value ratios are calculated by TEK2day after
+   converting the statements at the latest exchange rate.
+5. **Exchange rates:** 28 Yahoo lookups a night, inside the nightly update. If a
+   night fails, the last rate is used for up to 5 days, then the ratios go blank.
+6. **Live call:** one extra Yahoo call when someone views a foreign company,
+   kept for 10 minutes. US companies stay at one call.
+7. **Unknown currencies:** the weekly update fills these in from tomorrow,
+   Monday 2026-10-19. Until a company's currency is known, it is treated as today.
+8. **EPS estimates:** Yahoo mixes dollars and local currency without saying
+   which. We can tell them apart, except for 344 companies whose currency is
+   close to the dollar.
+9. **Where it shows:** the website, terminal, comparison table, downloads and
+   Kilby's feed all read one calculation. The public /stock/ pages and the
+   watchlist get their own handling.
+10. **Kilby:** same field names, correct numbers. Kilby will decline to cite a
+    foreign company's market value until a small Kilby change. Nothing wrong is
+    cited in the meantime.
+11. **Yahoo calls:** 28 a night, plus one per foreign-company view (at most once
+    every 10 minutes per company). Nothing else.
+12. **Proof:** tests for TSM, Novo, Itaú and Toyota, plus tests that US figures
+    don't change. After you merge, a check on the live site.
+
+### Four questions, with my recommendation
+
+- **Q2. Forward P/E source.** *Recommend Yahoo's forward EPS.* It came back in
+  dollars for all four companies checked, so there is no currency guessing. The
+  cost: a slightly different definition from US companies (TSM 17.6x against
+  18.5x).
+- **Q3. A new currency appears.** *Recommend adding its lookup automatically,
+  with a hard limit of 40 lookups a night.* There are 28 today, and new ones are
+  rare.
+- **Q4. EPS estimates for the 344 near-dollar companies.** *Recommend showing
+  them as Yahoo gives them, marked "currency not confirmed".* If you take my Q2
+  answer, these estimates never feed a ratio. They only appear in the estimates
+  table.
+- **Q5. Watchlist forward P/E history.** *Recommend leaving the past values blank
+  for foreign companies.* Today's value will be correct, and this needs no Yahoo
+  calls.
+
+### Separate: step 4 of the label fix
+
+This writes the reporting currency for the other 698 companies, which changes
+labels only, not ratios. A backup has been taken, and the step adds one field
+without changing anything else. The weekly update would fill most of these over
+the next six days anyway. *Recommend yes.*
+
+---
+
 ## 1. What it fixes
 
 699 of TEK2day's 10,029 active companies file their statements in a currency
