@@ -302,6 +302,9 @@ def _estimates_payload(symbol: str) -> dict | None:
 
     data = history[0]
     sections = []
+    # In the currency Yahoo states for each section, not always the filing one.
+    eps_currency = terminal.estimate_currency(symbol, data.get("eps_currency"), "eps")
+    rev_currency = terminal.estimate_currency(symbol, data.get("rev_currency"), "rev")
     for prefix, title in [("eps", "EPS Estimates"), ("rev", "Revenue Estimates")]:
         metric_map = {
             k[len(prefix) + 1:]: v
@@ -332,14 +335,12 @@ def _estimates_payload(symbol: str) -> dict | None:
         unit_label = divisor = None
         decimals = 0
         if prefix == "rev":
-            # Revenue estimates are in the filing currency, like the statements
-            # (see terminal.cmd_estimates). EPS estimates are left as they are.
             unit_label, divisor, decimals = terminal.statement_scale(
                 "revenue_estimates",
                 ((key, metric_map[key].get(period))
                  for key in _REV_MONEY if key in metric_map
                  for period in periods),
-                terminal.statement_currency(symbol),
+                rev_currency,
             )
 
         for metric_key in metric_order:
@@ -359,7 +360,7 @@ def _estimates_payload(symbol: str) -> dict | None:
                         "revenue_estimates", metric_key, val, divisor, decimals))
                 elif prefix == "eps" and metric_key in ("avg", "high", "low", "yearagoeps"):
                     # _eps, not _price — see the note in terminal.cmd_estimates.
-                    values.append(terminal._eps(val) or "N/A")
+                    values.append(terminal._eps(val, eps_currency) or "N/A")
                 else:
                     values.append(terminal._num(val))
             rows.append({
