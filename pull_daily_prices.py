@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from google.api_core.exceptions import ResourceExhausted
 
 import fetchers
+import fx_rates
 import storage
 import universe_sync
 
@@ -233,6 +234,13 @@ def main():
     # night. It never raises and never changes this job's result.
     if task_index == 0 and not smoke:
         universe_sync.run()
+        # One Yahoo lookup per filing currency (28 today), once a night, task 0
+        # only. Never raises and never changes this job's result: a failed
+        # currency keeps yesterday's rate (fx_rates.run).
+        try:
+            fx_rates.run()
+        except Exception as exc:  # noqa: BLE001 - prices are already written
+            logger.error("Exchange rates failed: %s", exc)
 
     rate = (success / total) if total else 0.0
     if continuity_failed:

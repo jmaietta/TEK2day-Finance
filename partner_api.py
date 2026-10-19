@@ -762,6 +762,16 @@ def equity_summary(request: Request, symbol: str):
             "ev_ebitda": snap.get("ev_ebitda"),
             "ev_opcf": snap.get("ev_opcf"),
             "ev_fcf": snap.get("ev_fcf"),
+            # Added 19 Oct 2026, for Kilby's note under a foreign filer's P/E
+            # ("Earnings converted at 31.86 Taiwan dollars per US dollar, Oct
+            # 19"; owner: "I like that note. Add it."). Null for US filers, and
+            # whenever no rate was used, including when the ratios are null
+            # because no usable rate is held.
+            "fx": (
+                {"currency": snap["fx"]["currency"], "rate": snap["fx"]["rate"],
+                 "rate_date": snap["fx"]["rate_date"]}
+                if snap.get("fx") else None
+            ),
         },
         "fundamentals": {
             "revenue": snap.get("revenue"),
@@ -813,6 +823,9 @@ def equity_summary(request: Request, symbol: str):
                 "null when unknown. No currency conversion; GBp means pence, not GBP."
             ),
             "enterprise_value": "Market cap + total debt - cash",
+            "fx": ("Rate the filing-currency figures were converted at for the valuation "
+                   "ratios, in units of that currency per US dollar, with its date. "
+                   "Fundamentals themselves are not converted."),
             "ttm_as_of": "Last day of the twelve months every TTM figure covers",
             "balance_sheet_as_of": "Period end of the balance sheet behind enterprise value",
         },

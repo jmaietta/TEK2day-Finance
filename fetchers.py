@@ -394,6 +394,32 @@ def fetch_prices(symbol: str, period: str = "5d") -> list[dict]:
         return []
 
 
+def fetch_fx_rate(currency: str) -> dict | None:
+    """The latest daily close of one currency against the US dollar, or None.
+
+    ONE Yahoo request: the chart for `{CUR}=X`, which Yahoo quotes as units of
+    the currency per one US dollar (TWD=X about 31.9, JPY=X about 157, EUR=X
+    about 0.9). Owner's ruling 18 Oct 2026: "use yahoo for fx", one lookup per
+    currency per night.
+    """
+    symbol = f"{currency}=X"
+    try:
+        hist = yf.Ticker(symbol).history(period="5d", auto_adjust=False)
+        if hist is None or hist.empty:
+            logger.warning("%s: no exchange rate returned", symbol)
+            return None
+        for idx, row in reversed(list(hist.iterrows())):
+            rate = float(row["Close"])
+            if math.isfinite(rate) and rate > 0:
+                return {"currency": currency, "rate": rate, "rate_date": idx.strftime("%Y-%m-%d"),
+                        "source": f"Yahoo Finance {symbol}"}
+        logger.warning("%s: no usable close", symbol)
+        return None
+    except Exception as exc:
+        _log_fetch_failure("exchange rate", symbol, exc)
+        return None
+
+
 def _build_financial_docs(symbol, income, balance, cashflow, freq):
     """Shared logic for quarterly and annual financials.
     freq: 'Q' for quarterly, 'FY' for annual.
