@@ -737,6 +737,26 @@ def statement_currency(symbol):
     return envelope.filing_currency((_firestore_meta(symbol) or {}).get("financial_currency"))
 
 
+def estimate_currency(symbol, labels, section):
+    """The currency one section of an estimate record is in, or None.
+
+    Yahoo states it per period, and the weekly pull keeps it (`eps_currency`,
+    `rev_currency`). It is NOT always the filing currency: KOF files in MXN and
+    its revenue estimates come in US dollars; TSM's revenue estimates are in TWD
+    and its EPS estimates in US dollars; Novo's EPS estimates are in DKK.
+    Measured 19 Oct 2026 across the 699 foreign filers: 22 of 315 revenue
+    labels differ from the filing currency.
+
+    Used only when every period agrees. Otherwise revenue falls back to the
+    filing currency and EPS to None, which keeps today's "$".
+    """
+    import envelope  # noqa: PLC0415
+    codes = {envelope.filing_currency(v) for v in labels.values()} if isinstance(labels, dict) else set()
+    if len(codes) == 1 and None not in codes:
+        return codes.pop()
+    return statement_currency(symbol) if section == "rev" else None
+
+
 @_ttl_cache(300)
 def _all_financials(symbol):
     """Cached Firestore financials read shared by commands and web payloads."""
@@ -1373,6 +1393,8 @@ def cmd_estimates(symbol):
 
     data = history[0]
     pull_date = data.get("date", "unknown")
+    eps_currency = estimate_currency(symbol, data.get("eps_currency"), "eps")
+    rev_currency = estimate_currency(symbol, data.get("rev_currency"), "rev")
 
     for prefix, title in [("eps", "EPS Estimates"), ("rev", "Revenue Estimates")]:
         metric_map = {}
@@ -1413,11 +1435,8 @@ def cmd_estimates(symbol):
                 elif mk == "numberofanalysts":
                     row.append(_analyst_count(val))
                 elif prefix == "rev" and mk in ("avg", "high", "low", "yearagorevenue"):
-                    # Revenue estimates come in the filing currency, like the
-                    # statements (TSM: NT$1.46T for a quarter, checked against
-                    # its stored filings 18 Oct 2026). EPS estimates do NOT
-                    # follow one rule, so they keep their form.
-                    row.append(_dollar(val, statement_currency(symbol)))
+                    # In the currency Yahoo states for them (estimate_currency).
+                    row.append(_dollar(val, rev_currency))
                 elif prefix == "eps" and mk in ("avg", "high", "low", "yearagoeps"):
                     # ⚠️ _eps, NOT _price. An estimate is still a per-share
                     # figure, so it follows the accounting convention like every
@@ -1426,7 +1445,7 @@ def cmd_estimates(symbol):
                     # `$-0.58` here and `($0.58)` on the income statement and the
                     # comp card for the same company. `or "N/A"` because _eps
                     # returns blank for a missing value and these cells say N/A.
-                    row.append(_eps(val) or "N/A")
+                    row.append(_eps(val, eps_currency) or "N/A")
                 else:
                     row.append(_num(val))
             t.add_row(*row)
