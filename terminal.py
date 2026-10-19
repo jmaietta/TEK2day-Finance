@@ -1089,6 +1089,34 @@ def _latest_forward_eps(symbol):
     return _estimate_value(history[0], "eps", "avg", ["+1y", "plus1y", "0y"])
 
 
+def _latest_forward_eps_currency(symbol):
+    """The currency of the estimate behind forward EPS, or None when not stated.
+
+    Yahoo's own label (see estimate_currency), NOT the filing currency: TSM files
+    in TWD and its EPS estimates come in US dollars per ADR.
+    """
+    history = _estimate_history(symbol)
+    if not history:
+        return None
+    return estimate_currency(symbol, history[0].get("eps_currency"), "eps")
+
+
+# Snapshot figures that come from the company's own statements, so are in its
+# filing currency. Price, market cap and enterprise value are in the quote
+# currency; forward EPS is in the estimate's (owner, 19 Oct 2026: "If the
+# number comes in as TWD, and it is TWD, then label it TWD").
+STATEMENT_FIGURES = frozenset({"revenue", "ebitda", "net_income", "eps_ttm"})
+
+
+def snapshot_currency(snap, field):
+    """The currency to label one _market_snapshot figure with; None keeps "$"."""
+    if field in STATEMENT_FIGURES:
+        return (snap or {}).get("statement_currency")
+    if field == "forward_eps":
+        return (snap or {}).get("forward_eps_currency")
+    return None
+
+
 def _firestore_fundamentals(symbol, meta):
     result = {
         "shares": _to_float((meta or {}).get("shares_outstanding")),
@@ -1258,6 +1286,12 @@ def _market_snapshot(symbol):
         "net_income": fundamentals.get("net_income"),
         "eps_ttm": eps_ttm,
         "forward_eps": forward_eps,
+        # What revenue, EBITDA, net income and TTM EPS are in (the filing
+        # currency), and what forward EPS is in (the estimate's). None = unknown.
+        "statement_currency": statement_currency(symbol),
+        # Only when there is a forward EPS to label; it reads the same cached
+        # estimate record _latest_forward_eps just read.
+        "forward_eps_currency": _latest_forward_eps_currency(symbol) if forward_eps is not None else None,
         "pe_ttm": _calc_ratio(price, eps_ttm),
         "forward_pe": _calc_ratio(price, forward_eps),
         "ps_ttm": _calc_ratio(market_cap, fundamentals.get("revenue")),
@@ -2271,11 +2305,11 @@ def cmd_compare(symbols):
         ("Price", lambda i: _price(i.get("price"))),
         ("Market Cap", lambda i: _dollar(i.get("market_cap"))),
         ("EV", lambda i: _dollar(i.get("enterprise_value"))),
-        ("Revenue (TTM)", lambda i: _dollar(i.get("revenue"))),
-        ("EBITDA (TTM)", lambda i: _dollar(i.get("ebitda"))),
-        ("Net Income (TTM)", lambda i: _dollar(i.get("net_income"))),
-        ("EPS (TTM)", lambda i: _eps(i.get("eps_ttm"))),
-        ("EPS (Fwd)", lambda i: _eps(i.get("forward_eps"))),
+        ("Revenue (TTM)", lambda i: _dollar(i.get("revenue"), snapshot_currency(i, "revenue"))),
+        ("EBITDA (TTM)", lambda i: _dollar(i.get("ebitda"), snapshot_currency(i, "ebitda"))),
+        ("Net Income (TTM)", lambda i: _dollar(i.get("net_income"), snapshot_currency(i, "net_income"))),
+        ("EPS (TTM)", lambda i: _eps(i.get("eps_ttm"), snapshot_currency(i, "eps_ttm"))),
+        ("EPS (Fwd)", lambda i: _eps(i.get("forward_eps"), snapshot_currency(i, "forward_eps"))),
         ("P/E TTM (GAAP)", lambda i: _ratio(i.get("pe_ttm"))),
         ("Fwd P/E (Est)", lambda i: _ratio(i.get("forward_pe"))),
         ("P/S (TTM)", lambda i: _ratio(i.get("ps_ttm"))),

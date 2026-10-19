@@ -554,6 +554,8 @@ def _display(data: dict) -> dict:
     quote = data.get("quote") or {}
     valuation = data.get("valuation") or {}
     fundamentals = data.get("fundamentals") or {}
+    cur = fundamentals.get("currency")
+    fwd_cur = fundamentals.get("forward_eps_currency")
 
     return {
         "estimates": fmt_estimates(data.get("estimates")),
@@ -579,12 +581,14 @@ def _display(data: dict) -> dict:
             "ev_fcf": fmt(valuation.get("ev_fcf"), terminal._ratio),
         },
         "fundamentals": {
-            "revenue": fmt(fundamentals.get("revenue"), terminal._dollar),
-            "ebitda": fmt(fundamentals.get("ebitda"), terminal._dollar),
-            "net_income": fmt(fundamentals.get("net_income"), terminal._dollar),
+            # Labelled in the currency each figure is in (fundamentals.currency,
+            # forward_eps_currency); unknown keeps "$", as before.
+            "revenue": fmt(fundamentals.get("revenue"), lambda v: terminal._dollar(v, cur)),
+            "ebitda": fmt(fundamentals.get("ebitda"), lambda v: terminal._dollar(v, cur)),
+            "net_income": fmt(fundamentals.get("net_income"), lambda v: terminal._dollar(v, cur)),
             # Same accounting convention as every other per-share figure.
-            "eps_ttm": fmt(fundamentals.get("eps_ttm"), terminal._eps),
-            "forward_eps": fmt(fundamentals.get("forward_eps"), terminal._eps),
+            "eps_ttm": fmt(fundamentals.get("eps_ttm"), lambda v: terminal._eps(v, cur)),
+            "forward_eps": fmt(fundamentals.get("forward_eps"), lambda v: terminal._eps(v, fwd_cur)),
             "diluted_shares": fmt(fundamentals.get("diluted_shares"), terminal._count),
             "beta": fmt(fundamentals.get("beta"), terminal._num),
             # NOT terminal._pct — that multiplies by 100, and this value is
@@ -768,6 +772,11 @@ def equity_summary(request: Request, symbol: str):
             "diluted_shares": snap.get("shares"),
             "beta": snap.get("beta"),
             "dividend_yield": snap.get("dividend_yield"),
+            # Added 19 Oct 2026. What revenue, ebitda, net_income and eps_ttm are
+            # in (the filing currency), and what forward_eps is in (the
+            # estimate's — TSM: TWD and USD). Null when not known; never assumed.
+            "currency": snap.get("statement_currency"),
+            "forward_eps_currency": snap.get("forward_eps_currency"),
         },
         # WHICH TWELVE MONTHS, AND WHICH BALANCE SHEET.
         #
@@ -1065,7 +1074,8 @@ _COMPARE_METRICS = [
 ]
 
 
-def _compare_display(kind: str, value, field: str = ""):
+def _compare_display(kind: str, value, field: str = "", currency=None):
+    """`currency` labels a figure that is not in dollars (terminal.snapshot_currency)."""
     if not envelope.finite(value):
         return None
     import terminal  # noqa: PLC0415
@@ -1074,12 +1084,12 @@ def _compare_display(kind: str, value, field: str = ""):
         # appears — ($5.62) for a loss — so the comp card, the summary card and
         # the income statement cannot render the same company differently.
         if "eps" in field:
-            return terminal._eps(value)
+            return terminal._eps(value, currency)
         if kind == "price":
             return terminal._price(value)
         if kind == "ratio":
             return terminal._ratio(value)
-        return terminal._dollar(value)
+        return terminal._dollar(value, currency)
     except Exception:
         return None
 
@@ -1186,15 +1196,21 @@ def comparisons(request: Request, symbols: str = Query(..., min_length=1)):
             # without saying so was not.
             "ttm_as_of": (snap or {}).get("ttm_as_of"),
             "balance_sheet_as_of": (snap or {}).get("balance_sheet_as_of"),
+            # Same meaning as the summary's fundamentals.currency and
+            # forward_eps_currency. Here, not as rows: every row must keep one
+            # value per company, and these are labels, not metrics.
+            "currency": (snap or {}).get("statement_currency"),
+            "forward_eps_currency": (snap or {}).get("forward_eps_currency"),
         })
 
+    import terminal  # noqa: PLC0415
     rows = []
     for key, label, kind in _COMPARE_METRICS:
         values, display = [], []
         for _, _, snap in loaded:
             value = (snap or {}).get(key)
             values.append(envelope.clean(value) if envelope.finite(value) else None)
-            display.append(_compare_display(kind, value, key))
+            display.append(_compare_display(kind, value, key, terminal.snapshot_currency(snap, key)))
         # Unlike a single-company statement, a row is KEPT even when every value
         # is missing: the metric list is the comparison's frame, and a row that
         # vanishes for one set of companies and appears for another makes two
