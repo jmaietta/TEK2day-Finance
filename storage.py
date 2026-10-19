@@ -11,6 +11,7 @@ Schema (Option C — ticker-centric with collection group queries):
 """
 import copy
 import math
+import zlib
 from datetime import datetime, timezone
 
 from google.cloud import firestore
@@ -87,6 +88,30 @@ def list_active_tickers() -> list[str]:
         else:
             symbols.add(doc.id)
     return sorted(symbols)
+
+
+def weekly_slot(symbol: str, count: int = 6) -> int:
+    """The weekday slot (0..count-1) a ticker is refreshed in, fixed by its symbol.
+
+    ⚠️ NOT ITS POSITION IN THE SORTED LIST. The weekly estimates and quarterly
+    financials jobs used `index % 6` over the sorted active list, and that list
+    changes almost every night as the universe sync adds tickers. One addition
+    near the top moves every later ticker into the next day's slot. Measured
+    19 Oct 2026 by rebuilding each run's list (all 18 runs from 28 Sep matched
+    the logged tranche sizes exactly): in the week of 12-17 Oct, 3,731 tickers
+    were never refreshed and 3,061 were refreshed twice. TSM was last due 12 Oct
+    and missed its 15 Oct results.
+
+    crc32 of the symbol: stable across runs, machines and Python versions
+    (Python's own hash() is salted per process), and even across six slots for
+    the 10,285 active tickers (1,685 to 1,752 each).
+    """
+    return zlib.crc32(symbol.encode("utf-8")) % count
+
+
+def todays_slice(symbols, count: int, index: int) -> list[str]:
+    """The tickers whose fixed slot is `index`, sorted."""
+    return sorted(s for s in symbols if weekly_slot(s, count) == index)
 
 
 def deactivate_ticker(symbol: str, reason: str | None = None, **detail) -> None:

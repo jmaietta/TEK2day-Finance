@@ -190,10 +190,12 @@ def main():
     sec_yahoo_seen = {}
     # Daily tranche: process 1/N of the universe per weekday so one run finishes
     # within the task timeout. Schedulers fire Mon–Sat, so every ticker refreshes
-    # across the week. Override the slice for manual runs with TRANCHE_INDEX.
+    # once a week, on a weekday fixed by its symbol (storage.weekly_slot — not its
+    # list position, which shifted whenever a ticker was added). Override the
+    # slice for manual runs with TRANCHE_INDEX.
     _tcount = int(os.getenv("TRANCHE_COUNT", "6"))
     _tidx = (int(os.getenv("TRANCHE_INDEX")) if os.getenv("TRANCHE_INDEX") else datetime.now(timezone.utc).weekday()) % _tcount
-    tickers = [t for i, t in enumerate(sorted(tickers)) if i % _tcount == _tidx]
+    tickers = storage.todays_slice(tickers, _tcount, _tidx)
     logger.info("Tranche %d of %d: %d tickers this run", _tidx, _tcount, len(tickers))
     total = len(tickers)
     logger.info("%d active tickers", total)
