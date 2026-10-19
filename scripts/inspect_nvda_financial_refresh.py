@@ -36,11 +36,9 @@ def main():
     _, root, _, _ = identity_storage.context(db, 'NVDA')
     metadata = root.get(timeout=30)
     if args.tranche_only:
-        from google.cloud.firestore_v1.base_query import FieldFilter
-        # Server-side count returns no other issuer's metadata. This matches
-        # the job's sorted active-symbol index while the reviewed route is dormant.
-        preceding = db.collection('tickers').where(filter=FieldFilter('active', '==', True)).where(
-            filter=FieldFilter('__name__', '<', db.document('tickers/NVDA'))).count().get(timeout=30)[0][0].value
+        # The job's slot is fixed by the symbol (storage.weekly_slot), so no
+        # other issuer's metadata is read.
+        import storage
         configured = json.loads(subprocess.run([
             'gcloud.cmd', 'run', 'jobs', 'describe', 'quarterly-financial-pull',
             '--region=us-central1', '--project=yfinance-cli', '--account=jmaietta@ceorater.com', '--format=json'
@@ -52,10 +50,9 @@ def main():
         today = datetime.now(timezone.utc)
         scheduled_index = int(selected_env.get('TRANCHE_INDEX') or today.weekday()) % count
         result = {'project': db.project, 'symbol': 'NVDA', 'captured_at': today.isoformat(),
-                  'active': (metadata.to_dict() or {}).get('active'), 'preceding_active_count': preceding,
-                  'tranche_count': count, 'nvda_current_tranche': preceding % count,
-                  'today_tranche': scheduled_index, 'selected_job_environment': selected_env,
-                  'limitation': 'Current membership only; sorted-index tranches can change when the active universe changes.'}
+                  'active': (metadata.to_dict() or {}).get('active'),
+                  'tranche_count': count, 'nvda_current_tranche': storage.weekly_slot('NVDA', count),
+                  'today_tranche': scheduled_index, 'selected_job_environment': selected_env}
         with args.output.open('x', encoding='utf-8') as handle:
             json.dump(result, handle, sort_keys=True, indent=2)
         print(json.dumps(result, indent=2))
