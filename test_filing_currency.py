@@ -250,3 +250,117 @@ def test_the_public_company_page_states_the_filing_currency():
     us = seo_pages._income_table(TSM_RECORDS, None)
     eps = next(r for r in us["rows"] if r["label"] == "Diluted EPS")
     check("unknown unchanged", eps["values"][0] == terminal._price(136.231667), eps["values"])
+
+
+# ── revenue, earnings and EPS on the summary and comparisons ─────────────────
+#
+# Owner, 19 Oct 2026: "Label currency correctly. That's my rule. If the number
+# comes in as TWD, and it is TWD, then label it TWD." TSM's card read "$4.44T"
+# for revenue that is TWD. Figures are labelled, never converted.
+
+TSM_SNAP = {"symbol": "TSM", "name": "Taiwan Semiconductor", "price": 412.61,
+            "market_cap": 2.14e12, "enterprise_value": 2.0e12, "revenue": 4.44e12,
+            "ebitda": 3.2e12, "net_income": 2.2168e12, "eps_ttm": 427.43,
+            "forward_eps": 22.30484, "pe_ttm": 0.97, "shares": 5.186e9,
+            "statement_currency": "TWD", "forward_eps_currency": "USD"}
+US_SNAP = {"symbol": "AAPL", "name": "Apple", "price": 250.0, "market_cap": 3.7e12,
+           "enterprise_value": 3.7e12, "revenue": 4.16e11, "ebitda": 1.4e11,
+           "net_income": 1.1e11, "eps_ttm": 7.46, "forward_eps": 9.58335, "shares": 1.48e10,
+           "statement_currency": None, "forward_eps_currency": "USD"}
+
+
+def test_each_snapshot_figure_takes_the_currency_it_arrives_in():
+    check("revenue", terminal.snapshot_currency(TSM_SNAP, "revenue") == "TWD")
+    check("TTM EPS", terminal.snapshot_currency(TSM_SNAP, "eps_ttm") == "TWD")
+    check("forward EPS is the estimate's", terminal.snapshot_currency(TSM_SNAP, "forward_eps") == "USD")
+    check("market cap stays $", terminal.snapshot_currency(TSM_SNAP, "market_cap") is None)
+    check("price stays $", terminal.snapshot_currency(TSM_SNAP, "price") is None)
+
+
+def summary_body(monkeypatch, snap):
+    import storage
+    meta = {"symbol": snap["symbol"], "name": snap["name"], "active": True}
+    monkeypatch.setattr(storage, "get_ticker_meta", lambda s: meta)
+    monkeypatch.setattr(terminal, "_market_snapshot", lambda s: dict(snap))
+    monkeypatch.setattr(terminal, "_estimate_history", lambda s: [])
+    monkeypatch.setattr(partner_api, "require_kilby", lambda r: "test")
+    result = partner_api.equity_summary(Req(), symbol=snap["symbol"])
+    return json.loads(result.body) if hasattr(result, "body") else result
+
+
+def test_the_summary_labels_foreign_revenue_and_eps(monkeypatch):
+    body = summary_body(monkeypatch, TSM_SNAP)
+    data, shown = body["data"]["fundamentals"], body["data"]["display"]["fundamentals"]
+    check("currency field", data["currency"] == "TWD", str(data.get("currency")))
+    check("forward EPS currency field", data["forward_eps_currency"] == "USD")
+    check("revenue", shown["revenue"] == "TWD 4.44T", shown["revenue"])
+    check("net income", shown["net_income"] == "TWD 2.22T", shown["net_income"])
+    check("TTM EPS", shown["eps_ttm"] == "TWD 427.43", shown["eps_ttm"])
+    check("forward EPS in its own currency", shown["forward_eps"] == "$22.30", shown["forward_eps"])
+    check("raw revenue not converted", data["revenue"] == 4.44e12)
+    check("market cap stays $", body["data"]["display"]["valuation"]["market_cap"] == "$2.14T")
+
+
+def test_an_unknown_filing_currency_is_null_and_reads_as_before(monkeypatch):
+    body = summary_body(monkeypatch, US_SNAP)
+    data, shown = body["data"]["fundamentals"], body["data"]["display"]["fundamentals"]
+    check("null, never assumed", data["currency"] is None)
+    check("revenue as before", shown["revenue"] == "$416.00B", shown["revenue"])
+    check("EPS as before", shown["eps_ttm"] == "$7.46", shown["eps_ttm"])
+
+
+def test_kilbys_comparison_contract_holds_with_labels(monkeypatch):
+    """Kilby rejects the whole table unless: api_version 1.0.0, all 15 rows,
+    and every row's values and display as long as companies."""
+    import storage
+    snaps = {"TSM": TSM_SNAP, "AAPL": US_SNAP}
+    monkeypatch.setattr(storage, "get_ticker_meta",
+                        lambda s: {"symbol": s, "name": s, "active": True} if s in snaps else None)
+    monkeypatch.setattr(terminal, "_market_snapshot", lambda s: dict(snaps[s]))
+    monkeypatch.setattr(partner_api, "require_kilby", lambda r: "test")
+    result = partner_api.comparisons(Req(), symbols="TSM,AAPL,VOO")
+    body = json.loads(result.body) if hasattr(result, "body") else result
+    data = body["data"]
+    check("version", body["api_version"] == "1.0.0", body["api_version"])
+    check("15 rows", len(data["rows"]) == 15, str(len(data["rows"])))
+    check("lengths", all(len(r["values"]) == len(r["display"]) == 3 for r in data["rows"]))
+    check("order kept", [c["symbol"] for c in data["companies"]] == ["TSM", "AAPL", "VOO"])
+    tsm, aapl, voo = data["companies"]
+    check("currency on the company", tsm["currency"] == "TWD" and tsm["forward_eps_currency"] == "USD")
+    check("unknown stays null", aapl["currency"] is None and voo["currency"] is None)
+    rows = {r["field"]: r["display"] for r in data["rows"]}
+    check("revenue labelled", rows["revenue"][:2] == ["TWD 4.44T", "$416.00B"], str(rows["revenue"]))
+    check("TTM EPS labelled", rows["eps_ttm"][0] == "TWD 427.43", str(rows["eps_ttm"]))
+    check("forward EPS", rows["forward_eps"][0] == "$22.30", str(rows["forward_eps"]))
+    check("market cap $", rows["market_cap"][0] == "$2.14T", str(rows["market_cap"]))
+
+
+def test_the_website_comparison_labels_foreign_figures(monkeypatch):
+    import app
+    snaps = {"TSM": TSM_SNAP, "AAPL": US_SNAP}
+    monkeypatch.setattr(terminal, "_market_snapshot", lambda s: dict(snaps[s]))
+    out = app._compare_payload(["TSM", "AAPL"])
+    rows = {r["label"]: r["values"] for r in out["rows"]}
+    check("revenue", rows["Revenue (TTM)"] == ["TWD 4.44T", "$416.00B"], str(rows["Revenue (TTM)"]))
+    check("market cap", rows["Market Cap"][0] == "$2.14T", str(rows["Market Cap"]))
+
+
+def test_the_comparison_download_states_each_currency(monkeypatch):
+    import auth
+    import excel_export
+    import exports
+    snaps = {"TSM": TSM_SNAP, "AAPL": US_SNAP}
+    monkeypatch.setattr(terminal, "_market_snapshot", lambda s: dict(snaps[s]))
+    monkeypatch.setattr(auth, "require_uid", lambda r: "test")
+    seen = []
+    monkeypatch.setattr(excel_export, "build_workbook",
+                        lambda note, source, sections, **k: seen.append((note, sections)) or b"")
+    monkeypatch.setattr(exports, "_xlsx_response", lambda data, name: None)
+    exports.export_compare(Req(), symbols="TSM,AAPL", fmt="xlsx")
+    note, sections = seen[0]
+    rows = {r["label"]: r["values"] for r in sections[0]["rows"]}
+    check("note", "own currency" in note, note)
+    check("reports in", rows["Reports in"] == ["TWD", ""], str(rows.get("Reports in")))
+    seen.clear()
+    exports.export_compare(Req(), symbols="AAPL", fmt="xlsx")
+    check("US-only download unchanged", seen[0][0] == "$ in millions (price & EPS in $)", seen[0][0])

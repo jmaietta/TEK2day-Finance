@@ -75,8 +75,18 @@ def export_compare(request: Request, symbols: str = Query(...), fmt: str = Query
     rows = [{"label": "Company", "values": [s.get("name", s["symbol"]) for s in snaps], "fmt": "text"}]
     for label, key, fmtkey in _COMP_ROWS:
         rows.append({"label": label, "values": [s.get(key) for s in snaps], "fmt": fmtkey})
+    note = "$ in millions (price & EPS in $)"
+    # A company that files in another currency (TSM: TWD) gets its currencies
+    # stated, because its revenue, EBITDA, net income and EPS are not dollars.
+    statement = [s.get("statement_currency") for s in snaps]
+    forward = [s.get("forward_eps_currency") for s in snaps]
+    if any(c not in (None, "USD") for c in statement + forward):
+        rows.insert(1, {"label": "Reports in", "values": [c or "" for c in statement], "fmt": "text"})
+        rows.insert(2, {"label": "EPS (Fwd) in", "values": [c or "" for c in forward], "fmt": "text"})
+        note = ("In millions. Price, market cap and EV in $; revenue, EBITDA, net income "
+                "and EPS in each company's own currency (see \"Reports in\")")
     data = excel_export.build_workbook(
-        "$ in millions (price & EPS in $)",  # units note below the logo
+        note,  # units note below the logo
         _SOURCE,
         [{"corner": "Metric", "columns": cols, "rows": rows}],
         sheet_name="Comparison",
