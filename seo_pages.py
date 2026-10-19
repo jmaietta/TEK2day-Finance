@@ -216,12 +216,19 @@ def _build_page(symbol: str) -> str | None:
         if value not in (None, "N/A", ""):
             metrics.append({"label": label, "value": value})
 
+    # Revenue and EPS are in the filing currency, the close in US dollars: the
+    # ratios convert at the latest stored rate (terminal._fx_rate, no Yahoo
+    # call), and are left out when no usable rate is held.
+    divisor = 1.0
+    if filing_currency not in (None, "USD"):
+        fx = terminal._fx_rate(filing_currency)
+        divisor = fx["rate"] if fx else None
     add("Market Cap", terminal._dollar(market_cap))
     add("Shares Outstanding", terminal._count(shares))
-    if market_cap and ttm_revenue:
-        add("P/S (TTM)", terminal._ratio(market_cap / ttm_revenue))
-    if close is not None and ttm_eps and ttm_eps > 0:
-        add("P/E (TTM)", terminal._ratio(close / ttm_eps))
+    if market_cap and ttm_revenue and divisor:
+        add("P/S (TTM)", terminal._ratio(market_cap / (ttm_revenue / divisor)))
+    if close is not None and ttm_eps and ttm_eps > 0 and divisor:
+        add("P/E (TTM)", terminal._ratio(close / (ttm_eps / divisor)))
     add("Beta", terminal._num(meta.get("beta")))
     add("Dividend Yield", terminal._pct(meta.get("dividend_yield")))
     add("Exchange", meta.get("exchange") or None)

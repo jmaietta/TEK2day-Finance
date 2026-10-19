@@ -726,6 +726,15 @@ def _firestore_meta(symbol):
         return None
 
 
+@_ttl_cache(600)
+def _fx_rate(currency):
+    """The latest usable stored exchange rate (fx_rates.latest), or None. No Yahoo call."""
+    if not _has_firestore():
+        return None
+    import fx_rates  # noqa: PLC0415
+    return fx_rates.latest(currency)
+
+
 def statement_currency(symbol):
     """The currency `symbol` files its statements in, or None when not known.
 
@@ -1239,13 +1248,46 @@ def _market_snapshot(symbol):
     has_balance_sheet = fundamentals.get("balance_sheet_as_of") is not None
     debt = fundamentals.get("debt") or 0
     cash = fundamentals.get("cash") or 0
-    enterprise_value = (
-        market_cap + debt - cash
-        if market_cap is not None and has_balance_sheet
-        else None
-    )
     eps_ttm = _calc_ratio(fundamentals.get("net_income"), shares)
     forward_eps = _latest_forward_eps(symbol)
+    filing = statement_currency(symbol)
+    forward_currency = _latest_forward_eps_currency(symbol) if forward_eps is not None else None
+
+    # ⚠️ RATIOS IN THE PRICE'S CURRENCY, FIGURES IN THEIR OWN. TSM's price is in
+    # US dollars and its statements in TWD; dividing one by the other unconverted
+    # read P/E 1.0x for a company on about 27x (18 Oct 2026). Statement figures
+    # are converted at the latest stored rate (fx_rates) for the ratios ONLY;
+    # revenue, net income and EPS are still returned as filed, and labelled.
+    # No usable rate: the ratios are None, never a mixed-currency figure. A
+    # price with no stated currency is taken as US dollars, as before (every
+    # ticker TEK2day covers lists in the US).
+    priced_in = quote.get("currency") or "USD"
+    fx = None
+    divisor = 1.0
+    if filing and filing != priced_in:
+        fx = _fx_rate(filing) if priced_in == "USD" else None
+        divisor = fx["rate"] if fx else None
+
+    def in_price_currency(value):
+        value = _to_float(value)
+        return None if value is None or divisor is None else value / divisor
+
+    revenue_p = in_price_currency(fundamentals.get("revenue"))
+    ebitda_p = in_price_currency(fundamentals.get("ebitda"))
+    opcf_p = in_price_currency(fundamentals.get("operating_cashflow"))
+    fcf_p = in_price_currency(fundamentals.get("free_cashflow"))
+    eps_ttm_p = in_price_currency(eps_ttm)
+    net_debt_p = in_price_currency(debt - cash)
+    enterprise_value = (
+        market_cap + net_debt_p
+        if market_cap is not None and has_balance_sheet and net_debt_p is not None
+        else None
+    )
+    # Forward EPS is in the estimate's own currency (TSM: US dollars, Novo: DKK).
+    forward_eps_p = forward_eps
+    if forward_eps is not None and forward_currency and forward_currency != priced_in:
+        forward_fx = _fx_rate(forward_currency) if priced_in == "USD" else None
+        forward_eps_p = forward_eps / forward_fx["rate"] if forward_fx else None
 
     return {
         "symbol": symbol,
@@ -1288,17 +1330,22 @@ def _market_snapshot(symbol):
         "forward_eps": forward_eps,
         # What revenue, EBITDA, net income and TTM EPS are in (the filing
         # currency), and what forward EPS is in (the estimate's). None = unknown.
-        "statement_currency": statement_currency(symbol),
+        "statement_currency": filing,
         # Only when there is a forward EPS to label; it reads the same cached
         # estimate record _latest_forward_eps just read.
-        "forward_eps_currency": _latest_forward_eps_currency(symbol) if forward_eps is not None else None,
-        "pe_ttm": _calc_ratio(price, eps_ttm),
-        "forward_pe": _calc_ratio(price, forward_eps),
-        "ps_ttm": _calc_ratio(market_cap, fundamentals.get("revenue")),
-        "ev_revenue": _calc_ratio(enterprise_value, fundamentals.get("revenue")),
-        "ev_ebitda": _calc_ratio(enterprise_value, fundamentals.get("ebitda")),
-        "ev_opcf": _calc_ratio(enterprise_value, fundamentals.get("operating_cashflow")),
-        "ev_fcf": _calc_ratio(enterprise_value, fundamentals.get("free_cashflow")),
+        "forward_eps_currency": forward_currency,
+        # The rate the statement figures were converted at for the ratios
+        # ({"currency", "rate", "rate_date"}; units per US dollar), or None when
+        # nothing was converted or no usable rate was held (the ratios are then
+        # None too, so a rate is never shown beside a missing ratio).
+        "fx": fx,
+        "pe_ttm": _calc_ratio(price, eps_ttm_p),
+        "forward_pe": _calc_ratio(price, forward_eps_p),
+        "ps_ttm": _calc_ratio(market_cap, revenue_p),
+        "ev_revenue": _calc_ratio(enterprise_value, revenue_p),
+        "ev_ebitda": _calc_ratio(enterprise_value, ebitda_p),
+        "ev_opcf": _calc_ratio(enterprise_value, opcf_p),
+        "ev_fcf": _calc_ratio(enterprise_value, fcf_p),
         "dividend_yield": meta.get("dividend_yield"),
     }
 

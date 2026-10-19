@@ -22,6 +22,7 @@ This document describes how TEK2day Finance captures, stores, and presents finan
 | Financials | Weekly/quarterly as configured | `pull_quarterly_financials.py` |
 | Ticker metadata | With the existing metadata pull path | `fetchers.fetch_ticker_info()` |
 | Ticker universe (SEC sync) | Daily Mon-Fri, after task 0 of the price pull | `universe_sync.py` |
+| Exchange rates | Daily Mon-Fri, after the universe sync in task 0 of the price pull: one Yahoo lookup (`{CUR}=X`) per filing currency, 28 today, never more than 40 | `fx_rates.py` |
 
 No new Firestore metadata fields are required for the current Terminal/Web hardening pass.
 
@@ -71,6 +72,9 @@ tickers/{SYMBOL}/
     estimates/{YYYY-MM-DD}  -> EPS and revenue estimate snapshots
     prices/{YYYY-MM-DD}     -> EOD OHLCV
     financials/{PERIOD}     -> income, balance_sheet, and cash_flow objects
+
+fx_rates/{CUR}              -> latest rate (units of CUR per US dollar), rate_date, source
+    history/{YYYY-MM-DD}    -> each night's rate
 ```
 
 Key rules:
@@ -145,6 +149,14 @@ plus the live Yahoo quote:
 - EV/EBITDA = enterprise value divided by stored EBITDA
 - EV/OpCF = enterprise value divided by stored operating cash flow
 - EV/FCF = enterprise value divided by stored free cash flow
+
+For a company that files in another currency (`financial_currency`, e.g. TSM in
+TWD) the price is in US dollars, so every stored statement figure in a ratio
+(earnings, revenue, EBITDA, cash flows, debt, cash) is converted at the latest
+stored rate first, and forward EPS is converted when its estimate is not in US
+dollars. The figures themselves are shown as filed, labelled in their currency.
+With no rate held, or one more than five days old, those ratios are blank. The
+partner summary returns the rate used as `valuation.fx`.
 
 ## 4. Public Commands
 
