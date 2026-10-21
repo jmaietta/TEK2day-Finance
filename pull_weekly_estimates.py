@@ -21,6 +21,7 @@ from google.api_core.exceptions import ResourceExhausted
 
 import fetchers
 import storage
+import universe_sync
 
 logging.basicConfig(
     level=logging.INFO,
@@ -69,6 +70,10 @@ def main():
     logger.info("Weekly estimate pull starting")
 
     tickers = storage.list_active_tickers()
+    # No Yahoo price in over 30 days: left out until a price comes back
+    # (universe_sync.skip_list; the price pull does the monthly re-ask).
+    skip = universe_sync.skip_list(recheck=False)
+    tickers = [t for t in tickers if t not in skip]
     # Daily tranche: process 1/N of the universe per weekday so one run finishes
     # within the task timeout. Schedulers fire Mon–Sat, so every ticker refreshes
     # once a week, on a weekday fixed by its symbol (storage.weekly_slot — not its

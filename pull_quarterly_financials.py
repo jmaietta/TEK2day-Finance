@@ -21,6 +21,7 @@ from google.api_core.exceptions import ResourceExhausted
 import fetchers
 import proposals
 import storage
+import universe_sync
 
 logging.basicConfig(
     level=logging.INFO,
@@ -186,7 +187,11 @@ def main():
     )
 
     tickers = storage.list_active_tickers()
-    active_symbols = list(tickers)
+    active_symbols = list(tickers)   # the SEC fallback below still covers every active ticker
+    # No Yahoo price in over 30 days: left out of the Yahoo requests until a
+    # price comes back (universe_sync.skip_list; the price pull re-asks monthly).
+    skip = universe_sync.skip_list(recheck=False)
+    tickers = [t for t in tickers if t not in skip]
     sec_yahoo_seen = {}
     # Daily tranche: process 1/N of the universe per weekday so one run finishes
     # within the task timeout. Schedulers fire Mon–Sat, so every ticker refreshes

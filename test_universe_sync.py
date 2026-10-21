@@ -229,7 +229,7 @@ def test_off_does_nothing(monkeypatch):
 
 # ── inside the daily price job ───────────────────────────────────────────────
 
-def _drive_price_job(monkeypatch, task_index=0, task_count=1, sync=None, pending=()):
+def _drive_price_job(monkeypatch, task_index=0, task_count=1, sync=None, pending=(), skip=()):
     import pull_daily_prices as pdp
     periods, calls, cleared = {}, [], []
     monkeypatch.setattr(pdp, "SYMBOLS", "")
@@ -246,6 +246,7 @@ def _drive_price_job(monkeypatch, task_index=0, task_count=1, sync=None, pending
     monkeypatch.setattr(us, "backfill_pending", lambda db=None: set(pending))
     monkeypatch.setattr(us, "backfill_done", lambda db, s: cleared.append(s))
     monkeypatch.setattr(us, "run", sync or (lambda: calls.append("sync")))
+    monkeypatch.setattr(us, "skip_list", lambda db=None, today=None, recheck=True: set(skip))
     pdp.main()
     return periods, calls, cleared
 
@@ -278,6 +279,69 @@ def test_a_failing_sync_does_not_change_the_price_jobs_result(monkeypatch):
     periods, _, _ = _drive_price_job(monkeypatch, sync=lambda: real_run(db=_DB()))
     assert set(periods) == {"AAA", "BBB", "NEWCO"}   # and main() returned normally
 
+
+
+# ── tickers with no Yahoo data ───────────────────────────────────────────────
+
+def test_the_monthly_recheck_is_the_first_weekday_of_the_month():
+    assert us.recheck_day(date(2026, 10, 1))          # a Thursday
+    assert not us.recheck_day(date(2026, 10, 2))
+    assert us.recheck_day(date(2026, 11, 2))          # 1 Nov is a Sunday
+    assert not us.recheck_day(date(2026, 11, 1)) and not us.recheck_day(date(2026, 11, 3))
+
+
+def test_apply_saves_the_no_yahoo_data_list_and_deactivates_nothing(fake, monkeypatch):
+    db, written, deactivated = fake
+    monkeypatch.setattr(us, "MODE", "apply")
+    us.run(db=db, today=TODAY)
+    saved = db.store["universe_sync/no_yahoo_data"]
+    assert saved == {"as_of": "2026-10-02", "count": 1, "stale_days": 30, "symbols": ["DEAD"]}
+    assert deactivated == [] and "DEAD" not in written       # active is untouched
+    assert us.skip_list(db, today=date(2026, 10, 5)) == {"DEAD"}
+
+
+def test_observe_and_refused_runs_leave_the_list_alone(fake, monkeypatch):
+    db, _, _ = fake
+    monkeypatch.setattr(us, "MODE", "observe")
+    us.run(db=db, today=TODAY)
+    assert "universe_sync/no_yahoo_data" not in db.store
+    monkeypatch.setattr(us, "MODE", "apply")
+    monkeypatch.setattr(us, "MAX_ADDS", 0)
+    us.run(db=db, today=TODAY)
+    assert "universe_sync/no_yahoo_data" not in db.store
+
+
+def test_a_list_too_long_to_be_real_skips_nothing(fake, monkeypatch):
+    """A broken price feed makes everything look stale: ask everyone, never skip everyone."""
+    db, _, _ = fake
+    monkeypatch.setattr(us, "MODE", "apply")
+    monkeypatch.setattr(us, "MAX_DEACTIVATIONS", 0)
+    us.run(db=db, today=TODAY)
+    assert db.store["universe_sync/no_yahoo_data"]["symbols"] == []
+    assert us.skip_list(db, today=date(2026, 10, 5)) == set()
+
+
+def test_the_list_is_ignored_when_old_unreadable_or_on_the_recheck_day():
+    db = _DB()
+    assert us.skip_list(db, today=date(2026, 10, 5)) == set()               # never written
+    us.write_skip_list(db, date(2026, 10, 2), [{"symbol": "DEAD"}])
+    assert us.skip_list(db, today=date(2026, 10, 9)) == {"DEAD"}            # 7 days: still trusted
+    assert us.skip_list(db, today=date(2026, 10, 10)) == set()              # 8 days: not
+    us.write_skip_list(db, date(2026, 10, 30), [{"symbol": "DEAD"}])
+    assert us.skip_list(db, today=date(2026, 11, 2)) == set()               # monthly re-ask
+    assert us.skip_list(db, today=date(2026, 11, 2), recheck=False) == {"DEAD"}   # weekly jobs
+    broken = type("Broken", (), {"collection": lambda self, n: 1 / 0})()
+    assert us.skip_list(broken, today=date(2026, 10, 5)) == set()
+
+
+def test_the_price_pull_leaves_out_skipped_tickers_but_always_asks_named_ones(monkeypatch):
+    periods, _, _ = _drive_price_job(monkeypatch, skip={"BBB"})
+    assert set(periods) == {"AAA", "NEWCO"}
+    import pull_daily_prices as pdp
+    monkeypatch.setattr(pdp, "SYMBOLS", "BBB")
+    periods.clear()
+    pdp.main()
+    assert set(periods) == {"BBB"}
 
 
 # ── the sector fill ──────────────────────────────────────────────────────────

@@ -64,9 +64,10 @@ def test_a_count_of_one_takes_everyone():
     check("all", storage.todays_slice(UNIVERSE, 1, 0) == sorted(UNIVERSE))
 
 
-def _run_job(monkeypatch, job, fetch_name, index):
+def _run_job(monkeypatch, job, fetch_name, index, skip=()):
     seen = []
     monkeypatch.setattr(job.storage, "list_active_tickers", lambda: list(UNIVERSE))
+    monkeypatch.setattr(job.universe_sync, "skip_list", lambda db=None, today=None, recheck=True: set(skip))
     monkeypatch.setattr(job.time, "sleep", lambda _: None)
     monkeypatch.setenv("TRANCHE_COUNT", "6")
     monkeypatch.setenv("TRANCHE_INDEX", str(index))
@@ -97,3 +98,22 @@ def test_both_jobs_use_the_fixed_slot(monkeypatch, caplog):
                   seen and seen[0].replace("-", ".") == expected[0], str((seen, expected[:2])))
             check(f"{job.__name__} slot {index} size logged",
                   f"Tranche {index} of 6: {len(expected)} tickers" in caplog.text, caplog.text[:300])
+
+
+def test_both_jobs_leave_out_tickers_with_no_yahoo_data(monkeypatch, caplog):
+    """universe_sync.skip_list: no Yahoo price in over 30 days. The slot of every
+    other ticker is unchanged, so nobody moves day."""
+    import logging
+    caplog.set_level(logging.INFO)
+    import pull_quarterly_financials
+    import pull_weekly_estimates
+    for job, fetch_name in ((pull_weekly_estimates, "fetch_estimates"),
+                            (pull_quarterly_financials, "fetch_financials")):
+        full = storage.todays_slice(UNIVERSE, 6, 0)
+        skip = set(full[:3])
+        caplog.clear()
+        seen = _run_job(monkeypatch, job, fetch_name, 0, skip=skip)
+        check(f"{job.__name__} starts after the skipped ones",
+              seen and seen[0].replace("-", ".") == full[3], str((seen, full[:4])))
+        check(f"{job.__name__} size logged without them",
+              f"Tranche 0 of 6: {len(full) - 3} tickers" in caplog.text, caplog.text[:300])

@@ -23,6 +23,9 @@ What a run does, after task 0 of the daily price pull has finished its prices:
         BF.B vs BF-B, OTC issuers that stopped filing, renames the SEC list lags).
         Data is kept; `active` goes false with a reason. Tickers under reviewed
         identity routes are never touched.
+* SKIP  the same no-price-in-30-days list is saved as `universe_sync/no_yahoo_data`
+        and the Yahoo jobs leave those tickers out, with nothing deactivated;
+        the price pull asks again on the first weekday of each month (skip_list).
 * FLAG (report only, never act) a ticker whose SEC CIK differs from the stored
         one (ticker reuse goes through the reviewed identity process, as XOM did),
         and inactive tickers the SEC lists again.
@@ -62,6 +65,15 @@ STATE = ("universe_sync", "state")
 FILL_LIMIT = int(os.environ.get("UNIVERSE_FILL_LIMIT", "100") or 100)
 PRIORITY_MAX = 2000
 RUNS = "universe_sync_runs"
+# Tickers Yahoo has had no price for in over STALE_DAYS: the same list the held
+# deactivations name, but nothing is deactivated. The Yahoo jobs leave them out
+# and the nightly price pull asks again on the first weekday of each month
+# (owner, 2026-10-21: "keep track of these so we dont keep asking yahoo").
+# `active` stays true: Kilby reads it as "still trading" and asked that it not
+# change, and /symbols keeps serving every row.
+SKIP = ("universe_sync", "no_yahoo_data")
+# A list older than this is not trusted: every ticker is asked again.
+SKIP_MAX_AGE_DAYS = 7
 
 # A run that would change more than this is a bad parse or a broken price feed,
 # not a market event. The first run needs 342 adds and about 1,124
@@ -237,6 +249,57 @@ def backfill_pending(db=None) -> set[str]:
         return set()
 
 
+def recheck_day(today: date) -> bool:
+    """The first weekday of the month: the price pull asks Yahoo for every skipped ticker."""
+    first = today.replace(day=1)
+    while first.weekday() >= 5:
+        first += timedelta(days=1)
+    return today == first
+
+
+def write_skip_list(db, today: date, deactivate: list[dict]) -> list[str]:
+    """Save tonight's no-Yahoo-data list. Too long a list is a broken price feed,
+    not a market event, so it is saved empty and every ticker keeps being asked."""
+    symbols = sorted(row["symbol"] for row in deactivate)
+    if len(symbols) > MAX_DEACTIVATIONS:
+        logger.error("NO YAHOO DATA list refused: %d tickers is over the %d limit; nothing is skipped",
+                     len(symbols), MAX_DEACTIVATIONS)
+        symbols = []
+    db.collection(SKIP[0]).document(SKIP[1]).set(
+        {"as_of": today.isoformat(), "count": len(symbols), "stale_days": STALE_DAYS, "symbols": symbols})
+    return symbols
+
+
+def skip_list(db=None, today: date | None = None, recheck: bool = True) -> set[str]:
+    """Tickers a Yahoo job leaves out tonight. Never raises; empty whenever unsure.
+
+    `recheck=False` for the weekly jobs: only the price pull asks again monthly.
+    A ticker that prices again leaves the list at the next night's sync, and the
+    weekly jobs pick it up from then.
+    """
+    try:
+        today = today or datetime.now(timezone.utc).date()
+        if recheck and recheck_day(today):
+            logger.info("First weekday of the month: tickers with no Yahoo data are asked again tonight")
+            return set()
+        if db is None:
+            import storage
+            db = storage.get_db()
+        snap = db.collection(SKIP[0]).document(SKIP[1]).get()
+        if not snap.exists:
+            return set()
+        data = snap.to_dict() or {}
+        as_of = date.fromisoformat(str(data.get("as_of") or "")[:10])
+        if (today - as_of).days > SKIP_MAX_AGE_DAYS:
+            logger.warning("No-Yahoo-data list is from %s, older than %d days; nothing is skipped",
+                           as_of, SKIP_MAX_AGE_DAYS)
+            return set()
+        return set(data.get("symbols") or [])
+    except Exception as exc:
+        logger.warning("No-Yahoo-data list unreadable; nothing is skipped: %s", exc)
+        return set()
+
+
 def read_priority(db) -> list[str]:
     try:
         snap = db.collection(STATE[0]).document(STATE[1]).get()
@@ -363,6 +426,11 @@ def run(db=None, today: date | None = None) -> dict | None:
         applied = MODE == "apply" and not result["refused"]
         if applied:
             _apply(db, storage, sec, result)
+        if MODE == "apply" and not result["refused"]:
+            # A refused run leaves yesterday's list, which expires on its own.
+            skipped = write_skip_list(db, today, result["deactivate"])
+            logger.info("NO YAHOO DATA %d tickers left out of the Yahoo jobs (no price in over %d days)",
+                        len(skipped), STALE_DAYS)
         order = fill_order(existing, identity_managed, read_priority(db), result["adds"] if applied else [], FILL_LIMIT)
         filled = fill(db, storage, order, existing) if MODE == "apply" else {"would_fill": order}
         result["fill"] = filled
