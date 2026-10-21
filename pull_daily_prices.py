@@ -142,6 +142,16 @@ def main():
 
     universe = sorted(storage.list_active_tickers() or [])
     tickers, smoke = _select(universe)
+    if not SYMBOLS:
+        # Tickers Yahoo has had no price for in over 30 days, from last night's
+        # sync. Named tickers (PRICE_PULL_SYMBOLS) are always asked.
+        skip = universe_sync.skip_list()
+        if skip:
+            before = len(tickers)
+            tickers = [t for t in tickers if t not in skip]
+            logger.info("%d ticker(s) left out: no Yahoo price in over %d days "
+                        "(asked again on the first weekday of the month)",
+                        before - len(tickers), universe_sync.STALE_DAYS)
     if smoke:
         # ⚠️ SHOUTED, and repeated at the end. A partial run that reads like a
         # full one in the logs is how "the pull ran fine last night" becomes

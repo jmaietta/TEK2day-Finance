@@ -47,7 +47,16 @@ active tickers with no stored price for 30 days are deactivated with
 touched); a changed CIK or a relisted inactive ticker is only flagged. Each run
 records `universe_sync_runs/{date}`. `UNIVERSE_SYNC_MODE` = off, observe or
 apply (default apply). A run that would add more than 600 or deactivate more
-than 1,500 is refused and logged as an error.
+than 1,500 is refused and logged as an error. Deactivations are held until the
+owner reviews them (`UNIVERSE_SYNC_DEACTIVATE`).
+
+The same list, with nothing deactivated, is saved each night as
+`universe_sync/no_yahoo_data` (`as_of`, `count`, `symbols`). The nightly price
+pull, the weekly estimates job and the quarterly financials job leave those
+tickers out of their Yahoo requests. The price pull asks again on the first
+weekday of each month, and a ticker that prices again leaves the list at the
+next night's sync. `active` stays true and `/partner/v1/symbols` is unchanged.
+A list older than 7 days, unreadable, or over 1,500 names skips nothing.
 
 After the sync, the same step fills blank sectors from Yahoo right away instead
 of waiting for the weekly refresh: names a Kilby customer holds first (queued by
