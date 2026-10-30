@@ -785,6 +785,16 @@
       text-transform: uppercase;
     }
 
+    /* estimates: the period a column covers, under its heading */
+    thead th .period-end {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-weight: 400;
+      letter-spacing: 0.05em;
+      text-transform: none;
+    }
+
     tbody td { border-bottom: 1px solid #121109; color: var(--text); }
     tbody tr:last-child td { border-bottom: 0; }
     tbody tr:nth-child(even) td { background: #0a0a07; }
@@ -1552,8 +1562,9 @@
 
     function matrixTableHtml(section) {
       const periods = section.periods || [];
+      const ends = section.periodEnds || [];
       return `<div class="table-scroll"><table>
-        <thead><tr><th>Metric</th>${periods.map((period) => `<th>${escapeHtml(period)}</th>`).join("")}</tr></thead>
+        <thead><tr><th>Metric</th>${periods.map((period, i) => `<th>${escapeHtml(period)}${ends[i] ? `<span class="period-end">${escapeHtml(ends[i])}</span>` : ""}</th>`).join("")}</tr></thead>
         <tbody>${(section.rows || []).map((row) => `
           <tr><td>${escapeHtml(row.label)}</td>${(row.values || []).map((value) => `<td>${valueMarkup(value)}</td>`).join("")}</tr>`).join("")}
         </tbody>

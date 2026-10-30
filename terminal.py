@@ -1462,6 +1462,29 @@ METRIC_LABELS = {
 PERIOD_ORDER = ["0q", "+1q", "0y", "+1y"]
 
 
+def period_end_label(code, end):
+    """The period a column covers, from Yahoo's stored end date: "Oct 2026", or
+    "FY Jan 2027" for a year. Blank when the snapshot has no date for it.
+
+    "Curr Yr" alone hides that NVDA's year ends in January and MSFT's in June
+    (owner, 29 Oct 2026). The dates are fetchers.estimate_horizons, saved with
+    every snapshot since October; older snapshots have none and stay unlabelled.
+    """
+    try:
+        when = datetime.strptime(str(end)[:10], "%Y-%m-%d").strftime("%b %Y")
+    except ValueError:
+        return ""
+    return f"FY {when}" if str(code).endswith("y") else when
+
+
+def period_end_labels(snapshot, periods):
+    """period_end_label for each column of one estimates snapshot."""
+    horizons = snapshot.get("horizons") or {}
+    if not isinstance(horizons, dict):
+        return ["" for _ in periods]
+    return [period_end_label(p, horizons.get(p.replace("plus", "+"))) for p in periods]
+
+
 def cmd_estimates(symbol):
     if not _has_firestore():
         console.print("[yellow]Estimates require TEK2day data access.[/yellow]")

@@ -200,9 +200,13 @@ def export_estimates(request: Request, symbol: str = Query(...), fmt: str = Quer
                 fk = "num2"
             rows.append({"label": terminal.METRIC_LABELS.get(mk, mk), "values": vals, "fmt": fk})
         if rows:
+            # "Curr Yr (FY Jan 2027)": the same period labels the website card shows.
+            ends = terminal.period_end_labels(d, periods)
             out_sections.append({
                 "title": title, "corner": "Metric",
-                "columns": [terminal.PERIOD_LABELS.get(p, p) for p in periods], "rows": rows,
+                "columns": [terminal.PERIOD_LABELS.get(p, p) + (f" ({e})" if e else "")
+                            for p, e in zip(periods, ends)],
+                "rows": rows,
             })
     if not out_sections:
         raise HTTPException(status_code=404, detail="No estimate data.")
