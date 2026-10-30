@@ -371,6 +371,8 @@ def _estimates_payload(symbol: str) -> dict | None:
         sections.append({
             "title": title,
             "periods": [terminal.PERIOD_LABELS.get(p, p) for p in periods],
+            # Second heading line, e.g. "FY Jan 2027"; "" where the date is unknown.
+            "periodEnds": terminal.period_end_labels(data, periods),
             "rows": rows,
             # None on the EPS section: per-share figures carry their own dollar
             # sign and are not in millions of anything.
