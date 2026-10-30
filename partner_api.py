@@ -782,6 +782,7 @@ def equity_summary(request: Request, symbol: str):
             "forward_eps": snap.get("forward_eps"),
             "diluted_shares": snap.get("shares"),
             "beta": snap.get("beta"),
+            "beta_source": snap.get("beta_source"),
             "dividend_yield": snap.get("dividend_yield"),
             # Added 19 Oct 2026. What revenue, ebitda, net_income and eps_ttm are
             # in (the filing currency), and what forward_eps is in (the
@@ -1342,6 +1343,10 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1)):
             norm, (meta or {}).get("name"), prices, estimates, financials
         )
         row["financial_upstream"] = envelope.financial_upstream(financials)
+        # Kept on the company record (beta.py): no extra read.
+        row["beta"] = (meta or {}).get("beta") if envelope.finite((meta or {}).get("beta")) else None
+        row["beta_source"] = (meta or {}).get("beta_source") if row["beta"] is not None else None
+        row["beta_as_of"] = (meta or {}).get("beta_as_of") if row["beta"] is not None else None
         return row
 
     # Bounded rather than one worker per symbol: these are Firestore reads and a
@@ -1383,6 +1388,12 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1)):
                 "share count is an average over its period rather than the count outstanding "
                 "today. Intended for weighting a set of companies by size, not as a substitute "
                 "for a live market cap."
+            ),
+            "beta": (
+                "Yahoo Finance's own beta (\"Beta (5Y Monthly)\"), as Yahoo publishes it; TEK2day "
+                "calculates none. Saved from the weekly company refresh; null until Yahoo's has been "
+                "saved for that company, or when Yahoo has none. beta_source is always \"yahoo\"; "
+                "beta_as_of is the day it was saved"
             ),
             "annual_eps_outlook": (
                 "Consensus EPS for the fiscal years NOT yet reported, continuing straight on "
