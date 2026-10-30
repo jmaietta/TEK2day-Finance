@@ -186,7 +186,8 @@ def _build_page(symbol: str) -> str | None:
     chart = _chart_svg(history) if history else None
 
     # Financials from Firestore.
-    all_fins = storage.get_all_financials(symbol)
+    import share_counts
+    all_fins = share_counts.overlay(symbol, storage.get_all_financials(symbol))
     quarterly_periods = sorted(
         [f for f in all_fins if f.get("freq") != "FY"],
         key=lambda f: f.get("period_end", ""),

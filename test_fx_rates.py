@@ -170,7 +170,7 @@ def test_only_task_zero_of_a_real_night_fetches_rates(monkeypatch):
     import pull_daily_prices as pdp
     runs = []
     monkeypatch.setattr(pdp.storage, "list_active_tickers", lambda: ["AAA", "BBB"])
-    monkeypatch.setattr(pdp.fetchers, "fetch_prices", lambda s, period="5d": [{"date": "2026-10-19", "close": 1.0}])
+    monkeypatch.setattr(pdp.fetchers, "fetch_prices", lambda s, period="5d", splits=None: [{"date": "2026-10-19", "close": 1.0}])
     monkeypatch.setattr(pdp.storage, "write_prices_batch", lambda s, r: None)
     monkeypatch.setattr(pdp.time, "sleep", lambda _s: None)
     monkeypatch.setattr(pdp.universe_sync, "run", lambda: None)
@@ -188,7 +188,7 @@ def test_only_task_zero_of_a_real_night_fetches_rates(monkeypatch):
 def test_a_failure_in_the_rates_never_fails_the_price_job(monkeypatch):
     import pull_daily_prices as pdp
     monkeypatch.setattr(pdp.storage, "list_active_tickers", lambda: ["AAA"])
-    monkeypatch.setattr(pdp.fetchers, "fetch_prices", lambda s, period="5d": [{"date": "2026-10-19", "close": 1.0}])
+    monkeypatch.setattr(pdp.fetchers, "fetch_prices", lambda s, period="5d", splits=None: [{"date": "2026-10-19", "close": 1.0}])
     monkeypatch.setattr(pdp.storage, "write_prices_batch", lambda s, r: None)
     monkeypatch.setattr(pdp.time, "sleep", lambda _s: None)
     monkeypatch.setattr(pdp.universe_sync, "run", lambda: None)

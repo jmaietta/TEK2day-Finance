@@ -20,6 +20,7 @@ from google.api_core.exceptions import ResourceExhausted
 
 import fetchers
 import fx_rates
+import share_counts
 import storage
 import universe_sync
 
@@ -192,8 +193,9 @@ def main():
         yahoo_sym = symbol.replace(".", "-")
 
         period = universe_sync.BACKFILL_PERIOD if symbol in backfill else PERIOD
+        splits = {}
         rows = call_with_retry(
-            lambda s=yahoo_sym, p=period: fetchers.fetch_prices(s, period=p),
+            lambda s=yahoo_sym, p=period: fetchers.fetch_prices(s, period=p, splits=splits),
             f"{symbol} prices",
         )
 
@@ -207,6 +209,8 @@ def main():
             if written:
                 logger.info("[%d/%d] %s: %d price rows written", i, total, symbol, len(rows))
                 success += 1
+                # The same answer's splits, for share counts (no extra Yahoo call).
+                share_counts.save_splits(None, symbol, splits, period)
                 if symbol in backfill:
                     try:
                         universe_sync.backfill_done(None, symbol)
@@ -251,6 +255,11 @@ def main():
             fx_rates.run()
         except Exception as exc:  # noqa: BLE001 - prices are already written
             logger.error("Exchange rates failed: %s", exc)
+        # Weekly, on the long (Thursday) run only: one checked share count per
+        # company, SEC as the source of truth (issue #16). About 4 SEC
+        # requests. Never raises and never changes this job's result.
+        if PERIOD in share_counts.LONG_PERIODS:
+            share_counts.run()
 
     rate = (success / total) if total else 0.0
     if continuity_failed:

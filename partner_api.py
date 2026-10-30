@@ -1333,7 +1333,8 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1)):
         except Exception:
             estimates = []
         try:
-            financials = storage.get_all_financials(norm)
+            import share_counts
+            financials = share_counts.overlay(norm, storage.get_all_financials(norm))
         except Exception:
             financials = []
         row = watchlist_metrics.build_row(
