@@ -183,3 +183,19 @@ def test_friday_evening_lasts_until_monday():
 def test_saturday_afternoon_is_not_a_run():
     expires, in_run = partner_api._price_window(_et(2026, 10, 31, 17, 0))
     check("not in a run", not in_run and expires == _et(2026, 11, 2, 16, 30), str(expires))
+
+
+def test_gzip_when_the_caller_accepts_it(monkeypatch):
+    """250 names x 5 years is ~9.7 MB of JSON; Kilby's httpx asks for gzip."""
+    import gzip
+    install(monkeypatch)
+
+    class Gz:
+        headers = {"accept-encoding": "gzip, deflate"}
+
+    result = partner_api.equity_prices(Gz(), symbols="KO,PEP", days=1260)
+    check("gzip header", result.headers.get("content-encoding") == "gzip", str(dict(result.headers)))
+    body = json.loads(gzip.decompress(result.body))
+    check("same shape", [c["symbol"] for c in body["data"]["companies"]] == ["KO", "PEP"], str(body)[:200])
+    _, plain = call("KO,PEP")
+    check("same data", body["data"] == plain["data"])

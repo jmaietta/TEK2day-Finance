@@ -27,7 +27,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 import envelope
 import storage
@@ -1593,8 +1593,17 @@ def equity_prices(request: Request, symbols: str = Query(..., min_length=1),
     if in_run:
         warnings.append({"code": "price_run_in_progress",
                          "note": "The daily price run is writing; some symbols may not have today's close yet."})
-    return envelope.build("prices", data, requested, {"symbols": [row["symbol"] for row in rows]},
+    body = envelope.build("prices", data, requested, {"symbols": [row["symbol"] for row in rows]},
                           live=False, warnings=warnings, as_of=latest)
+    # 250 names x 5 years is ~9.7 MB of JSON, much of it repeated dates. Gzip
+    # here, for this endpoint only, when the caller accepts it (Kilby's httpx
+    # does): the website's responses are untouched.
+    if "gzip" in str(request.headers.get("accept-encoding") or "").lower():
+        import gzip  # noqa: PLC0415
+        raw = JSONResponse(content=body).body
+        return Response(content=gzip.compress(raw, compresslevel=6), media_type="application/json",
+                        headers={"Content-Encoding": "gzip", "Vary": "Accept-Encoding"})
+    return body
 
 
 # No /capabilities endpoint: FastAPI already publishes the API surface as
