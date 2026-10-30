@@ -222,6 +222,27 @@ def test_market_cap_uses_the_corrected_latest_quarter(monkeypatch):
     check("shares", fundamentals["shares"] == 469_948_000.0, str(fundamentals.get("shares")))
 
 
+def test_kilbys_market_cap_check_still_holds_when_switched_on(monkeypatch):
+    """Kilby (report_evidence.normalize_observation) refuses a market cap unless
+    price x fundamentals.diluted_shares equals valuation.market_cap, the
+    definition text is unchanged and no quality warning is added. The corrected
+    count must therefore be the one in BOTH places."""
+    import partner_api
+    import storage
+    import terminal
+    monkeypatch.setenv("SHARE_COUNTS_READ", "on")
+    monkeypatch.setattr(sc, "record_for", lambda s, db=None: RECORD)
+    monkeypatch.setattr(storage, "get_all_financials", lambda s: [dict(f) for f in FINANCIALS])
+    monkeypatch.setattr(terminal, "_has_firestore", lambda: True)
+    monkeypatch.setattr(terminal, "_firestore_meta", lambda s: {"symbol": "TTD", "active": True, "currency": "USD"})
+    monkeypatch.setattr(terminal, "_live_quote", lambda s: {"price": 12.75})
+    snap = terminal._market_snapshot("TTD")
+    check("shares", snap["shares"] == 469_948_000.0, str(snap.get("shares")))
+    check("price x shares == cap", snap["market_cap"] == 12.75 * snap["shares"], str(snap.get("market_cap")))
+    check("definition unchanged",
+          "Live price x diluted average shares, computed at request time" in open(partner_api.__file__, encoding="utf-8").read())
+
+
 # ── SEC requests: never enough to be throttled ───────────────────────────────
 
 class _Response:
