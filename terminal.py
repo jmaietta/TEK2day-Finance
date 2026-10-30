@@ -1301,6 +1301,7 @@ def _market_snapshot(symbol, quote=None):
         "industry": meta.get("industry", ""),
         "summary": meta.get("summary") or meta.get("longBusinessSummary", ""),
         "beta": meta.get("beta"),
+        "beta_source": meta.get("beta_source"),
         "price": price,
         "quote_observed_at": quote.get("observed_at"),
         "quote_currency": quote.get("currency"),

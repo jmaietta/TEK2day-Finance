@@ -244,3 +244,20 @@ def test_absent_financial_history_is_explicitly_empty():
 
 if __name__ == "__main__":
     sys.exit(run_all(globals()))
+
+
+# ── beta (30 Oct 2026, beta.py) ──────────────────────────────────────────────
+
+def test_beta_comes_with_its_source_from_the_company_record():
+    install()
+    held = {**UNIVERSE, "NVDA": {**UNIVERSE["NVDA"], "beta": 2.12, "beta_source": "yahoo",
+                                 "beta_as_of": "2026-10-31"},
+            "AMD": {**UNIVERSE["AMD"], "beta": float("nan"), "beta_source": "yahoo"}}
+    storage.get_ticker_meta = lambda s: held.get(s)
+    _, body = call("NVDA,AMD,INTC")
+    nvda, amd, intc = _row(body, "NVDA"), _row(body, "AMD"), _row(body, "INTC")
+    check("NVDA beta", (nvda["beta"], nvda["beta_source"], nvda["beta_as_of"]) == (2.12, "yahoo", "2026-10-31"),
+          str(nvda))
+    check("NaN is no beta", (amd["beta"], amd["beta_source"]) == (None, None), str(amd))
+    check("none held", intc["beta"] is None and intc["beta_source"] is None)
+    check("defined", "beta" in body["data"]["definitions"])

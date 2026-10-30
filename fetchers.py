@@ -14,7 +14,8 @@ from datetime import date, datetime, timezone
 
 import yfinance as yf
 
-from envelope import filing_currency
+import beta
+from envelope import filing_currency, finite
 
 logger = logging.getLogger("ydp.fetchers")
 
@@ -101,6 +102,13 @@ def fetch_ticker_info(symbol: str) -> dict | None:
             "currency": info.get("currency"),
             "active": True,
         }
+        # Yahoo's beta ("Beta (5Y Monthly)"), from the same response: no extra
+        # Yahoo call. Written only when Yahoo gives one, so a fund without one
+        # keeps our stand-in (beta.py) rather than going blank.
+        if finite(info.get("beta")) and not isinstance(info.get("beta"), bool):
+            meta["beta"] = float(info["beta"])
+            meta["beta_source"] = beta.YAHOO_SOURCE
+            meta["beta_as_of"] = date.today().isoformat()
         # The statements' currency, from the same response: no extra Yahoo call.
         # Written only when Yahoo gives one, so a thin response cannot erase it.
         financial_currency = filing_currency(info.get("financialCurrency"))
