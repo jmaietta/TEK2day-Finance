@@ -324,6 +324,21 @@ def save_splits(db, symbol, splits: dict, period: str, today: date | None = None
         logger.warning("%s: splits not saved: %s", symbol, exc)
 
 
+def split_since_refresh(symbol: str) -> str | None:
+    """Date of a split recorded after the last 5-year refresh, else None.
+
+    The nightly run rewrites only five days, so after a mid-week split the older
+    closes stay on the old basis until Thursday: a false 50% move. The price
+    feed flags such a name and beta leaves it blank until then.
+    """
+    import storage
+    snap = storage.get_db().collection(SPLITS).document(symbol).get()
+    record = (snap.to_dict() or {}) if snap.exists else {}
+    refreshed = str(record.get("checked_at") or "")
+    later = sorted(d for d in (record.get("events") or {}) if str(d)[:10] > refreshed)
+    return later[-1][:10] if later and refreshed else None
+
+
 def fetch_frames(db, today: date, get=None, sleep=time.sleep) -> dict:
     """{(tag, period): {cik: [end, shares]}} from storage, refreshing what is due.
 

@@ -1300,8 +1300,6 @@ def _market_snapshot(symbol, quote=None):
         "sector": meta.get("sector", ""),
         "industry": meta.get("industry", ""),
         "summary": meta.get("summary") or meta.get("longBusinessSummary", ""),
-        "beta": meta.get("beta"),
-        "beta_source": meta.get("beta_source"),
         "price": price,
         "quote_observed_at": quote.get("observed_at"),
         "quote_currency": quote.get("currency"),
@@ -1356,16 +1354,11 @@ def _market_snapshot(symbol, quote=None):
     }
 
 
-def _beta(symbol, snap):
-    """Yahoo's beta for the company page: from the live Yahoo profile the page
-    already reads (short interest, cached 10 minutes), else the one the weekly
-    job saved. Both are Yahoo's own number; we never calculate one.
-
-    Until 30 Oct 2026 the Beta row read only the saved copy, which nothing
-    saved, so it showed N/A for every company.
-    """
-    live = _to_float(_yahoo(symbol).get("beta"))
-    return live if live is not None else _to_float((snap or {}).get("beta"))
+def _beta(symbol):
+    """TEK2day's own beta, 2 years weekly vs SPY (beta.py): the number Kilby
+    serves. Owner decision, 30 Oct 2026; Yahoo's beta is no longer shown."""
+    import beta  # noqa: PLC0415
+    return beta.for_symbol(symbol)["beta"]
 
 
 def _company_summary(symbol, snap):
@@ -1433,7 +1426,7 @@ def cmd_overview(symbol, info=None):
          "EV/Rev (TTM)", _ratio(snap.get("ev_revenue"))),
         ("Industry", str(snap.get("industry") or "N/A")[:26],
          "", ""),
-        ("Beta", _num(_beta(symbol, snap)),
+        ("Beta (2Y weekly vs SPY)", _num(_beta(symbol)),
          "", ""),
     ]
     for r in rows:

@@ -102,10 +102,11 @@ def fetch_ticker_info(symbol: str) -> dict | None:
             "active": True,
         }
         # Yahoo's beta ("Beta (5Y Monthly)"), from the same response: no extra
-        # Yahoo call. Written only when Yahoo gives one, so a thin response
-        # cannot erase the last one. We never calculate a beta of our own
-        # (owner decision, 30 Oct 2026: Yahoo's beta only, no mix of sources).
-        meta.update(beta_fields(info.get("beta")))
+        # Yahoo call. Kept, not shown: the beta we show and serve is our own
+        # (beta.py; owner decision, 30 Oct 2026), so Yahoo's is saved under its
+        # own name and never read as ours. Written only when Yahoo gives one,
+        # so a thin response cannot erase the last one.
+        meta.update(yahoo_beta_fields(info.get("beta")))
         # The statements' currency, from the same response: no extra Yahoo call.
         # Written only when Yahoo gives one, so a thin response cannot erase it.
         financial_currency = filing_currency(info.get("financialCurrency"))
@@ -125,35 +126,11 @@ def fetch_ticker_info(symbol: str) -> dict | None:
         return None
 
 
-def beta_fields(value) -> dict:
-    """{beta, beta_source, beta_as_of} for a usable Yahoo beta, else {}."""
+def yahoo_beta_fields(value) -> dict:
+    """{yahoo_beta, yahoo_beta_as_of} for a usable Yahoo beta, else {}."""
     if not finite(value) or isinstance(value, bool):
         return {}
-    return {"beta": float(value), "beta_source": "yahoo", "beta_as_of": date.today().isoformat()}
-
-
-def fetch_beta(symbol: str) -> dict:
-    """Yahoo's beta alone: ONE request, for the one-off fill (scripts/fetch_yahoo_beta.py).
-
-    The full profile (fetch_ticker_info) is two requests; this asks the summary
-    service for just the section holding beta, plus the one naming the company
-    so an answer about a different ticker is refused, as fetch_ticker_info does.
-    Returns beta_fields(...): {} when Yahoo has no beta. Raises on a failed request.
-    """
-    from yfinance.data import YfData  # noqa: PLC0415
-
-    raw = YfData().get_raw_json(
-        f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{symbol}",
-        params={"modules": "summaryDetail,defaultKeyStatistics,quoteType", "formatted": "false", "symbol": symbol},
-    )
-    result = ((raw.get("quoteSummary") or {}).get("result") or [{}])[0] or {}
-    supplied = (result.get("quoteType") or {}).get("symbol")
-    if supplied and str(supplied).upper().replace("-", ".") != symbol.upper().replace("-", "."):
-        raise ValueError(f"Provider ticker changed from {symbol} to {supplied}; identity review required")
-    beta = (result.get("summaryDetail") or {}).get("beta")
-    if not finite(beta):
-        beta = (result.get("defaultKeyStatistics") or {}).get("beta")
-    return beta_fields(beta)
+    return {"yahoo_beta": float(value), "yahoo_beta_as_of": date.today().isoformat()}
 
 
 _NAME_NOISE = {"sa", "s", "a", "ag", "nv", "n", "v", "plc", "ltd", "limited", "inc", "incorporated", "corp",

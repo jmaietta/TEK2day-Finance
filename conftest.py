@@ -10,7 +10,7 @@ import importlib
 
 import pytest
 
-_SHARED = ("storage", "terminal", "partner_api")
+_SHARED = ("storage", "terminal", "partner_api", "beta")
 
 
 @pytest.fixture(autouse=True)
@@ -30,3 +30,11 @@ def _restore_shared_modules():
         for key, value in original.items():
             if current.get(key) is not value:
                 setattr(module, key, value)
+
+
+@pytest.fixture(autouse=True)
+def _no_beta_reads(monkeypatch):
+    """beta.for_symbol reads Firestore. Every test gets a blank beta unless it
+    puts its own in; test_beta.py tests the real one against fakes."""
+    import beta
+    monkeypatch.setattr(beta, "for_symbol", lambda symbol: dict.fromkeys(beta.FIELDS))
