@@ -306,22 +306,53 @@ def test_no_rate_for_us_companies_or_blank_ratios(monkeypatch):
 
 # ── the public company page ──────────────────────────────────────────────────
 
-def test_the_public_page_ratios_are_in_dollars_too(monkeypatch):
+def _public_page(monkeypatch, quarters, meta):
     import seo_pages
     import storage
-    quarters = [{"period": f"2025-Q{i}", "period_end": f"2025-0{3 * i}-30", "freq": "Q",
-                 "income": {"Total Revenue": 1_109e9, "Diluted EPS": 106.86}} for i in (1, 2, 3)]
-    quarters.append({"period": "2026-Q1", "period_end": "2026-03-31", "freq": "Q",
-                     "income": {"Total Revenue": 1_109e9, "Diluted EPS": 106.86}})
-    monkeypatch.setattr(storage, "get_ticker_meta", lambda s: {"symbol": "TSM", "name": "TSMC", "active": True,
-                                                               "financial_currency": "TWD",
-                                                               "shares_outstanding": 5_186_474_013})
+    monkeypatch.setattr(storage, "get_ticker_meta", lambda s: meta)
     monkeypatch.setattr(storage, "get_prices_history", lambda s, limit=0: [{"date": "2026-10-16", "close": 412.61}])
     monkeypatch.setattr(storage, "get_all_financials", lambda s: quarters)
+    monkeypatch.setattr(terminal, "_has_firestore", lambda: True)
+    monkeypatch.setattr(terminal, "_estimate_history", lambda s: [])
+
+    def no_yahoo(symbol):
+        raise AssertionError("the public page asked Yahoo for a live quote")
+    monkeypatch.setattr(terminal, "_live_quote", no_yahoo)
+    return seo_pages
+
+
+TSM_QUARTERS = [{"period": period, "period_end": end, "freq": "Q",
+                 "income": {"Total Revenue": 1_109e9, "Net Income": 554e9, "Diluted EPS": 106.86,
+                            "Diluted Average Shares": 5_186_000_000}}
+                for period, end in (("2025-Q2", "2025-06-30"), ("2025-Q3", "2025-09-30"),
+                                    ("2025-Q4", "2025-12-31"), ("2026-Q1", "2026-03-31"))]
+TSM_META = {"symbol": "TSM", "name": "TSMC", "active": True, "financial_currency": "TWD",
+            "shares_outstanding": 5_186_474_013}
+
+
+def test_the_public_page_ratios_are_in_dollars_too(monkeypatch):
+    seo_pages = _public_page(monkeypatch, TSM_QUARTERS, TSM_META)
     monkeypatch.setattr(terminal, "_fx_rate", lambda c: RATE if c == "TWD" else None)
     html = seo_pages._build_page("TSM")
-    pe = 412.61 / (4 * 106.86 / 31.864)
+    pe = 412.61 / (4 * 554e9 / 5_186_000_000 / 31.864)
     check("P/E in dollars", terminal._ratio(pe) in html, terminal._ratio(pe))
     monkeypatch.setattr(terminal, "_fx_rate", lambda c: None)
     html = seo_pages._build_page("TSM")
-    check("no rate, no P/E", "P/E (TTM)" not in html)
+    check("no rate, no P/E", "P/E TTM (GAAP)" not in html)
+
+
+def test_the_public_page_shows_the_main_websites_figures(monkeypatch):
+    """Owner, 30 Oct 2026: /stock/TTD must "use the same data" as the main
+    website. It used to take Yahoo's shares_outstanding for market cap, so TTD
+    read $5.61B there and another figure on the main site."""
+    seo_pages = _public_page(monkeypatch, TSM_QUARTERS, TSM_META)
+    monkeypatch.setattr(terminal, "_fx_rate", lambda c: RATE if c == "TWD" else None)
+    html = seo_pages._build_page("TSM")
+    snap = terminal._market_snapshot("TSM", quote={"price": 412.61})
+    for label, value in (("market cap", terminal._dollar(snap["market_cap"])),
+                         ("shares", terminal._count(snap["shares"])),
+                         ("P/S", terminal._ratio(snap["ps_ttm"])),
+                         ("P/E", terminal._ratio(snap["pe_ttm"]))):
+        check(label, value in html, value)
+    check("the statement's diluted count, not Yahoo's shares outstanding",
+          snap["shares"] == 5_186_000_000 and snap["market_cap"] == 412.61 * 5_186_000_000, str(snap["shares"]))

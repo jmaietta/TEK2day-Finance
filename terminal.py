@@ -1228,12 +1228,15 @@ def _calc_ratio(num, denom):
     return num / denom
 
 
-def _market_snapshot(symbol):
+def _market_snapshot(symbol, quote=None):
+    """`quote`: a stored close ({"price": ...}) instead of the live quote; the
+    public company pages pass one so a crawler never causes a Yahoo call."""
     meta = _firestore_meta(symbol)
     if meta is None:
         return None
 
-    quote = _live_quote(symbol)
+    if quote is None:
+        quote = _live_quote(symbol)
     fundamentals = _firestore_fundamentals(symbol, meta)
 
     price = quote.get("price")
