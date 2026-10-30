@@ -348,10 +348,15 @@ def _bar_from_metadata(meta: dict, symbol: str) -> dict | None:
     }
 
 
-def fetch_prices(symbol: str, period: str = "5d") -> list[dict]:
+def fetch_prices(symbol: str, period: str = "5d", splits: dict | None = None) -> list[dict]:
     """
     Fetch OHLCV price history. Default last 5 days to catch up
     after weekends/holidays. For backfill, pass period='max'.
+
+    `splits`, when given, is filled with {date: ratio} from the same answer's
+    "Stock Splits" column (4.0 for 4-for-1, 0.1 for 1-for-10). The weekly 5-year
+    download carries every split in five years, at no extra Yahoo call
+    (share_counts.save_splits).
     """
     try:
         t = yf.Ticker(symbol)
@@ -360,6 +365,12 @@ def fetch_prices(symbol: str, period: str = "5d") -> list[dict]:
         if hist is None or hist.empty:
             logger.warning("%s: no price history returned", symbol)
             return []
+
+        if splits is not None and "Stock Splits" in hist.columns:
+            for idx, ratio in hist["Stock Splits"].items():
+                ratio = float(ratio)
+                if ratio and not math.isnan(ratio):
+                    splits[idx.strftime("%Y-%m-%d")] = ratio
 
         def _num(value):
             value = float(value)

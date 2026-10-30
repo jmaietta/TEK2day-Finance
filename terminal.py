@@ -772,7 +772,9 @@ def _all_financials(symbol):
     if not _has_firestore():
         return []
     try:
-        return storage.get_all_financials(symbol) or []
+        # Checked share counts (issue #16) when switched on; the statements otherwise.
+        import share_counts
+        return share_counts.overlay(symbol, storage.get_all_financials(symbol) or [])
     except Exception:
         return []
 
