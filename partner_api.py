@@ -22,6 +22,7 @@ import os
 import threading
 import time
 import uuid
+from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
@@ -1409,6 +1410,191 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1)):
                                                    for row in rows) else None,
         warnings=warnings,
     )
+
+
+# ── price history ────────────────────────────────────────────────────────────
+#
+# Daily closes and volumes for Kilby's volatility, correlation and pair answers
+# (spec agreed with Kilby 30 Oct 2026, chatllm docs/PRICE_STATISTICS_PLAN.md).
+# Stored rows only: no Yahoo call, ever. A row per stored day is a Firestore
+# read per day, so 250 names x 5 years is ~315,000 reads uncached. Hence the
+# cache below, per symbol so overlapping portfolios share it.
+#
+# ⚠️ THE CACHE MUST NOT OUTLIVE THE DATA, NOR FREEZE A HALF-WRITTEN RUN. The
+# price pull starts 4:30 PM ET every weekday (Thursday's is the 5-year
+# re-adjust) and writes ticker by ticker for about two hours. A copy read
+# outside that window is good until the next start; one read inside it lives
+# five minutes, or a 4:35 PM read would serve half-updated prices for a day.
+_MAX_PRICE_SYMBOLS = _MAX_METRICS_SYMBOLS
+_MAX_PRICE_DAYS = 1260
+_PRICE_RUN_START = (16, 30)          # ET, Mon-Fri (Cloud Scheduler, America/New_York)
+_PRICE_RUN_SETTLED = (19, 0)         # the ~2 h run plus margin
+_PRICE_IN_RUN_SECONDS = 300
+_PRICE_CACHE_SYMBOLS = 1000          # ~25 KB a symbol at 5 years; the service has 512 MiB
+# Each symbol is ~1,260 small reads streamed one after another, so the time is
+# waiting, not work: 250 names took 101 s from a laptop at 12 workers (30 Oct).
+_PRICE_MAX_WORKERS = 32
+_PRICE_CACHE: "OrderedDict[str, dict]" = OrderedDict()
+_PRICE_CACHE_LOCK = threading.Lock()
+
+
+def _price_window(now: datetime | None = None) -> tuple[datetime, bool]:
+    """(when a copy read now stops being good, whether a run is writing now). UTC."""
+    from datetime import timedelta  # noqa: PLC0415
+    from zoneinfo import ZoneInfo  # noqa: PLC0415
+
+    eastern = ZoneInfo("America/New_York")
+    now = (now or datetime.now(timezone.utc)).astimezone(eastern)
+    start = now.replace(hour=_PRICE_RUN_START[0], minute=_PRICE_RUN_START[1], second=0, microsecond=0)
+    settled = now.replace(hour=_PRICE_RUN_SETTLED[0], minute=_PRICE_RUN_SETTLED[1], second=0, microsecond=0)
+    if now.weekday() < 5 and start <= now < settled:
+        return (now + timedelta(seconds=_PRICE_IN_RUN_SECONDS)).astimezone(timezone.utc), True
+    nxt = start if now < start else start + timedelta(days=1)
+    while nxt.weekday() >= 5:
+        nxt += timedelta(days=1)
+    return nxt.astimezone(timezone.utc), False
+
+
+def _split_since_refresh(symbol: str) -> str | None:
+    """Date of a split recorded after the last 5-year refresh, else None.
+
+    The nightly run rewrites only five days, so after a mid-week split the older
+    closes stay on the old basis until Thursday: a false 50% move. Kilby leaves
+    such a name out of its statistics until then.
+    """
+    import share_counts  # noqa: PLC0415
+    snap = storage.get_db().collection(share_counts.SPLITS).document(symbol).get()
+    record = (snap.to_dict() or {}) if snap.exists else {}
+    refreshed = str(record.get("checked_at") or "")
+    later = sorted(d for d in (record.get("events") or {}) if str(d)[:10] > refreshed)
+    return later[-1][:10] if later and refreshed else None
+
+
+def _price_rows(symbol: str, days: int, expires: datetime) -> dict:
+    """{dates, closes, volumes, split_since_refresh, reads} for `symbol`, cached."""
+    with _PRICE_CACHE_LOCK:
+        held = _PRICE_CACHE.get(symbol)
+        if held and held["expires"] > datetime.now(timezone.utc) and (
+                held["days"] >= days or len(held["dates"]) < held["days"]):
+            _PRICE_CACHE.move_to_end(symbol)
+            return {**held, "reads": 0}
+
+    from array import array  # noqa: PLC0415
+    rows = [r for r in storage.get_prices_history(symbol, limit=days)
+            if envelope.finite(r.get("close")) and r.get("date")]
+    entry = {
+        # Compact: about 20 bytes a day rather than ~130 as Python objects.
+        "dates": [str(r["date"])[:10] for r in rows],
+        "closes": array("d", (float(r["close"]) for r in rows)),
+        "volumes": array("q", (int(r["volume"]) if envelope.finite(r.get("volume")) else -1 for r in rows)),
+        "split_since_refresh": _split_since_refresh(symbol),
+        "days": days,
+        "expires": expires,
+    }
+    with _PRICE_CACHE_LOCK:
+        _PRICE_CACHE[symbol] = entry
+        _PRICE_CACHE.move_to_end(symbol)
+        while len(_PRICE_CACHE) > _PRICE_CACHE_SYMBOLS:
+            _PRICE_CACHE.popitem(last=False)
+    return {**entry, "reads": len(rows) + 1}
+
+
+@router.get("/equities/prices")
+def equity_prices(request: Request, symbols: str = Query(..., min_length=1),
+                  days: int = Query(_MAX_PRICE_DAYS, ge=1)):
+    """Daily adjusted closes and volumes, up to five years, up to 250 names.
+
+    Same promises as /equities/metrics: every requested symbol comes back, in
+    the order asked, `covered: false` when we hold no prices for it. Days we do
+    not hold are left out of that symbol's lists, never filled in.
+    """
+    require_kilby(request)
+    requested_raw = [s for s in str(symbols or "").replace(" ", ",").split(",") if s]
+    requested = {"symbols": requested_raw, "days": days}
+
+    def refuse(code, detail):
+        return JSONResponse(status_code=400, content={
+            "api_version": API_VERSION, "request_id": _request_id(), "error": code,
+            "detail": detail, "requested": requested, "retrieved_at": _now_iso()})
+
+    if not requested_raw:
+        return _not_found(requested, "No symbols requested")
+    if len(requested_raw) > _MAX_PRICE_SYMBOLS:
+        return refuse("too_many_symbols",
+                      f"Maximum {_MAX_PRICE_SYMBOLS} symbols at a time; {len(requested_raw)} requested")
+    if days > _MAX_PRICE_DAYS:
+        return refuse("too_many_days", f"Maximum {_MAX_PRICE_DAYS} days; {days} requested")
+
+    seen, ordered = set(), []
+    for raw in requested_raw:
+        norm = envelope.normalize_symbol(raw)
+        if norm and norm not in seen:
+            seen.add(norm)
+            ordered.append(norm)
+    if not ordered:
+        return _not_found(requested, "No usable symbols requested")
+
+    expires, in_run = _price_window()
+
+    def load(norm):
+        row = {"symbol": norm, "covered": False, "latest_close_date": None, "split_since_refresh": None,
+               "dates": [], "closes": [], "volumes": [], "_reads": 0}
+        if not envelope.valid_symbol(norm):
+            return row
+        try:
+            held = _price_rows(norm, days, expires)
+        except Exception:
+            logger.warning("%s: price history unreadable", norm, exc_info=False)
+            return row
+        dates = held["dates"][-days:]
+        n = len(dates)
+        row.update(covered=bool(n), dates=dates,
+                   closes=list(held["closes"][-n:]) if n else [],
+                   volumes=[v if v >= 0 else None for v in held["volumes"][-n:]] if n else [],
+                   latest_close_date=dates[-1] if n else None,
+                   split_since_refresh=held["split_since_refresh"] if n else None,
+                   _reads=held["reads"])
+        return row
+
+    with ThreadPoolExecutor(max_workers=min(len(ordered), _PRICE_MAX_WORKERS)) as pool:
+        rows = list(pool.map(load, ordered))
+    # The trading calendar: SPY's stored dates, given once, so a missing close
+    # can be told from a holiday without spending a symbol slot on SPY.
+    calendar = load("SPY")
+    reads = sum(row.pop("_reads") for row in rows) + calendar["_reads"]
+    logger.info("partner prices: %d symbols, %d days, %d Firestore reads", len(rows), days, reads)
+
+    missing = [row["symbol"] for row in rows if not row["covered"]]
+    latest = max((row["latest_close_date"] for row in rows if row["latest_close_date"]), default=None)
+    data = {
+        "companies": rows,
+        "not_covered": missing,
+        "trading_days": calendar["dates"],
+        "latest_close_date": latest,
+        "next_refresh_at": expires.isoformat(timespec="seconds"),
+        "run_in_progress": in_run,
+        "definitions": {
+            "closes": "Daily closes adjusted for splits AND dividends (total return), as Yahoo publishes them",
+            "volumes": "Shares traded that day; null when not stored",
+            "trading_days": ("SPY's stored dates over the requested days: the trading calendar. A date here "
+                             "missing from a symbol's dates is a missing close, not a holiday"),
+            "dates": "The days TEK2day holds for this symbol, oldest first. Missing days are left out, never filled",
+            "latest_close_date": "This symbol's newest stored close; during a run some names are a day ahead",
+            "next_refresh_at": ("When this copy stops being current: the next 4:30 PM ET weekday price run, "
+                                "or five minutes from now while a run is writing"),
+            "split_since_refresh": ("A split recorded after the last 5-year re-adjust (Thursdays). Older closes "
+                                    "are on the pre-split basis until then; leave the name out of statistics"),
+        },
+    }
+    warnings = []
+    if missing:
+        warnings.append({"code": "not_covered",
+                         "note": "Not covered by TEK2day Finance: " + ", ".join(missing) + "."})
+    if in_run:
+        warnings.append({"code": "price_run_in_progress",
+                         "note": "The daily price run is writing; some symbols may not have today's close yet."})
+    return envelope.build("prices", data, requested, {"symbols": [row["symbol"] for row in rows]},
+                          live=False, warnings=warnings, as_of=latest)
 
 
 # No /capabilities endpoint: FastAPI already publishes the API surface as
