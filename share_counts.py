@@ -33,6 +33,14 @@ price download carries every split in its "Stock Splits" column (zero extra
 Yahoo calls). save_splits keeps them; a count is multiplied by the ratio of
 every split after its quarter ended.
 
+UNLESS SEC ALREADY DID. SEC's file holds the LATEST filing's figure for a
+quarter, and a 10-Q filed after a split restates the year-ago quarter on the
+new basis. Multiplying that again counted the split twice: IBKR's March 2025
+quarter, restated after its 4-for-1 split in June 2025, came out at 1,758M
+shares beside 450M either side (found 29 Oct 2026, 11 companies). So a count
+takes the ratio only when that lands nearer the company's count today than the
+figure as filed does (on_todays_basis).
+
 WHERE IT LIVES. share_counts/{TICKER} holds the corrected quarters. The
 statements are never changed (financials are write-once). apply() overlays the
 corrections when SHARE_COUNTS_READ is on; until then nothing a reader sees
@@ -127,6 +135,20 @@ def split_factor(splits: dict | None, period_end: str) -> float:
     return factor
 
 
+def on_todays_basis(filed, factor, anchor):
+    """(count, ratio applied): `filed` times the split `factor`, unless SEC restated it already.
+
+    A split moves a count by its whole ratio, so of the two readings the one
+    nearer `anchor` (the company's count today) is right. With no anchor the
+    ratio is applied: a count filed before a split is the usual case.
+    """
+    if factor == 1.0 or not anchor or not filed:
+        return filed * factor, factor
+    if abs(math.log(filed / anchor)) < abs(math.log(filed * factor / anchor)):
+        return filed, 1.0
+    return filed * factor, factor
+
+
 def fix_sec_units(value, other_sec, statement):
     """SEC's own unit slip (MCD 711.1 for 711.1 million), corrected; else unchanged.
 
@@ -154,18 +176,31 @@ def correct_quarters(quarters, sec, splits, foreign, yahoo_shares):
     Returns {period: {...}} with "shares" set where the count should change.
     """
     out = {}
+    matched = {}
     for q in quarters:
-        period, end, stated = q["period"], q["period_end"], _num(q.get("diluted"))
-        hits = sorted((_days(e, end), e, v) for e, v in sec.items() if _days(e, end) <= MATCH_DAYS)
+        stated = _num(q.get("diluted"))
+        hits = sorted((_days(e, q["period_end"]), e, v) for e, v in sec.items()
+                      if _days(e, q["period_end"]) <= MATCH_DAYS)
         if hits:
             _, sec_end, filed = hits[0]
-            filed, unit_fix = fix_sec_units(filed, [v for e, v in sec.items() if e != sec_end], stated)
+            matched[q["period"]] = (sec_end, *fix_sec_units(filed, [v for e, v in sec.items() if e != sec_end],
+                                                            stated))
+    anchor = None
+    if matched and splits is not None:
+        # The company's count today: its latest SEC quarter, put on today's
+        # basis by Yahoo's own count when a split came after it.
+        latest = max((q for q in quarters if q["period"] in matched), key=lambda q: str(q["period_end"]))
+        anchor, _ = on_todays_basis(matched[latest["period"]][1], split_factor(splits, latest["period_end"]),
+                                    yahoo_shares)
+    for q in quarters:
+        period, end, stated = q["period"], q["period_end"], _num(q.get("diluted"))
+        if period in matched:
+            sec_end, filed, unit_fix = matched[period]
             if splits is None:
                 out[period] = {"source": "sec", "status": "waiting_for_split_record",
                                "sec_shares": filed, "sec_end": sec_end}
                 continue
-            factor = split_factor(splits, end)
-            shares = filed * factor
+            shares, factor = on_todays_basis(filed, split_factor(splits, end), anchor)
             entry = {"source": "sec", "sec_shares": filed, "sec_end": sec_end,
                      "split_factor": factor, "sec_units_corrected": unit_fix}
             if (stated and yahoo_shares and _near(stated, yahoo_shares, YAHOO_AGREES)
@@ -206,11 +241,11 @@ def _latest_from_earlier_sec(quarters, sec, splits, yahoo_shares, out):
         return
     sec_end, filed = earlier[-1]
     filed, unit_fix = fix_sec_units(filed, [v for e, v in sec.items() if e != sec_end], stated)
-    shares = filed * split_factor(splits, sec_end)
+    shares, factor = on_todays_basis(filed, split_factor(splits, sec_end), yahoo_shares)
     if _near(shares, yahoo_shares, YAHOO_AGREES) and not _near(stated, shares, YAHOO_AGREES):
         out[latest["period"]] = {"source": "sec", "status": "sec_earlier_quarter", "shares": shares,
                                  "sec_shares": filed, "sec_end": sec_end,
-                                 "split_factor": split_factor(splits, sec_end), "sec_units_corrected": unit_fix}
+                                 "split_factor": factor, "sec_units_corrected": unit_fix}
 
 
 def apply(financials, record):

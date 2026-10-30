@@ -129,6 +129,28 @@ def test_a_split_before_the_quarter_ended_is_not_applied_again():
     check("unchanged", entry["shares"] == 2_578_400_000 and entry["split_factor"] == 1.0, str(entry))
 
 
+def test_a_count_sec_restated_after_the_split_is_not_split_again():
+    """IBKR, 4-for-1 on 17 June 2025. SEC's March 2025 figure comes from a 10-Q
+    filed after the split, already on the new basis: 439M, not 110M. Applying
+    the ratio again gave 1,758M beside 450M either side (29 Oct 2026)."""
+    out = sc.correct_quarters([quarter("2025-Q1", "2025-03-31", 443_750_000),
+                               quarter("2026-Q2", "2026-06-30", 452_173_913)],
+                              {"2025-03-31": 439_462_964, "2026-06-30": 450_088_032},
+                              {"2025-06-18": 4.0}, False, 1_740_700_000)
+    check("not split twice", out["2025-Q1"]["shares"] == 439_462_964 and out["2025-Q1"]["split_factor"] == 1.0,
+          str(out))
+    check("latest", out["2026-Q2"]["shares"] == 450_088_032, str(out))
+
+
+def test_an_older_count_filed_before_the_split_is_still_split():
+    """The same company, but SEC's March figure was filed before the split (110M)."""
+    out = sc.correct_quarters([quarter("2025-Q1", "2025-03-31", 110_000_000),
+                               quarter("2026-Q2", "2026-06-30", 452_173_913)],
+                              {"2025-03-31": 109_865_741, "2026-06-30": 450_088_032},
+                              {"2025-06-18": 4.0}, False, 1_740_700_000)
+    check("x4", out["2025-Q1"]["shares"] == 439_462_964 and out["2025-Q1"]["split_factor"] == 4.0, str(out))
+
+
 def test_a_reverse_split_divides():
     entry = one(quarter("2026-Q1", "2026-03-31", 500_000), {"2026-03-31": 5_000_000},
                 splits={"2026-05-01": 0.1}, yahoo=520_000)
