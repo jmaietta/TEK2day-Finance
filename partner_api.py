@@ -781,8 +781,7 @@ def equity_summary(request: Request, symbol: str):
             "eps_ttm": snap.get("eps_ttm"),
             "forward_eps": snap.get("forward_eps"),
             "diluted_shares": snap.get("shares"),
-            "beta": snap.get("beta"),
-            "beta_source": snap.get("beta_source"),
+            **_beta_fields(norm),
             "dividend_yield": snap.get("dividend_yield"),
             # Added 19 Oct 2026. What revenue, ebitda, net_income and eps_ttm are
             # in (the filing currency), and what forward_eps is in (the
@@ -830,6 +829,8 @@ def equity_summary(request: Request, symbol: str):
                    "Fundamentals themselves are not converted."),
             "ttm_as_of": "Last day of the twelve months every TTM figure covers",
             "balance_sheet_as_of": "Period end of the balance sheet behind enterprise value",
+            "beta": ("TEK2day's own beta, 2 years of weekly returns vs SPY, with the R-squared and "
+                     "window of the same fit: the same fields as /equities/metrics, defined there"),
         },
         "basis": {
             "live": list(_LIVE_FIELDS),
@@ -1262,6 +1263,24 @@ def comparisons(request: Request, symbols: str = Query(..., min_length=1)):
     )
 
 
+def _beta_fields(symbol: str) -> dict:
+    """TEK2day's own beta and the figures from the same fit (beta.py), as served
+    in /equities/metrics rows and the summary's fundamentals. Agreed with Kilby
+    30 Oct 2026; Yahoo's beta is no longer served."""
+    import beta  # noqa: PLC0415
+    got = beta.for_symbol(symbol)
+    return {
+        "beta": got["beta"],
+        "beta_r_squared": got["r_squared"],
+        "beta_weeks_used": got["weeks_used"],
+        "beta_reason": got["reason"],
+        "beta_window_start": got["window_start"],
+        "beta_window_end": got["window_end"],
+        "beta_method": beta.METHOD,
+        "beta_source": "tek2day",
+    }
+
+
 @router.get("/equities/metrics")
 def equity_metrics(request: Request, symbols: str = Query(..., min_length=1)):
     """Price trend and forward-multiple trajectory for a set of companies.
@@ -1343,10 +1362,7 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1)):
             norm, (meta or {}).get("name"), prices, estimates, financials
         )
         row["financial_upstream"] = envelope.financial_upstream(financials)
-        # Kept on the company record (beta.py): no extra read.
-        row["beta"] = (meta or {}).get("beta") if envelope.finite((meta or {}).get("beta")) else None
-        row["beta_source"] = (meta or {}).get("beta_source") if row["beta"] is not None else None
-        row["beta_as_of"] = (meta or {}).get("beta_as_of") if row["beta"] is not None else None
+        row.update(_beta_fields(norm))
         return row
 
     # Bounded rather than one worker per symbol: these are Firestore reads and a
@@ -1390,11 +1406,23 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1)):
                 "for a live market cap."
             ),
             "beta": (
-                "Yahoo Finance's own beta (\"Beta (5Y Monthly)\"), as Yahoo publishes it; TEK2day "
-                "calculates none. Saved from the weekly company refresh; null until Yahoo's has been "
-                "saved for that company, or when Yahoo has none. beta_source is always \"yahoo\"; "
-                "beta_as_of is the day it was saved"
+                "TEK2day's own beta: slope of the stock's simple weekly return on SPY's, least squares "
+                "with an intercept (Excel SLOPE), raw. Weeks end on SPY's last stored close of each "
+                "Monday-Sunday week; a week counts once its Friday close (or, in a holiday week, the "
+                "next week's first close) is stored by a finished price run. The last 105 week-ends, "
+                "104 returns; a week counts only when this stock has both closes. Reproducible from "
+                "/equities/prices. Changes once a week"
             ),
+            "beta_r_squared": "R-squared of the same fit (Excel RSQ); null when the stock's weekly returns never varied",
+            "beta_weeks_used": "Weekly returns in the fit, of 104",
+            "beta_reason": (
+                "Why beta is null, else null: split_since_refresh (a split since Thursday's 5-year "
+                "re-adjust), short_history (first stored close after beta_window_start), "
+                "not_enough_weeks (fewer than 80 used)"
+            ),
+            "beta_window_start": "First week-end date of the window",
+            "beta_window_end": "Last week-end date of the window",
+            "beta_method": "\"2y_weekly_vs_spy\"; beta_source is \"tek2day\"",
             "annual_eps_outlook": (
                 "Consensus EPS for the fiscal years NOT yet reported, continuing straight on "
                 "from annual_diluted_eps. Yahoo's current year is the year in progress, so the "
@@ -1468,17 +1496,10 @@ def _price_window(now: datetime | None = None) -> tuple[datetime, bool]:
 
 def _split_since_refresh(symbol: str) -> str | None:
     """Date of a split recorded after the last 5-year refresh, else None.
-
-    The nightly run rewrites only five days, so after a mid-week split the older
-    closes stay on the old basis until Thursday: a false 50% move. Kilby leaves
-    such a name out of its statistics until then.
-    """
+    Kilby leaves such a name out of its statistics until then; beta.py uses
+    the same test, so the two never disagree."""
     import share_counts  # noqa: PLC0415
-    snap = storage.get_db().collection(share_counts.SPLITS).document(symbol).get()
-    record = (snap.to_dict() or {}) if snap.exists else {}
-    refreshed = str(record.get("checked_at") or "")
-    later = sorted(d for d in (record.get("events") or {}) if str(d)[:10] > refreshed)
-    return later[-1][:10] if later and refreshed else None
+    return share_counts.split_since_refresh(symbol)
 
 
 def _price_rows(symbol: str, days: int, expires: datetime) -> dict:

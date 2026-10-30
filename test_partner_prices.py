@@ -11,7 +11,7 @@ SPY's dates as the trading calendar, a cache that never freezes a half-written
 run, and a flag for a split since the last 5-year re-adjust.
 """
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from testkit import check
 
@@ -72,9 +72,10 @@ def install(monkeypatch, reads=None):
     monkeypatch.setattr(storage, "get_db", lambda: _DB())
     monkeypatch.setattr(fetchers, "fetch_prices", no_yahoo)
     monkeypatch.setattr(partner_api, "require_kilby", lambda r: "test")
-    # Outside the run window unless a test says otherwise.
+    # Outside the run window unless a test says otherwise. Relative to now: a
+    # fixed date (4:30 PM ET, 30 Oct) expired the copy and failed this from then on.
     monkeypatch.setattr(partner_api, "_price_window",
-                        lambda now=None: (datetime(2026, 10, 30, 20, 30, tzinfo=timezone.utc), False))
+                        lambda now=None: (datetime.now(timezone.utc) + timedelta(days=1), False))
 
 
 def call(symbols, days=1260):

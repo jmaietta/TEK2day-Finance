@@ -1,17 +1,200 @@
 #!/usr/bin/env python3
-"""Tests for beta: Yahoo's own, never one we calculate.
+"""Tests for beta: TEK2day's own, 2 years of weekly returns against SPY.
 
     pytest test_beta.py
 
-No network, no Firestore. Decided 30 Oct 2026: /ticker showed N/A for every
-company because the Beta row read a saved copy nothing ever saved, while the
-page's own Yahoo profile carried beta.
+No network, no Firestore. Decided 30 Oct 2026 (beta.py has the method): Kilby
+shows beta beside R-squared, which Yahoo does not publish, so both come from
+one fit of ours. Yahoo's beta is still saved, under its own name, and never
+shown or served.
 """
+import random
+import statistics
+from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
+
 from testkit import check
 
+import beta
 import fetchers
+import share_counts
+import storage
 import terminal
 
+REAL_FOR_SYMBOL = beta.for_symbol    # conftest blanks it for every other test
+ET = ZoneInfo("America/New_York")
+
+
+def _fridays(n, last=date(2026, 10, 23)):
+    return [(last - timedelta(weeks=n - 1 - i)).isoformat() for i in range(n)]
+
+
+def _market(n=105, slope=1.4, seed=7):
+    """SPY and a stock whose weekly returns are slope x SPY's plus noise."""
+    rng = random.Random(seed)
+    ends = _fridays(n)
+    spy, stock = {ends[0]: 400.0}, {ends[0]: 50.0}
+    for a, b in zip(ends, ends[1:]):
+        x = rng.gauss(0.002, 0.02)
+        spy[b] = spy[a] * (1 + x)
+        stock[b] = stock[a] * (1 + slope * x + rng.gauss(0, 0.02))
+    return ends, spy, stock
+
+
+def _excel(ends, spy, stock):
+    """SLOPE and RSQ the way a spreadsheet does them, from the same closes."""
+    pairs = [(spy[b] / spy[a] - 1, stock[b] / stock[a] - 1) for a, b in zip(ends, ends[1:])
+             if a in stock and b in stock]
+    xs, ys = zip(*pairs)
+    return statistics.linear_regression(xs, ys).slope, statistics.correlation(xs, ys) ** 2, len(xs)
+
+
+# ── the fit ──────────────────────────────────────────────────────────────────
+
+def test_beta_and_r_squared_match_excel():
+    ends, spy, stock = _market()
+    got = beta.compute(ends, spy, stock, first_close=ends[0])
+    slope, rsq, n = _excel(ends, spy, stock)
+    check("104 weeks", got["weeks_used"] == n == 104, str(got))
+    check("SLOPE", abs(got["beta"] - slope) < 1e-12, f"{got['beta']} vs {slope}")
+    check("RSQ", abs(got["r_squared"] - rsq) < 1e-12, f"{got['r_squared']} vs {rsq}")
+    check("window", (got["window_start"], got["window_end"]) == (ends[0], ends[-1]), str(got))
+    check("no reason", got["reason"] is None)
+
+
+def test_only_the_last_105_week_ends_are_used():
+    ends, spy, stock = _market(n=130)
+    got = beta.compute(ends, spy, stock, first_close=ends[0])
+    check("window start", got["window_start"] == ends[-105], str(got))
+    slope, _, _ = _excel(ends[-105:], spy, stock)
+    check("same as the last 105 alone", abs(got["beta"] - slope) < 1e-12)
+
+
+def test_a_missing_close_drops_both_weeks_it_touches_and_fills_nothing():
+    ends, spy, stock = _market()
+    del stock[ends[50]]
+    got = beta.compute(ends, spy, stock, first_close=ends[0])
+    slope, _, n = _excel(ends, spy, stock)
+    check("102 weeks", got["weeks_used"] == n == 102, str(got))
+    check("still Excel's slope", abs(got["beta"] - slope) < 1e-12)
+
+
+def test_blank_reasons_in_order():
+    ends, spy, stock = _market()
+    got = beta.compute(ends, spy, stock, first_close=ends[0], split="2026-10-21")
+    check("split first", (got["beta"], got["reason"]) == (None, "split_since_refresh"), str(got))
+    got = beta.compute(ends, spy, stock, first_close=ends[3])
+    check("short history", (got["beta"], got["reason"]) == (None, "short_history"), str(got))
+    thin = {d: c for i, (d, c) in enumerate(stock.items()) if i % 3}
+    got = beta.compute(ends, spy, thin, first_close=ends[0])
+    check("not enough weeks", (got["beta"], got["reason"]) == (None, "not_enough_weeks"), str(got))
+    check("weeks still counted", 0 < got["weeks_used"] < 80, str(got))
+
+
+def test_eighty_weeks_is_enough():
+    ends, spy, stock = _market()
+    held = dict(stock)
+    for d in ends[1:25:2]:          # 12 closes gone: 24 weeks lost, 80 left
+        del held[d]
+    got = beta.compute(ends, spy, held, first_close=ends[0])
+    check("80 used", got["weeks_used"] == 80 and got["beta"] is not None, str(got))
+
+
+def test_a_price_that_never_moves_has_beta_zero_and_no_r_squared():
+    ends, spy, _ = _market()
+    got = beta.compute(ends, spy, dict.fromkeys(ends, 10.0), first_close=ends[0])
+    check("zero", got["beta"] == 0.0 and got["r_squared"] is None, str(got))
+
+
+def test_spy_against_itself_is_one():
+    ends, spy, _ = _market()
+    got = beta.compute(ends, spy, spy, first_close=ends[0])
+    check("one", abs(got["beta"] - 1) < 1e-12 and abs(got["r_squared"] - 1) < 1e-12, str(got))
+
+
+# ── which weeks ──────────────────────────────────────────────────────────────
+
+def test_week_ends_are_spys_last_close_of_each_week():
+    days = ["2026-03-30", "2026-03-31", "2026-04-01", "2026-04-02",          # Good Friday 3 Apr
+            "2026-04-06", "2026-04-07", "2026-04-08", "2026-04-09", "2026-04-10"]
+    check("holiday Thursday, then Friday", beta.week_ends(days) == ["2026-04-02", "2026-04-10"],
+          str(beta.week_ends(days)))
+
+
+def test_a_week_is_not_used_until_its_friday_close_is_stored():
+    """A late or failed Friday run must not make Thursday the week's end."""
+    week = ["2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22", "2026-10-23",
+            "2026-10-26", "2026-10-27", "2026-10-28", "2026-10-29"]
+    check("unfinished week left out", beta.week_ends(week) == ["2026-10-23"], str(beta.week_ends(week)))
+    check("finished with Friday", beta.week_ends(week + ["2026-10-30"])[-1] == "2026-10-30")
+
+
+def test_todays_close_counts_only_after_the_run_has_settled():
+    days = ["2026-10-29", "2026-10-30"]
+    friday = datetime(2026, 10, 30, tzinfo=ET)
+    check("during the run", beta.settled(days, friday.replace(hour=17)) == ["2026-10-29"])
+    check("after 7 PM", beta.settled(days, friday.replace(hour=19, minute=1)) == days)
+    check("next day", beta.settled(days, datetime(2026, 10, 31, 9, tzinfo=ET)) == days)
+
+
+def test_a_beta_lasts_until_the_next_price_run():
+    thursday = datetime(2026, 10, 29, 10, tzinfo=ET)
+    check("4:30 PM", beta.expires_at(thursday) == thursday.replace(hour=16, minute=30).astimezone(timezone.utc))
+    friday_night = datetime(2026, 10, 30, 20, tzinfo=ET)
+    check("Monday", beta.expires_at(friday_night).astimezone(ET).date() == date(2026, 11, 2))
+    in_run = datetime(2026, 10, 30, 17, tzinfo=ET)
+    check("five minutes in a run", beta.expires_at(in_run) == (in_run + timedelta(minutes=5)).astimezone(timezone.utc))
+
+
+# ── reading it ───────────────────────────────────────────────────────────────
+
+def _install(monkeypatch, reads):
+    ends, spy, stock = _market()
+    beta._CACHE.clear()
+    beta._CALENDAR.clear()
+    # SPY's daily rows: the week-end closes plus a Wednesday in each week.
+    daily = [{"date": d, "close": c} for d, c in spy.items()]
+    daily += [{"date": (date.fromisoformat(d) - timedelta(days=2)).isoformat(), "close": c} for d, c in spy.items()]
+
+    def history(symbol, limit=1260):
+        reads.append(("history", symbol))
+        assert symbol == "SPY"
+        return sorted(daily, key=lambda r: r["date"])[-limit:]
+
+    def closes_on(symbol, dates):
+        reads.append(("closes", symbol))
+        return {d: stock[d] for d in dates if d in stock}
+
+    monkeypatch.setattr(storage, "get_prices_history", history)
+    monkeypatch.setattr(beta, "_closes_on", closes_on)
+    monkeypatch.setattr(beta, "_first_close", lambda s: "2021-11-01")
+    monkeypatch.setattr(share_counts, "split_since_refresh", lambda s: None)
+    return ends, spy, stock
+
+
+def test_for_symbol_reads_once_then_from_memory(monkeypatch):
+    reads = []
+    ends, spy, stock = _install(monkeypatch, reads)
+    got = REAL_FOR_SYMBOL("KO")
+    slope, rsq, _ = _excel(ends, spy, stock)
+    check("Excel's slope", abs(got["beta"] - slope) < 1e-12, str(got))
+    check("window ends on the last Friday", got["window_end"] == ends[-1], str(got))
+    n = len(reads)
+    REAL_FOR_SYMBOL("KO")
+    check("second time reads nothing", len(reads) == n, str(reads))
+
+
+def test_unreadable_prices_give_a_blank_never_an_error(monkeypatch):
+    reads = []
+    _install(monkeypatch, reads)
+
+    def broken(symbol, dates):
+        raise RuntimeError("firestore down")
+    monkeypatch.setattr(beta, "_closes_on", broken)
+    check("blank", REAL_FOR_SYMBOL("KO") == dict.fromkeys(beta.FIELDS))
+
+
+# ── Yahoo's beta: saved under its own name, never shown ──────────────────────
 
 def _info(monkeypatch, info):
     class T:
@@ -21,73 +204,18 @@ def _info(monkeypatch, info):
     return fetchers.fetch_ticker_info("KO")
 
 
-def test_the_weekly_profile_keeps_yahoos_beta(monkeypatch):
+def test_the_weekly_profile_keeps_yahoos_beta_under_its_own_name(monkeypatch):
     meta = _info(monkeypatch, {"symbol": "KO", "shortName": "Coca-Cola", "beta": 0.43})
-    check("beta", meta["beta"] == 0.43, str(meta))
-    check("source", meta["beta_source"] == "yahoo")
-    check("dated", len(meta["beta_as_of"]) == 10)
-
-
-def test_no_beta_from_yahoo_keeps_the_last_one(monkeypatch):
-    """The record is merged, so a key left out keeps what is stored."""
+    check("kept", meta["yahoo_beta"] == 0.43 and len(meta["yahoo_beta_as_of"]) == 10, str(meta))
+    check("never as ours", "beta" not in meta and "beta_source" not in meta, str(meta))
     for missing in ({}, {"beta": None}, {"beta": float("nan")}, {"beta": True}):
         meta = _info(monkeypatch, {"symbol": "KO", "shortName": "Coca-Cola", **missing})
-        check(f"no beta key for {missing}", not {"beta", "beta_source", "beta_as_of"} & set(meta), str(meta))
+        check(f"nothing for {missing}", "yahoo_beta" not in meta, str(meta))
 
 
-# ── the one-request fetch for the one-off fill ───────────────────────────────
-
-def _answer(monkeypatch, result, asked=None):
-    from yfinance import data
-
-    def get_raw_json(self, url, params=None, timeout=30):
-        if asked is not None:
-            asked.append((url, params))
-        return {"quoteSummary": {"result": [result], "error": None}}
-    monkeypatch.setattr(data.YfData, "get_raw_json", get_raw_json)
-
-
-def test_one_request_brings_yahoos_beta(monkeypatch):
-    asked = []
-    _answer(monkeypatch, {"quoteType": {"symbol": "NVDA"}, "summaryDetail": {"beta": 2.12}}, asked)
-    got = fetchers.fetch_beta("NVDA")
-    check("beta", got["beta"] == 2.12 and got["beta_source"] == "yahoo", str(got))
-    check("one request", len(asked) == 1, str(asked))
-    check("asks only the sections it needs", "summaryDetail" in asked[0][1]["modules"]
-          and "quoteType" in asked[0][1]["modules"], str(asked))
-
-
-def test_beta_from_the_other_section_when_needed(monkeypatch):
-    _answer(monkeypatch, {"quoteType": {"symbol": "BRK-B"}, "summaryDetail": {},
-                          "defaultKeyStatistics": {"beta": 0.87}})
-    check("key statistics", fetchers.fetch_beta("BRK-B")["beta"] == 0.87)
-
-
-def test_no_beta_is_left_blank_not_made_up(monkeypatch):
-    _answer(monkeypatch, {"quoteType": {"symbol": "NEWCO"}, "summaryDetail": {"beta": None}})
-    check("blank", fetchers.fetch_beta("NEWCO") == {})
-
-
-def test_an_answer_about_another_company_is_refused(monkeypatch):
-    _answer(monkeypatch, {"quoteType": {"symbol": "META"}, "summaryDetail": {"beta": 1.2}})
-    try:
-        fetchers.fetch_beta("FB")
-        refused = False
-    except ValueError:
-        refused = True
-    check("refused", refused)
-
-
-# ── /ticker ─────────────────────────────────────────────────────────────────
-
-def test_ticker_shows_the_beta_the_page_already_gets(monkeypatch):
-    monkeypatch.setattr(terminal, "_yahoo", lambda s: {"beta": 1.27})
-    check("live", terminal._beta("AAPL", {"beta": 1.19}) == 1.27)
-
-
-def test_ticker_falls_back_to_the_saved_beta(monkeypatch):
-    monkeypatch.setattr(terminal, "_yahoo", lambda s: {})
-    check("saved", terminal._beta("AAPL", {"beta": 1.19}) == 1.19)
-    check("none", terminal._beta("AAPL", {}) is None)
-    monkeypatch.setattr(terminal, "_yahoo", lambda s: {"beta": float("nan")})
-    check("NaN is none", terminal._beta("AAPL", {}) is None)
+def test_ticker_shows_our_beta_and_asks_yahoo_nothing(monkeypatch):
+    def no_yahoo(symbol):
+        raise AssertionError("the beta row asked Yahoo")
+    monkeypatch.setattr(terminal, "_yahoo", no_yahoo)
+    monkeypatch.setattr(beta, "for_symbol", lambda s: {**dict.fromkeys(beta.FIELDS), "beta": 0.61})
+    check("ours", terminal._beta("KO") == 0.61)

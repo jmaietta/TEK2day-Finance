@@ -18,6 +18,7 @@ from copy import deepcopy
 
 from testkit import check, run_all
 
+import beta
 import partner_api
 import storage
 import watchlist_metrics
@@ -78,6 +79,7 @@ def install():
     # calculations with explicit fixtures, never an unstubbed Firestore read.
     storage.get_all_financials = lambda s: deepcopy(FINANCIALS.get(s, []))
     partner_api.require_kilby = lambda r: "test"
+    beta.for_symbol = lambda s: dict.fromkeys(beta.FIELDS)
 
 
 def call(symbols):
@@ -242,22 +244,26 @@ def test_absent_financial_history_is_explicitly_empty():
     check("no invented annual EPS", amd["annual_diluted_eps"] == [])
 
 
-if __name__ == "__main__":
-    sys.exit(run_all(globals()))
 
 
 # ── beta (30 Oct 2026, beta.py) ──────────────────────────────────────────────
 
-def test_beta_comes_with_its_source_from_the_company_record():
+def test_beta_is_ours_with_the_fit_it_came_from():
     install()
-    held = {**UNIVERSE, "NVDA": {**UNIVERSE["NVDA"], "beta": 2.12, "beta_source": "yahoo",
-                                 "beta_as_of": "2026-10-31"},
-            "AMD": {**UNIVERSE["AMD"], "beta": float("nan"), "beta_source": "yahoo"}}
-    storage.get_ticker_meta = lambda s: held.get(s)
-    _, body = call("NVDA,AMD,INTC")
-    nvda, amd, intc = _row(body, "NVDA"), _row(body, "AMD"), _row(body, "INTC")
-    check("NVDA beta", (nvda["beta"], nvda["beta_source"], nvda["beta_as_of"]) == (2.12, "yahoo", "2026-10-31"),
-          str(nvda))
-    check("NaN is no beta", (amd["beta"], amd["beta_source"]) == (None, None), str(amd))
-    check("none held", intc["beta"] is None and intc["beta_source"] is None)
-    check("defined", "beta" in body["data"]["definitions"])
+    fits = {"NVDA": {"beta": 1.83, "r_squared": 0.41, "weeks_used": 104, "reason": None,
+                     "window_start": "2024-10-25", "window_end": "2026-10-23"},
+            "AMD": {**dict.fromkeys(beta.FIELDS), "weeks_used": 60, "reason": "short_history"}}
+    beta.for_symbol = lambda s: dict(fits.get(s) or dict.fromkeys(beta.FIELDS))
+    _, body = call("NVDA,AMD")
+    nvda, amd = _row(body, "NVDA"), _row(body, "AMD")
+    check("NVDA", (nvda["beta"], nvda["beta_r_squared"], nvda["beta_weeks_used"], nvda["beta_window_end"])
+          == (1.83, 0.41, 104, "2026-10-23"), str(nvda))
+    check("ours", (nvda["beta_source"], nvda["beta_method"]) == ("tek2day", "2y_weekly_vs_spy"))
+    check("AMD blank with why", (amd["beta"], amd["beta_reason"]) == (None, "short_history"), str(amd))
+    check("no Yahoo date", "beta_as_of" not in nvda)
+    for key in ("beta", "beta_r_squared", "beta_weeks_used", "beta_reason"):
+        check(f"{key} defined", key in body["data"]["definitions"])
+
+
+if __name__ == "__main__":
+    sys.exit(run_all(globals()))
