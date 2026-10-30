@@ -1390,11 +1390,10 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1)):
                 "for a live market cap."
             ),
             "beta": (
-                "How much the stock moves with the market: 5 years of monthly moves. Yahoo's own "
-                "figure (beta_source \"yahoo\"), refreshed weekly. Until Yahoo's reaches a company, a "
-                "stand-in worked out the same way from our stored closes against SPY (beta_source "
-                "\"tek2day_5y_monthly_vs_spy\"): close to Yahoo's, not equal. beta_as_of: the day "
-                "Yahoo's was kept, or the stand-in's last month end"
+                "Yahoo Finance's own beta (\"Beta (5Y Monthly)\"), as Yahoo publishes it; TEK2day "
+                "calculates none. Saved from the weekly company refresh; null until Yahoo's has been "
+                "saved for that company, or when Yahoo has none. beta_source is always \"yahoo\"; "
+                "beta_as_of is the day it was saved"
             ),
             "annual_eps_outlook": (
                 "Consensus EPS for the fiscal years NOT yet reported, continuing straight on "
