@@ -197,19 +197,12 @@ def _build_page(symbol: str) -> str | None:
         key=lambda f: f.get("period_end", ""),
     )[-4:]
 
-    # TTM aggregates for valuation ratios (need a full 4 quarters).
-    ttm_revenue = None
-    ttm_eps = None
-    if len(quarterly_periods) == 4:
-        revs = [p.get("income", {}).get("Total Revenue") for p in quarterly_periods]
-        epss = [p.get("income", {}).get("Diluted EPS") for p in quarterly_periods]
-        if all(v is not None for v in revs):
-            ttm_revenue = sum(revs)
-        if all(v is not None for v in epss):
-            ttm_eps = sum(epss)
-
-    shares = meta.get("shares_outstanding")
-    market_cap = close * shares if (close is not None and shares) else meta.get("market_cap")
+    # The SAME figures as the main website (owner, 30 Oct 2026: "just use the
+    # same data"): terminal._market_snapshot, given the stored close in place of
+    # its live quote so a crawler never causes a Yahoo call. This page used to
+    # work out its own: Yahoo's shares_outstanding, and P/E from Yahoo's EPS.
+    snap = terminal._market_snapshot(symbol, quote={"price": close}) if close is not None else None
+    snap = snap or {}
 
     metrics = []
 
@@ -217,19 +210,10 @@ def _build_page(symbol: str) -> str | None:
         if value not in (None, "N/A", ""):
             metrics.append({"label": label, "value": value})
 
-    # Revenue and EPS are in the filing currency, the close in US dollars: the
-    # ratios convert at the latest stored rate (terminal._fx_rate, no Yahoo
-    # call), and are left out when no usable rate is held.
-    divisor = 1.0
-    if filing_currency not in (None, "USD"):
-        fx = terminal._fx_rate(filing_currency)
-        divisor = fx["rate"] if fx else None
-    add("Market Cap", terminal._dollar(market_cap))
-    add("Shares Outstanding", terminal._count(shares))
-    if market_cap and ttm_revenue and divisor:
-        add("P/S (TTM)", terminal._ratio(market_cap / (ttm_revenue / divisor)))
-    if close is not None and ttm_eps and ttm_eps > 0 and divisor:
-        add("P/E (TTM)", terminal._ratio(close / (ttm_eps / divisor)))
+    add("Market Cap", terminal._dollar(snap.get("market_cap")))
+    add("Diluted Shares", terminal._count(snap.get("shares")))
+    add("P/S (TTM)", terminal._ratio(snap.get("ps_ttm")))
+    add("P/E TTM (GAAP)", terminal._ratio(snap.get("pe_ttm")))
     add("Beta", terminal._num(meta.get("beta")))
     add("Dividend Yield", terminal._pct(meta.get("dividend_yield")))
     add("Exchange", meta.get("exchange") or None)
