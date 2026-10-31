@@ -35,6 +35,9 @@ def _restore_shared_modules():
 @pytest.fixture(autouse=True)
 def _no_beta_reads(monkeypatch):
     """beta.for_symbol reads Firestore. Every test gets a blank beta unless it
-    puts its own in; test_beta.py tests the real one against fakes."""
+    puts its own in, and no industry stand-in; test_beta.py tests the real
+    ones against fakes."""
     import beta
     monkeypatch.setattr(beta, "for_symbol", lambda symbol: dict.fromkeys(beta.FIELDS))
+    monkeypatch.setattr(beta, "industry_standin", lambda industry, symbol: {
+        "industry_beta_median": None, "industry_beta_peers": 0, "industry_beta_industry": industry or None})

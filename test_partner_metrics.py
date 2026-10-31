@@ -80,6 +80,8 @@ def install():
     storage.get_all_financials = lambda s: deepcopy(FINANCIALS.get(s, []))
     partner_api.require_kilby = lambda r: "test"
     beta.for_symbol = lambda s: dict.fromkeys(beta.FIELDS)
+    beta.industry_standin = lambda industry, symbol: {
+        "industry_beta_median": None, "industry_beta_peers": 0, "industry_beta_industry": industry or None}
 
 
 def call(symbols):
@@ -263,6 +265,25 @@ def test_beta_is_ours_with_the_fit_it_came_from():
     check("AMD blank with why", (amd["beta"], amd["beta_reason"]) == (None, "short_history"), str(amd))
     check("no Yahoo date", "beta_as_of" not in nvda)
     for key in ("beta", "beta_r_squared", "beta_weeks_used", "beta_years", "beta_reason"):
+        check(f"{key} defined", key in body["data"]["definitions"])
+
+
+def test_a_stock_without_a_beta_gets_its_industrys_and_its_type():
+    install()
+    held = {**UNIVERSE, "NVDA": {**UNIVERSE["NVDA"], "industry": "Semiconductors", "quote_type": "EQUITY"},
+            "AMD": {**UNIVERSE["AMD"], "industry": "Semiconductors", "quote_type": "EQUITY"}}
+    storage.get_ticker_meta = lambda s: held.get(s)
+    beta.for_symbol = lambda s: {**dict.fromkeys(beta.FIELDS), "beta": 1.8 if s == "NVDA" else None}
+    beta.industry_standin = lambda industry, symbol: {
+        "industry_beta_median": 1.6, "industry_beta_peers": 41, "industry_beta_industry": industry}
+    _, body = call("NVDA,AMD,INTC")
+    nvda, amd, intc = _row(body, "NVDA"), _row(body, "AMD"), _row(body, "INTC")
+    check("own beta: no stand-in", (nvda["industry_beta_median"], nvda["industry_beta_peers"]) == (None, None), str(nvda))
+    check("stand-in", (amd["industry_beta_median"], amd["industry_beta_peers"], amd["industry_beta_industry"])
+          == (1.6, 41, "Semiconductors"), str(amd))
+    check("type passed through", nvda["quote_type"] == "EQUITY")
+    check("no type is null, not a guess", intc["quote_type"] is None, str(intc))
+    for key in ("industry_beta_median", "industry_beta_peers", "quote_type"):
         check(f"{key} defined", key in body["data"]["definitions"])
 
 

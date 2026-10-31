@@ -1364,6 +1364,15 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1)):
         )
         row["financial_upstream"] = envelope.financial_upstream(financials)
         row.update(_beta_fields(norm))
+        # Yahoo's own security type, as stored, null when none: Kilby treats
+        # MONEYMARKET as cash (beta 0). Asked 31 Oct 2026; no extra read.
+        row["quote_type"] = (meta or {}).get("quote_type") or None
+        # The industry's typical beta, only for a stock without its own: Kilby
+        # uses it in a portfolio's beta, labelled an estimate. Null otherwise.
+        import beta  # noqa: PLC0415
+        row.update(beta.industry_standin((meta or {}).get("industry"), norm) if row["beta"] is None
+                   else {"industry_beta_median": None, "industry_beta_peers": None,
+                         "industry_beta_industry": None})
         return row
 
     # Bounded rather than one worker per symbol: these are Firestore reads and a
@@ -1427,6 +1436,15 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1)):
             "beta_window_start": "First week-end date of the fit",
             "beta_window_end": "Last week-end date of the window",
             "beta_method": "\"weekly_vs_spy_up_to_2y\"; beta_source is \"tek2day\"",
+            "industry_beta_median": (
+                "Only when beta is null: the median of TEK2day's own betas of the other active "
+                "companies in the same industry (same method, same week). An ESTIMATE for a "
+                "portfolio's beta, not this stock's beta. Null when no peer has a beta"
+            ),
+            "quote_type": ("Yahoo's security type as stored (EQUITY, ETF, MUTUALFUND, MONEYMARKET, ...); "
+                           "null when the record has none"),
+            "industry_beta_peers": "How many peer betas went into industry_beta_median (0 when none)",
+            "industry_beta_industry": "The industry it came from (Yahoo's classification, else from SEC SIC codes)",
             "annual_eps_outlook": (
                 "Consensus EPS for the fiscal years NOT yet reported, continuing straight on "
                 "from annual_diluted_eps. Yahoo's current year is the year in progress, so the "

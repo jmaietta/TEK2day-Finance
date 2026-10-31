@@ -21,7 +21,8 @@ import share_counts
 import storage
 import terminal
 
-REAL_FOR_SYMBOL = beta.for_symbol    # conftest blanks it for every other test
+REAL_FOR_SYMBOL = beta.for_symbol    # conftest blanks these for every other test
+REAL_STANDIN = beta.industry_standin
 ET = ZoneInfo("America/New_York")
 
 
@@ -217,6 +218,65 @@ def test_unreadable_prices_give_a_blank_never_an_error(monkeypatch):
         raise RuntimeError("firestore down")
     monkeypatch.setattr(beta, "_closes_on", broken)
     check("blank", REAL_FOR_SYMBOL("KO") == dict.fromkeys(beta.FIELDS))
+
+
+# ── the industry stand-in (Kilby's portfolio beta, 31 Oct 2026) ─────────────
+
+class _Doc:
+    def __init__(self, id, data):
+        self.id, self._data = id, data
+
+    def to_dict(self):
+        return self._data
+
+
+class _Members:
+    def __init__(self, docs, asked):
+        self.docs, self.asked = docs, asked
+
+    def collection(self, name):
+        return self
+
+    def where(self, field, op, value):
+        self.asked.append(value)
+        self.value = value
+        return self
+
+    def stream(self):
+        return [_Doc(s, d) for s, d in self.docs.items() if d.get("industry") == self.value]
+
+
+def _industry(monkeypatch, betas, docs):
+    asked = []
+    beta._INDUSTRY.clear()
+    monkeypatch.setattr(storage, "get_db", lambda: _Members(docs, asked))
+    monkeypatch.setattr(beta, "for_symbol", lambda s: {**dict.fromkeys(beta.FIELDS), "beta": betas.get(s)})
+    return asked
+
+
+def test_the_stand_in_is_the_median_of_the_other_companies():
+    docs = {s: {"industry": "Aerospace & Defense", "active": True} for s in ("HONA", "LMT", "RTX", "GD", "NOC", "TDG")}
+    docs["OLD"] = {"industry": "Aerospace & Defense", "active": False}
+    docs["AAPL"] = {"industry": "Consumer Electronics", "active": True}
+    betas = {"LMT": 0.3, "RTX": 0.5, "GD": 0.4, "NOC": 0.2, "OLD": 9.0, "AAPL": 1.0}   # TDG blank, HONA too new
+    import pytest
+    with pytest.MonkeyPatch.context() as mp:
+        asked = _industry(mp, betas, docs)
+        got = REAL_STANDIN("Aerospace & Defense", "HONA")
+        check("median of four", got == {"industry_beta_median": 0.35, "industry_beta_peers": 4,
+                                        "industry_beta_industry": "Aerospace & Defense"}, str(got))
+        check("never itself", REAL_STANDIN("Aerospace & Defense", "LMT")["industry_beta_peers"] == 3)
+        check("one read of the members", asked == ["Aerospace & Defense"], str(asked))
+
+
+def test_no_industry_or_no_peer_gives_null_and_zero():
+    import pytest
+    with pytest.MonkeyPatch.context() as mp:
+        _industry(mp, {}, {"X": {"industry": "Shell Companies", "active": True}})
+        check("no peers", REAL_STANDIN("Shell Companies", "Y") == {
+            "industry_beta_median": None, "industry_beta_peers": 0, "industry_beta_industry": "Shell Companies"})
+        check("no industry", REAL_STANDIN("", "FDRXX") == {
+            "industry_beta_median": None, "industry_beta_peers": 0, "industry_beta_industry": None})
 
 
 # ── Yahoo's beta: saved under its own name, never shown ──────────────────────

@@ -39,6 +39,7 @@ until the next price run like the price feed's copy.
 from __future__ import annotations
 
 import logging
+import statistics
 import threading
 from collections import OrderedDict
 from datetime import date, datetime, timedelta, timezone
@@ -66,6 +67,9 @@ _CACHE_SYMBOLS = 5000        # a few hundred bytes each
 _CACHE: "OrderedDict[str, tuple[datetime, dict]]" = OrderedDict()
 _CALENDAR: dict = {}
 _LOCK = threading.Lock()
+_INDUSTRY: dict = {}             # industry -> (expires, {symbol: beta})
+_INDUSTRY_LOCKS: dict = {}
+_PEER_WORKERS = 16
 
 
 def _eastern(now: datetime | None) -> datetime:
@@ -213,3 +217,48 @@ def for_symbol(symbol: str) -> dict:
         while len(_CACHE) > _CACHE_SYMBOLS:
             _CACHE.popitem(last=False)
     return dict(result)
+
+
+def _industry_betas(industry: str) -> dict:
+    """{symbol: beta} for the active companies in `industry` that have one,
+    cached until the next price run. One build per industry at a time."""
+    now = datetime.now(timezone.utc)
+    with _LOCK:
+        held = _INDUSTRY.get(industry)
+        if held and held[0] > now:
+            return held[1]
+        lock = _INDUSTRY_LOCKS.setdefault(industry, threading.Lock())
+    with lock:
+        with _LOCK:
+            held = _INDUSTRY.get(industry)
+            if held and held[0] > datetime.now(timezone.utc):
+                return held[1]
+        from concurrent.futures import ThreadPoolExecutor  # noqa: PLC0415
+        members = [doc.id for doc in storage.get_db().collection(storage.COLLECTION_ROOT)
+                   .where("industry", "==", industry).stream()
+                   if (doc.to_dict() or {}).get("active") is not False]
+        with ThreadPoolExecutor(max_workers=_PEER_WORKERS) as pool:
+            fits = dict(zip(members, pool.map(for_symbol, members)))
+        betas = {s: f["beta"] for s, f in fits.items() if f["beta"] is not None}
+        with _LOCK:
+            _INDUSTRY[industry] = (expires_at(), betas)
+        return betas
+
+
+def industry_standin(industry: str | None, symbol: str) -> dict:
+    """The industry's typical beta, for a portfolio sum when `symbol` has none
+    of its own (Kilby, agreed 31 Oct 2026; owner's go). The median of TEK2day's
+    own betas of the other active companies in the same industry, same method
+    and same week, with how many went into it so the reader can refuse too few.
+    An estimate: never shown as the stock's beta. Never raises."""
+    out = {"industry_beta_median": None, "industry_beta_peers": 0, "industry_beta_industry": industry or None}
+    if not industry:
+        return out
+    try:
+        peers = [b for s, b in _industry_betas(industry).items() if s != symbol]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("%s: industry beta unavailable: %s", industry, exc)
+        return out
+    if peers:
+        out.update(industry_beta_median=statistics.median(peers), industry_beta_peers=len(peers))
+    return out
