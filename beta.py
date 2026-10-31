@@ -332,9 +332,9 @@ def run(force: bool = False, symbols=None) -> dict:
     """Work out every active company's beta for the newest finished week and
     store it, with each industry's median.
 
-    Runs every weekday evening after the price run. First reads SPY alone: if
-    the newest finished week is not newer than the stored table's (Friday's
-    close not in yet, or already done), it works out only the active companies
+    Runs every weekday evening after the price run. First reads SPY and the
+    stored table: if the newest finished week is not newer than the table's
+    (Friday's close not in yet, or already done), it works out only the active companies
     the week does not cover yet: ones it left out (at most 2%) and ones added
     since (owner, 31 Oct 2026: "I do not want to have to wait a week for a
     stock to pick up its beta"). That costs the active list (one read a

@@ -110,13 +110,23 @@ Owner, the same day:
   evening reads the active list (about 10,300 reads, about $0.006) and
   works out only the companies the week does not cover yet.
 
-## Still to come (each needs the owner's go)
+## Still to come (each needs the owner's go), in this order
 
-- **GO 2:** push and PR.
-- **GO 3:** export the `tickers` collection to
-  gs://yfinance-cli-firestore-backups/, run the job once by hand, then read
-  every beta_weekly doc back and compare it with a fresh in-memory
-  computation.
-- **GO 4:** the weekdays 8 PM ET schedule.
+The first production write comes BEFORE the merge (Kilby, 31 Oct 2026).
+Merging first would deploy code that reads an empty beta_weekly: every stock
+would read "Insufficient history" and Kilby would get no betas until the
+first run finished. Today's live code never reads beta_weekly, so writing it
+early is harmless.
+
+1. **GO 2:** push the branch and open the PR. No merge.
+2. **GO 3:**
+   - Export the `tickers` collection to gs://yfinance-cli-firestore-backups/.
+   - Run the PR's code once, by hand, writing beta_weekly (current and
+     history), beta_industries/latest, its history, and
+     beta_industries/coverage.
+   - Read every one of those docs back and compare it bit for bit
+     (computed_at aside) with a fresh in-memory computation.
+3. **The owner merges.** Betas are served from the first request.
+4. **GO 4:** the weekly-beta Cloud Run job and its weekdays 8 PM ET schedule.
 
 Each step's result is added here.
