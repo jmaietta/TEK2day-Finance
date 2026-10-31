@@ -346,7 +346,7 @@ def test_a_night_reads_only_the_new_closes_and_lands_on_the_full_figure(monkeypa
         check(f"night {night}: updated", out["read_as"] == {"update": 3}, str(out))
         check(f"night {night}: a handful of closes, not a year", per_company <= 9, str(per_company))
         m.check_against_full(f"night {night}")
-    check("marks cleared", not [p for p in m.db.docs if p.startswith(volatility.DIRTY + "/") and "SPY" not in p])
+    check("marks cleared, SPY's too (not active here)", not [p for p in m.db.docs if p.startswith(volatility.DIRTY + "/")])
 
 
 def test_a_missed_night_catches_up_and_a_long_gap_reads_it_all(monkeypatch):

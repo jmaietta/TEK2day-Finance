@@ -226,7 +226,8 @@ def plan(window, held: dict | None, path: str, since: str | None, full: str | No
 
 
 def update(window, held: dict | None, ref, since: str | None, split: str | None, full: str | None = None):
-    """(the new current doc's computed part, how it was read)."""
+    """(the new current doc's computed part, how it was read, whether the
+    whole window was read)."""
     why, start = plan(window, held, ref.path, since, full)
     if why:
         closes = _closes_from(ref, window[0])
@@ -356,6 +357,8 @@ def run(symbols=None, full: bool = False) -> dict:
         logger.info("volatility trial: %s", summary)
         return {**summary, "results": {s: n for s, n, _, _, _ in results if n}, "errors": failed}
 
+    for symbol in markers.keys() - set(companies):      # no longer active: nothing to update
+        _clear(db, markers[symbol])
     alerts = []
     if lost:
         alerts.append(f"marks were lost for {sorted(lost)}; read again in full")
