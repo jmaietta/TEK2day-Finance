@@ -214,7 +214,7 @@ def _build_page(symbol: str) -> str | None:
     add("Diluted Shares", terminal._count(snap.get("shares")))
     add("P/S (TTM)", terminal._ratio(snap.get("ps_ttm")))
     add("P/E TTM (GAAP)", terminal._ratio(snap.get("pe_ttm")))
-    add("Beta (Weekly)", terminal._beta(symbol)[0])
+    add("Beta (Weekly)", terminal._beta(symbol, meta)[0])
     add("Dividend Yield", terminal._pct(meta.get("dividend_yield")))
     add("Exchange", meta.get("exchange") or None)
     add("Currency", meta.get("currency") or None)

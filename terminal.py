@@ -1357,16 +1357,19 @@ def _market_snapshot(symbol, quote=None):
 _BETA_BLANK = {
     "short_history": "Under 1 year of prices",
     "not_enough_weeks": "Too many weeks without a close",
-    "split_since_refresh": "Recent split: back after Thursday's price refresh",
+    "split_since_refresh": "Recent split: back after next Friday's update",
+    "not_yet_computed": "Not worked out yet: weekly, after Friday's close",
+    "unavailable": "Couldn't load beta just now, try again",
 }
 
 
-def _beta(symbol):
+def _beta(symbol, meta=None):
     """(value, hover) for the Beta (Weekly) cell: TEK2day's own beta with its
     span beside it, "1.04 2Y" or "1.43 1.7Y" (beta.py; owner, 31 Oct 2026:
-    label option B). The same number Kilby serves; Yahoo's is never shown."""
+    label option B). The same stored number Kilby is served; Yahoo's is never
+    shown. `meta` when the caller already holds the company record."""
     import beta  # noqa: PLC0415
-    got = beta.for_symbol(symbol)
+    got = beta.for_symbol(symbol, meta)
     if got["beta"] is None:
         return "N/A", _BETA_BLANK.get(got["reason"], "Not available")
     years = f"{got['years']:g}"

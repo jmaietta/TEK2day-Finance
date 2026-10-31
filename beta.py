@@ -32,18 +32,28 @@ THE METHOD, reproducible in Excel from /partner/v1/equities/prices?days=520:
     (fewer than 52 weekly returns since the first stored close),
     not_enough_weeks (fewer than 52 used, or more missing than 24 of 104).
 
-Stored prices only: no Yahoo request, ever. A symbol costs about 107 Firestore
-reads (one per week-end date, its first stored date, its split record), cached
-until the next price run like the price feed's copy.
+STORED WEEKLY (owner's go, 31 Oct 2026, agreed with Kilby). The first version
+worked every beta out on request, about 107 reads a company, and nobody had
+checked that against Kilby's watchlist call (up to 250 companies, a 30 s
+timeout, no partial answer). Now the weekly-beta job (weekly_beta.py, every
+weekday 8 PM ET) works out every active company once a week and stores it in
+its own collection, beta_weekly/{symbol}, which every reader uses: one read a
+company, a set in one batched read. Each week is also kept, never overwritten,
+in beta_weekly/{symbol}/history/{week ending}. Each industry's median is in
+beta_industries/latest. Company records are never written. Every doc carries
+its symbol, and a doc that does not match the one it is filed under is
+"unavailable", as is every row when the read fails. Stored prices only: no
+Yahoo request, ever.
 """
 from __future__ import annotations
 
 import logging
 import statistics
 import threading
-from collections import OrderedDict
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
+
+from google.api_core.exceptions import AlreadyExists
 
 import storage
 from envelope import finite
@@ -57,19 +67,21 @@ WEEKS = 104
 MIN_WEEKS = 52               # a year: below this, blank
 FULL_MIN_WEEKS = 80          # of 104; a shorter fit may miss the same share
 FIELDS = ("beta", "r_squared", "weeks_used", "years", "reason", "window_start", "window_end")
+UNAVAILABLE = {**dict.fromkeys(FIELDS), "reason": "unavailable"}
 
 _EASTERN = ZoneInfo("America/New_York")
 _HISTORY_DAYS = 560          # SPY rows read: 105 weeks of trading days and the week in progress
 _RUN_START = (16, 30)        # ET, Mon-Fri, as partner_api._price_window
 _RUN_SETTLED = (19, 0)
 _IN_RUN_SECONDS = 300
-_CACHE_SYMBOLS = 5000        # a few hundred bytes each
-_CACHE: "OrderedDict[str, tuple[datetime, dict]]" = OrderedDict()
-_CALENDAR: dict = {}
+STORED = "beta_weekly"        # the collection: beta_weekly/{symbol}
+HISTORY = "history"           # beta_weekly/{symbol}/history/{week ending}: append-only
+INDUSTRIES = "beta_industries/latest"
+_WORKERS = 32                 # the weekly run: Firestore round trips, not work
+_STOP_FAILED_SHARE = 0.02     # more than 2% of companies unreadable: fail the run
+_RECHECK_SECONDS = 60         # a row newer than the cached medians re-reads at most this often
+_INDUSTRY_CACHE: dict = {}    # {"expires", "checked", "window_end", "industries"}
 _LOCK = threading.Lock()
-_INDUSTRY: dict = {}             # industry -> (expires, {symbol: beta})
-_INDUSTRY_LOCKS: dict = {}
-_PEER_WORKERS = 16
 
 
 def _eastern(now: datetime | None) -> datetime:
@@ -157,21 +169,13 @@ def compute(ends, spy: dict, stock: dict, first_close: str | None = None,
     return out
 
 
-def _calendar() -> dict:
+def calendar() -> dict:
     """{"ends": SPY's last 105 finished week-end dates, "spy": its closes on them}."""
-    now = datetime.now(timezone.utc)
-    with _LOCK:
-        if _CALENDAR and _CALENDAR["expires"] > now:
-            return _CALENDAR
     spy = {str(r["date"])[:10]: float(r["close"])
            for r in storage.get_prices_history(BENCHMARK, limit=_HISTORY_DAYS)
            if r.get("date") and finite(r.get("close"))}
     ends = week_ends(settled(sorted(spy)))[-(WEEKS + 1):]
-    entry = {"expires": expires_at(), "ends": ends, "spy": {d: spy[d] for d in ends}}
-    with _LOCK:
-        _CALENDAR.clear()
-        _CALENDAR.update(entry)
-    return entry
+    return {"ends": ends, "spy": {d: spy[d] for d in ends}}
 
 
 def _closes_on(symbol: str, dates) -> dict:
@@ -193,72 +197,198 @@ def _first_close(symbol: str) -> str | None:
     return None
 
 
-def for_symbol(symbol: str) -> dict:
-    """{beta, r_squared, weeks_used, reason, window_start, window_end}. Never
-    raises: unreadable prices give every field None and are not cached."""
-    now = datetime.now(timezone.utc)
-    with _LOCK:
-        held = _CACHE.get(symbol)
-        if held and held[0] > now:
-            _CACHE.move_to_end(symbol)
-            return dict(held[1])
+def fit(symbol: str, cal: dict) -> dict:
+    """This week's fit for one company, from its stored closes (about 107 reads)."""
+    import share_counts  # noqa: PLC0415
+    return compute(cal["ends"], cal["spy"], _closes_on(symbol, cal["ends"]),
+                   _first_close(symbol), share_counts.split_since_refresh(symbol))
+
+
+# ── reading the table: what the website and the API call ─────────────────────
+
+def _checked(symbol: str, snap) -> dict:
+    """One stored fit, checked: the doc must name the company it is filed
+    under. Anything else is "unavailable", never served as a value."""
+    if not snap.exists:
+        return {**dict.fromkeys(FIELDS), "reason": "not_yet_computed"}
+    held = snap.to_dict() or {}
+    if snap.id != symbol or held.get("symbol") != symbol:
+        logger.warning("beta: %s/%s holds a fit for %r; not served", STORED, snap.id, held.get("symbol"))
+        return dict(UNAVAILABLE)
+    return {k: held.get(k) for k in FIELDS}
+
+
+def for_symbols(symbols, metas: dict) -> dict:
+    """{symbol: stored fit} for a set of companies, in one batched read
+    (Kilby's metrics call: up to 250). `metas` holds the company record the
+    caller already read for each symbol; one with no record reads all None and
+    costs no read. A covered company the weekly run has not reached reads
+    "not_yet_computed". Never raises: if the read fails, every row reads
+    "unavailable", which the API flags with the beta_unavailable warning
+    (agreed with Kilby 31 Oct 2026), so a failed read never looks like "this
+    stock has no beta"."""
+    out = {s: dict.fromkeys(FIELDS) for s in symbols}
+    wanted = [s for s in out if metas.get(s)]
+    if not wanted:
+        return out
     try:
-        import share_counts  # noqa: PLC0415
-        cal = _calendar()
-        split = share_counts.split_since_refresh(symbol)
-        result = compute(cal["ends"], cal["spy"], _closes_on(symbol, cal["ends"]),
-                         _first_close(symbol), split)
+        db = storage.get_db()
+        snaps = {snap.id: snap for snap in db.get_all([db.collection(STORED).document(s) for s in wanted])}
+        out.update({s: _checked(s, snaps[s]) for s in wanted})
     except Exception as exc:  # noqa: BLE001
-        logger.warning("%s: beta unavailable: %s", symbol, exc)
-        return dict.fromkeys(FIELDS)
-    with _LOCK:
-        _CACHE[symbol] = (min(cal["expires"], expires_at()), result)
-        _CACHE.move_to_end(symbol)
-        while len(_CACHE) > _CACHE_SYMBOLS:
-            _CACHE.popitem(last=False)
-    return dict(result)
+        logger.warning("beta unavailable for %d companies: %s", len(wanted), exc)
+        out.update({s: dict(UNAVAILABLE) for s in wanted})
+    return out
 
 
-def _industry_betas(industry: str) -> dict:
-    """{symbol: beta} for the active companies in `industry` that have one,
-    cached until the next price run. One build per industry at a time."""
-    now = datetime.now(timezone.utc)
-    with _LOCK:
-        held = _INDUSTRY.get(industry)
-        if held and held[0] > now:
-            return held[1]
-        lock = _INDUSTRY_LOCKS.setdefault(industry, threading.Lock())
-    with lock:
-        with _LOCK:
-            held = _INDUSTRY.get(industry)
-            if held and held[0] > datetime.now(timezone.utc):
-                return held[1]
-        from concurrent.futures import ThreadPoolExecutor  # noqa: PLC0415
-        members = [doc.id for doc in storage.get_db().collection(storage.COLLECTION_ROOT)
-                   .where("industry", "==", industry).stream()
-                   if (doc.to_dict() or {}).get("active") is not False]
-        with ThreadPoolExecutor(max_workers=_PEER_WORKERS) as pool:
-            fits = dict(zip(members, pool.map(for_symbol, members)))
-        betas = {s: f["beta"] for s, f in fits.items() if f["beta"] is not None}
-        with _LOCK:
-            _INDUSTRY[industry] = (expires_at(), betas)
-        return betas
+def for_symbol(symbol: str, meta: dict | None = None) -> dict:
+    """One company's stored fit (the website, the summary): one read, and the
+    company record first when the caller does not hold it. Never raises."""
+    if meta is None:
+        try:
+            meta = storage.get_ticker_meta(symbol)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("%s: beta unavailable: %s", symbol, exc)
+            return dict(UNAVAILABLE)
+    return for_symbols([symbol], {symbol: meta})[symbol]
 
 
-def industry_standin(industry: str | None, symbol: str) -> dict:
-    """The industry's typical beta, for a portfolio sum when `symbol` has none
-    of its own (Kilby, agreed 31 Oct 2026; owner's go). The median of TEK2day's
-    own betas of the other active companies in the same industry, same method
-    and same week, with how many went into it so the reader can refuse too few.
-    An estimate: never shown as the stock's beta. Never raises."""
-    out = {"industry_beta_median": None, "industry_beta_peers": 0, "industry_beta_industry": industry or None}
+def industry_standin(industry: str | None, window_end: str | None = None) -> dict:
+    """The industry's typical beta, for a portfolio sum when a stock has none of
+    its own (Kilby, agreed 31 Oct 2026; owner's go): the median of TEK2day's own
+    betas of the active companies in that industry, from the same weekly run,
+    with how many went into it. An estimate: never shown as the stock's beta.
+
+    One stored document, cached until the next price run. A row from a newer
+    week than the medians (the weekly run is part way through) re-reads it, at
+    most once a minute, and until it catches up reads "unavailable": never last
+    week's medians beside this week's betas. Unreadable: "unavailable" too.
+    Never raises."""
+    out = {"industry_beta_median": None, "industry_beta_peers": 0,
+           "industry_beta_industry": industry or None, "industry_beta_reason": None}
     if not industry:
         return out
     try:
-        peers = [b for s, b in _industry_betas(industry).items() if s != symbol]
+        table, table_end = _industries(window_end)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("%s: industry beta unavailable: %s", industry, exc)
-        return out
-    if peers:
-        out.update(industry_beta_median=statistics.median(peers), industry_beta_peers=len(peers))
+        logger.warning("industry betas unavailable: %s", exc)
+        table, table_end = None, None
+    if table is None or (window_end and window_end > (table_end or "")):
+        return {**out, "industry_beta_peers": None, "industry_beta_reason": "unavailable"}
+    held = table.get(industry) or {}
+    if held.get("peers"):
+        out.update(industry_beta_median=held.get("median"), industry_beta_peers=held["peers"])
     return out
+
+
+def _industries(window_end: str | None):
+    now = datetime.now(timezone.utc)
+    with _LOCK:
+        held = dict(_INDUSTRY_CACHE)
+    if held and held["expires"] > now and (
+            not window_end or window_end <= (held["window_end"] or "")
+            or now - held["checked"] < timedelta(seconds=_RECHECK_SECONDS)):
+        return held["industries"], held["window_end"]
+    snap = storage.get_db().document(INDUSTRIES).get()
+    doc = (snap.to_dict() or {}) if snap.exists else {}
+    entry = {"expires": expires_at(), "checked": now, "window_end": doc.get("window_end"),
+             "industries": doc.get("industries") or {}}
+    with _LOCK:
+        _INDUSTRY_CACHE.clear()
+        _INDUSTRY_CACHE.update(entry)
+    return entry["industries"], entry["window_end"]
+
+
+# ── the weekly run (weekly_beta.py, Cloud Run job weekly-beta) ───────────────
+
+def _same(a: dict, b: dict) -> bool:
+    return {k: v for k, v in a.items() if k != "computed_at"} == {k: v for k, v in b.items() if k != "computed_at"}
+
+
+def _write(db, symbol: str, held: dict) -> str:
+    """The week's fit, added to the company's history and set as its current
+    doc in one batch, so the two never disagree. History is created, never
+    overwritten: if this week's is already there (a rerun after a partial
+    failure, or --force) and matches, nothing is written ("held"); if it
+    differs, this raises, because a week worked out again must come out the
+    same. Company records are never written."""
+    current = db.collection(STORED).document(symbol)
+    history = current.collection(HISTORY).document(held["week_ending"])
+    batch = db.batch()
+    batch.create(history, held)
+    batch.set(current, held)
+    try:
+        batch.commit()
+        return "written"
+    except AlreadyExists:
+        if _same(history.get().to_dict() or {}, held):
+            return "held"
+        raise RuntimeError(f"history for the week ending {held['week_ending']} differs") from None
+
+
+def run(force: bool = False, symbols=None) -> dict:
+    """Work out every active company's beta for the newest finished week and
+    store it, with each industry's median.
+
+    Runs every weekday evening after the price run. First reads SPY alone: if
+    the newest finished week is not newer than the stored table's (Friday's
+    close not in yet, or already done), it stops there. `symbols` limits the
+    run to those companies and leaves the industry table alone (a trial).
+    Raises when too many companies fail, so the job reports a failure."""
+    from concurrent.futures import ThreadPoolExecutor  # noqa: PLC0415
+
+    db = storage.get_db()
+    cal = calendar()
+    window_end = cal["ends"][-1] if cal["ends"] else None
+    if not window_end:
+        raise RuntimeError("beta: no finished week in SPY's stored prices")
+    state = db.document(INDUSTRIES).get()
+    state = (state.to_dict() or {}) if state.exists else {}
+    if symbols is None and not force and state.get("complete") and state.get("window_end") == window_end:
+        logger.info("beta: the table already covers the week ending %s; nothing to do", window_end)
+        return {"skipped": True, "window_end": window_end}
+
+    if symbols is None:
+        metas = {doc.id: doc.to_dict() or {}
+                 for doc in db.collection(storage.COLLECTION_ROOT).where("active", "==", True).stream()}
+    else:
+        metas = {s: storage.get_ticker_meta(s) or {} for s in symbols}
+    computed_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+    def one(symbol):
+        try:
+            held = {"symbol": symbol, **fit(symbol, cal), "method": METHOD,
+                    "week_ending": window_end, "computed_at": computed_at}
+            return symbol, held, _write(db, symbol, held), None
+        except Exception as exc:  # noqa: BLE001
+            return symbol, None, None, f"{type(exc).__name__}: {str(exc)[:160]}"
+
+    with ThreadPoolExecutor(max_workers=_WORKERS) as pool:
+        results = list(pool.map(one, sorted(metas)))
+    failed = {s: e for s, _, _, e in results if e}
+    done = {s: h for s, h, _, _ in results if h}
+    for symbol, error in list(failed.items())[:20]:
+        logger.warning("beta: %s failed: %s", symbol, error)
+    summary = {"window_end": window_end, "companies": len(metas),
+               "written": sum(1 for _, _, how, _ in results if how == "written"),
+               "held": sum(1 for _, _, how, _ in results if how == "held"),
+               "with_beta": sum(1 for h in done.values() if h["beta"] is not None), "failed": len(failed)}
+    if symbols is not None:
+        logger.info("beta trial: %s", summary)
+        return {**summary, "results": done, "errors": failed}
+
+    peers = {}
+    for symbol, held in done.items():
+        industry = metas[symbol].get("industry")
+        if industry and held["beta"] is not None:
+            peers.setdefault(industry, []).append(held["beta"])
+    complete = len(failed) <= _STOP_FAILED_SHARE * max(len(metas), 1)
+    db.document(INDUSTRIES).set({
+        "window_end": window_end, "computed_at": computed_at, "complete": complete,
+        "method": METHOD, **{k: v for k, v in summary.items() if k != "window_end"},
+        "industries": {name: {"median": statistics.median(b), "peers": len(b)} for name, b in sorted(peers.items())},
+    })
+    logger.info("beta: %s, %d industries", summary, len(peers))
+    if not complete:
+        raise RuntimeError(f"beta: {len(failed)} of {len(metas)} companies failed; the table is marked incomplete")
+    return summary

@@ -781,7 +781,7 @@ def equity_summary(request: Request, symbol: str):
             "eps_ttm": snap.get("eps_ttm"),
             "forward_eps": snap.get("forward_eps"),
             "diluted_shares": snap.get("shares"),
-            **_beta_fields(norm),
+            **_beta_fields(norm, meta),
             "dividend_yield": snap.get("dividend_yield"),
             # Added 19 Oct 2026. What revenue, ebitda, net_income and eps_ttm are
             # in (the filing currency), and what forward_eps is in (the
@@ -855,6 +855,8 @@ def equity_summary(request: Request, symbol: str):
                          "note": "Quote and market cap use the stated quote unit. Stored "
                                  "fundamentals and mixed-currency valuations are not verified "
                                  "in that unit; legacy display strings are not currency proof."})
+    if data["fundamentals"]["beta_reason"] == "unavailable":
+        warnings.append(dict(_BETA_UNAVAILABLE))
 
     from security_identity import event_for, freshness_warnings
     if event_for(norm):
@@ -1263,12 +1265,16 @@ def comparisons(request: Request, symbols: str = Query(..., min_length=1)):
     )
 
 
-def _beta_fields(symbol: str) -> dict:
-    """TEK2day's own beta and the figures from the same fit (beta.py), as served
-    in /equities/metrics rows and the summary's fundamentals. Agreed with Kilby
-    30 Oct 2026; Yahoo's beta is no longer served."""
+def _beta_fields(symbol: str, meta: dict | None) -> dict:
+    """TEK2day's own beta and the figures from the same fit, as served in the
+    summary's fundamentals: one read of the weekly table (beta.py). Agreed with
+    Kilby 30-31 Oct 2026; Yahoo's beta is no longer served."""
     import beta  # noqa: PLC0415
-    got = beta.for_symbol(symbol)
+    return _beta_row(beta.for_symbol(symbol, meta or {}))
+
+
+def _beta_row(got: dict) -> dict:
+    import beta  # noqa: PLC0415
     return {
         "beta": got["beta"],
         "beta_r_squared": got["r_squared"],
@@ -1282,32 +1288,25 @@ def _beta_fields(symbol: str) -> dict:
     }
 
 
-_NO_STANDIN = {"industry_beta_median": None, "industry_beta_peers": None, "industry_beta_industry": None}
-# Industry stand-ins are worked out here, not in the request's threads, so one
-# still running when the wait ends finishes and is cached for the next call.
-_STANDIN_POOL = ThreadPoolExecutor(max_workers=8, thread_name_prefix="industry-beta")
-_STANDIN_WAIT_SECONDS = 10
+_NO_STANDIN = {"industry_beta_median": None, "industry_beta_peers": None, "industry_beta_industry": None,
+               "industry_beta_reason": None}
+_BETA_UNAVAILABLE = {"code": "beta_unavailable",
+                     "note": "Beta could not be read just now; rows with beta_reason or industry_beta_reason "
+                             "\"unavailable\" are not a missing beta. Try again."}
 
 
-def _industry_standins(rows) -> list[str]:
-    """Fill industry_beta_* on the rows without a beta of their own, waiting at
-    most _STANDIN_WAIT_SECONDS for all their industries together (Kilby's
-    metrics call times out at 30 s). Returns the industries not ready in time;
-    their rows keep nulls. Only on request (include=industry_beta), so callers
-    that never use it pay nothing."""
-    from concurrent.futures import wait  # noqa: PLC0415
+def _industry_standins(rows) -> None:
+    """Fill industry_beta_* on the covered rows without a beta of their own,
+    from the weekly table's industry medians (one stored document, cached).
+    Only on request (include=industry_beta)."""
     import beta  # noqa: PLC0415
-    wanted = [row for row in rows if row.get("covered") and row.get("beta") is None]
-    jobs = {ind: _STANDIN_POOL.submit(beta.industry_standin, ind, "")
-            for ind in {row["_industry"] for row in wanted if row["_industry"]}}
-    wait(jobs.values(), timeout=_STANDIN_WAIT_SECONDS)
-    pending = sorted(ind for ind, job in jobs.items() if not job.done())
-    for row in wanted:
-        if not row["_industry"]:
+    for row in rows:
+        if not row.get("covered") or row.get("beta") is not None:
+            continue
+        if row["_industry"]:
+            row.update(beta.industry_standin(row["_industry"], row.get("beta_window_end")))
+        else:
             row.update(_NO_STANDIN, industry_beta_peers=0)
-        elif row["_industry"] not in pending:
-            row.update(beta.industry_standin(row["_industry"], row["symbol"]))
-    return pending
 
 
 @router.get("/equities/metrics")
@@ -1329,6 +1328,7 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1), in
     we hold it — same promise as `/comparisons`. A watchlist analysis that
     quietly dropped a name would report coverage the caller does not have.
     """
+    import beta  # noqa: PLC0415
     require_kilby(request)
     requested_raw = [s for s in str(symbols or "").replace(" ", ",").split(",") if s]
     requested = {"symbols": requested_raw}
@@ -1391,12 +1391,13 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1), in
             norm, (meta or {}).get("name"), prices, estimates, financials
         )
         row["financial_upstream"] = envelope.financial_upstream(financials)
-        row.update(_beta_fields(norm))
+        row.update(_beta_row(dict.fromkeys(beta.FIELDS)))    # filled below, in one batched read
         # Yahoo's own security type, as stored, null when none: Kilby treats
         # MONEYMARKET as cash (beta 0). Asked 31 Oct 2026; no extra read.
         row["quote_type"] = (meta or {}).get("quote_type") or None
         row.update(_NO_STANDIN)
         row["_industry"] = (meta or {}).get("industry") or None
+        row["_held"] = bool(meta)
         return row
 
     # Bounded rather than one worker per symbol: these are Firestore reads and a
@@ -1405,9 +1406,14 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1), in
     workers = min(len(ordered), _METRICS_MAX_WORKERS)
     with ThreadPoolExecutor(max_workers=workers) as pool:
         rows = list(pool.map(load, ordered))
-    pending = _industry_standins(rows) if "industry_beta" in str(include).split(",") else []
+    betas = beta.for_symbols(ordered, {norm: row["_held"] for norm, row in zip(ordered, rows)})
+    for norm, row in zip(ordered, rows):
+        row.update(_beta_row(betas[norm]))
+    if "industry_beta" in str(include).split(","):
+        _industry_standins(rows)
     for row in rows:
         row.pop("_industry", None)
+        row.pop("_held", None)
 
     missing = [row["symbol"] for row in rows if not row.get("covered")]
 
@@ -1449,14 +1455,17 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1), in
                 "next week's first close) is stored by a finished price run. The last 105 week-ends, "
                 "104 returns; a stock with one to two years of prices is fitted over the weeks it has, "
                 "from beta_window_start. A week counts only when this stock has both closes. "
-                "Reproducible from /equities/prices. Changes once a week"
+                "Reproducible from /equities/prices. Worked out once a week, after the week's last "
+                "close is stored, and stored: beta_window_end says which week"
             ),
             "beta_years": ("Span of the fit in years, to 0.1: 2.0 for the full 104 weeks, less for a "
                            "younger stock (1.7 for 88 weeks). Show it whenever it is under 2.0"),
             "beta_r_squared": "R-squared of the same fit (Excel RSQ); null when the stock's weekly returns never varied",
             "beta_weeks_used": "Weekly returns in the fit: up to 104",
             "beta_reason": (
-                "Why beta is null, else null: split_since_refresh (a split since Thursday's 5-year "
+                "Why beta is null, else null: unavailable (it could not be read just now: try again; "
+                "the beta_unavailable warning says so), not_yet_computed (the weekly run has not reached this "
+                "company yet), split_since_refresh (a split since Thursday's 5-year "
                 "re-adjust), short_history (fewer than 52 weekly returns since the first stored "
                 "close), not_enough_weeks (fewer than 52 used, or more missing than 24 of 104)"
             ),
@@ -1464,14 +1473,17 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1), in
             "beta_window_end": "Last week-end date of the window",
             "beta_method": "\"weekly_vs_spy_up_to_2y\"; beta_source is \"tek2day\"",
             "industry_beta_median": (
-                "Only with include=industry_beta, and only when beta is null: the median of TEK2day's own betas of the other active "
-                "companies in the same industry (same method, same week). An ESTIMATE for a "
-                "portfolio's beta, not this stock's beta. Null when no peer has a beta"
+                "Only with include=industry_beta, and only when beta is null: the median of TEK2day's "
+                "own betas of the active companies in the same industry, from the same weekly run. "
+                "An ESTIMATE for a portfolio's beta, not this stock's beta. Null when no peer has a beta"
             ),
             "quote_type": ("Yahoo's security type as stored (EQUITY, ETF, MUTUALFUND, MONEYMARKET, ...); "
                            "null when the record has none"),
             "industry_beta_peers": "How many peer betas went into industry_beta_median (0 when none)",
             "industry_beta_industry": "The industry it came from (Yahoo's classification, else from SEC SIC codes)",
+            "industry_beta_reason": ("\"unavailable\" when the industry medians could not be read, or are from an "
+                                     "older week than this row's beta (the weekly run is part way through): "
+                                     "industry_beta_median and industry_beta_peers are then null. Else null"),
             "annual_eps_outlook": (
                 "Consensus EPS for the fiscal years NOT yet reported, continuing straight on "
                 "from annual_diluted_eps. Yahoo's current year is the year in progress, so the "
@@ -1484,15 +1496,13 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1), in
     }
 
     warnings = []
-    if pending:
-        warnings.append({"code": "industry_beta_pending",
-                         "note": "Industry betas still being worked out for: " + ", ".join(pending)
-                                 + ". Ask again in a minute."})
     if missing:
         warnings.append({
             "code": "not_covered",
             "note": "Not covered by TEK2day Finance: " + ", ".join(missing) + ".",
         })
+    if any("unavailable" in (row.get("beta_reason"), row.get("industry_beta_reason")) for row in rows):
+        warnings.append(dict(_BETA_UNAVAILABLE))
 
     return envelope.build(
         "equity_metrics", data, requested,

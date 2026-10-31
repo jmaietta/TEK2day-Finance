@@ -38,6 +38,8 @@ def _no_beta_reads(monkeypatch):
     puts its own in, and no industry stand-in; test_beta.py tests the real
     ones against fakes."""
     import beta
-    monkeypatch.setattr(beta, "for_symbol", lambda symbol: dict.fromkeys(beta.FIELDS))
-    monkeypatch.setattr(beta, "industry_standin", lambda industry, symbol: {
-        "industry_beta_median": None, "industry_beta_peers": 0, "industry_beta_industry": industry or None})
+    monkeypatch.setattr(beta, "for_symbol", lambda symbol, meta=None: dict.fromkeys(beta.FIELDS))
+    monkeypatch.setattr(beta, "for_symbols", lambda symbols, metas: {s: dict.fromkeys(beta.FIELDS) for s in symbols})
+    monkeypatch.setattr(beta, "industry_standin", lambda industry, window_end=None: {
+        "industry_beta_median": None, "industry_beta_peers": 0, "industry_beta_industry": industry or None,
+        "industry_beta_reason": None})
