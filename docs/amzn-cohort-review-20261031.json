@@ -1,0 +1,519 @@
+{
+  "binding_change": {
+    "current_binding_sha256": "289efd69d6e1e77cef555a02797b52a43956efd2f1f9163de1a79216d0f2ea2d",
+    "fields_changed": [
+      "evidence",
+      "identity_review",
+      "periods_through"
+    ],
+    "periods_from": "2026-04-01",
+    "periods_through": {
+      "current": "2026-06-30",
+      "proposed": "2026-09-30"
+    },
+    "proposed_binding_sha256": "56c6908d34e7a29a9642938e7561ec80ed9bcea82a6ab2fca8b5575e0dcd58d0",
+    "proposed_catalog": "sec_catalog/enrollments.json (this branch); copy at docs/amzn-proposed-enrollment-20261031.json"
+  },
+  "cohort_manifest": {
+    "activation_write_count": 0,
+    "blocked_symbols": [],
+    "cohort_sha256": "c7e92cb1370011f9f04ca0e6202e2587ccb0a1ba1e5cb16481af2220e9a9b922",
+    "financial_write_count": 2,
+    "items": [
+      {
+        "activation": null,
+        "binding_sha256": "56c6908d34e7a29a9642938e7561ec80ed9bcea82a6ab2fca8b5575e0dcd58d0",
+        "native_sha256": "7e536f6f63b01106656c333a45ce01b1c39448d5af30bfc69f84a11eb9ce44e6",
+        "notices": [
+          {
+            "reason": "recent_submission_history_only; older archives not scanned",
+            "status": "scope"
+          }
+        ],
+        "observations": [
+          {
+            "candidate_sha256": "d7d69a4fd68a357af6df7c324ed789563b8bc4bf8ac54f2c84207409c8ac4062",
+            "conflicts": [],
+            "filled_fields": [],
+            "period": "2026-Q2",
+            "status": "noop"
+          },
+          {
+            "candidate_sha256": "a2bcba0c8d65dde51386d198a10ad4f4b757b699246a57892ee3e256440e67f8",
+            "conflicts": [],
+            "filled_fields": [
+              "balance_sheet.Goodwill",
+              "balance_sheet.Retained Earnings",
+              "balance_sheet.Stockholders Equity",
+              "balance_sheet.Total Assets",
+              "cash_flow.Financing Cash Flow",
+              "cash_flow.Investing Cash Flow",
+              "cash_flow.Operating Cash Flow",
+              "income.Net Income",
+              "income.Tax Provision",
+              "income.Total Revenue"
+            ],
+            "period": "2026-Q3",
+            "status": "fill"
+          }
+        ],
+        "repairs": [
+          {
+            "candidate_key": "ab899aa2ed66cba328cc6df591afff430f70d509580553c3d3580cfed3267f6f",
+            "candidate_sha256": "a2bcba0c8d65dde51386d198a10ad4f4b757b699246a57892ee3e256440e67f8",
+            "captured_at": "2026-10-31T04:23:26.660069+00:00",
+            "conflict_count": 0,
+            "database": "(default)",
+            "filled_fields": [
+              "balance_sheet.Goodwill",
+              "balance_sheet.Retained Earnings",
+              "balance_sheet.Stockholders Equity",
+              "balance_sheet.Total Assets",
+              "cash_flow.Financing Cash Flow",
+              "cash_flow.Investing Cash Flow",
+              "cash_flow.Operating Cash Flow",
+              "income.Net Income",
+              "income.Tax Provision",
+              "income.Total Revenue"
+            ],
+            "original_collections": [],
+            "original_tree": [
+              {
+                "exists": true,
+                "path": "tickers/AMZN/financials/2026-Q3",
+                "sha256": "127a0a4f4b7113abc26eebe2450766b84febf67c962400145445ceb7386478df",
+                "update_time": {
+                  "__firestore_timestamp__": "2026-10-30T19:45:08.913975+00:00"
+                }
+              }
+            ],
+            "period": "2026-Q3",
+            "plan_sha256": "d343fec7b7aecbaf1ef7844a8bb040719e564b20fb750c1c36e42767e3acfbb1",
+            "project": "yfinance-cli",
+            "proposed_writes": [
+              {
+                "operation": "conditional set in one transaction",
+                "path": "tickers/AMZN/financials/2026-Q3",
+                "template_sha256": "a9b8d80a01a7ef9f153db8cb03b484e60b69c0b7aaf9f14934102ab5c7f90cce"
+              },
+              {
+                "operation": "conditional set in one transaction",
+                "path": "tickers/AMZN/financials/2026-Q3/identity_observations/sec-ab899aa2ed66cba328cc6df591afff430f70d509580553c3d3580cfed3267f6f",
+                "template_sha256": "445a9038771bfa17b644156422ac735f488045c46d7c315faa2c3926d4acff31"
+              }
+            ],
+            "rollback": {
+              "candidate_key": "ab899aa2ed66cba328cc6df591afff430f70d509580553c3d3580cfed3267f6f",
+              "entrypoint": "sec_maintenance.rollback_candidate",
+              "original_sha256": "127a0a4f4b7113abc26eebe2450766b84febf67c962400145445ceb7386478df",
+              "period": "2026-Q3",
+              "requirements": "Pause reviewed route; require unchanged applied record and no later descendants; restore exact original, retain audit/rollback marker, verify before resuming route",
+              "symbol": "AMZN"
+            },
+            "route_path": "sec_bindings/54247d1b-a77a-429e-9084-82abcaeba8f8",
+            "route_sha256": "ef68f7f2238fe67fcff04d9b2a93386dada0f1fb30322faebd4f4aecb4ec8184",
+            "scope": "One reviewed security's financial period and its audit; all nested observations retained. No quotes, estimates, metadata, other periods or scheduler changes.",
+            "source_capture": {
+              "bytes": 4554378,
+              "retrieved_at": "2026-10-31T04:23:27.554132+00:00",
+              "sha256": "acddb7c0a6973a1fd08372de3b292298a34eae7f42a7eedc4bdebd3ac659c8fd",
+              "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001018724.json"
+            },
+            "status": "PREPARED; NOT EXECUTED",
+            "symbol": "AMZN",
+            "timestamp_policy": "Only sec_backfilled_at and audit.recorded_at use actual execution time; audit approval_plan_sha256 uses this plan digest; applied_sha256 is recomputed. All source/report timestamps and existing fetched_at stay frozen."
+          }
+        ],
+        "source_sha256": "411d0fd9b44f1a597281b8e07555e94b0eb0ea3d391b32d2b30233072006e924",
+        "symbol": "AMZN"
+      }
+    ],
+    "prepared_at": "2026-11-06T17:00:00+00:00",
+    "schema": 1,
+    "status": "PREPARED; NO WRITES"
+  },
+  "conflicts": [],
+  "control_record": {
+    "current": {
+      "binding_sha256": "289efd69d6e1e77cef555a02797b52a43956efd2f1f9163de1a79216d0f2ea2d"
+    },
+    "finding": "Every AMZN read and write (website, partner API, prices, metadata, estimates, financials) checks this record against the deployed catalog. Proposed catalog + current record: IdentityError: Enrollment control missing or changed. Current catalog + updated record: IdentityError: Enrollment control missing or changed. The record and the catalog must change together; sec_enrollment.activation_plan refuses an existing control, so no current tool performs this update.",
+    "path": "sec_bindings/54247d1b-a77a-429e-9084-82abcaeba8f8",
+    "required": {
+      "binding_sha256": "56c6908d34e7a29a9642938e7561ec80ed9bcea82a6ab2fca8b5575e0dcd58d0"
+    }
+  },
+  "filing": {
+    "accession": "0001018724-26-000040",
+    "document_bytes": 1646125,
+    "document_sha256": "7bd0eb2174fa15e5ad97323465155e665cf989f60b6c66698f13bde143640f4f",
+    "eligible_after_168h_grace": "2026-11-05T22:20:46+00:00",
+    "filing_date": "2026-10-30",
+    "first_scheduled_run_after_grace": "2026-11-06 12:00 America/New_York (17:00Z)",
+    "form": "10-Q",
+    "sec_acceptance": "2026-10-29T22:20:46.000Z",
+    "sec_file_number": "001-43202",
+    "url": "https://www.sec.gov/Archives/edgar/data/1018724/000101872426000040/amzn-20260930.htm"
+  },
+  "firestore_writes": 0,
+  "identity_review": {
+    "checks": [
+      "Same registrant CIK, class, symbol and exchange as the June 10-Q",
+      "No rename, succession, ADR, currency or share-class change",
+      "SEC file number 001-43202 is the same as the June and March 2026 10-Qs; it changed from 000-22513 with the March 2026 10-Q, before the reviewed interval. The cover also lists Nasdaq-registered notes; the common-stock row is unchanged.",
+      "Statements are consolidated, USD millions; the cash-flow statement presents three-month July-September 2026 columns directly (direct_only policy applies)"
+    ],
+    "cover_passage": "Common Stock, par value $.01 per share | AMZN | The Nasdaq Stock Market LLC",
+    "registrant": "AMAZON.COM, INC.; Delaware; IRS 91-1646860; CIK 0001018724 (SEC submissions)",
+    "sec_submissions": {
+      "exchanges": [
+        "Nasdaq"
+      ],
+      "formerNames": [],
+      "name": "AMAZON COM INC",
+      "tickers": [
+        "AMZN"
+      ]
+    },
+    "stored_metadata": {
+      "active": true,
+      "cik": 1018724,
+      "currency": "USD",
+      "exchange": "NMS",
+      "financial_currency": "USD",
+      "symbol": "AMZN"
+    }
+  },
+  "observe_mode_method": "sec_maintenance._run_fallback([\"AMZN\"], mode=\"observe\") run offline against an in-memory copy of the read-only Firestore capture, SEC answers replayed from the same capture, yahoo_seen built from stored financials, fetchers.fetch_financials / fetch_annual_financials patched to raise, sockets disabled. Cohort plan via sec_cohort.prepare + public_manifest, the same pipeline as amzn-cohort-review-20260913.json.",
+  "observe_mode_runs": {
+    "A_today_current_catalog_live_control": {
+      "failures": [
+        "AMZN:filings_need_review"
+      ],
+      "now": "2026-10-31T04:23:26.660069+00:00",
+      "results": [
+        {
+          "form": "10-Q",
+          "reason": "report_outside_reviewed_interval",
+          "reportDate": "2026-09-30",
+          "status": "review",
+          "symbol": "AMZN"
+        },
+        {
+          "reason": "recent_submission_history_only; older archives not scanned",
+          "status": "scope",
+          "symbol": "AMZN"
+        },
+        {
+          "candidate_sha256": "26504a2d2bfe8b9f6ff78c1be1210bd6c112f43d0df585bd8e0ec0fd28f473f3",
+          "conflicts": 0,
+          "fields": 0,
+          "mode": "observe",
+          "path": "tickers/AMZN/financials/2026-Q2",
+          "period": "2026-Q2",
+          "source": "SEC EDGAR",
+          "status": "noop",
+          "symbol": "AMZN"
+        }
+      ]
+    },
+    "B_proposed_catalog_but_control_not_updated": {
+      "failures": [
+        "AMZN:IdentityError:Enrollment control missing or changed"
+      ],
+      "now": "2026-11-06T17:00:00+00:00",
+      "results": []
+    },
+    "C_proposed_catalog_and_control_updated_today": {
+      "failures": [],
+      "now": "2026-10-31T04:23:26.660069+00:00",
+      "results": [
+        {
+          "reason": "recent_submission_history_only; older archives not scanned",
+          "status": "scope",
+          "symbol": "AMZN"
+        },
+        {
+          "candidate_sha256": "d7d69a4fd68a357af6df7c324ed789563b8bc4bf8ac54f2c84207409c8ac4062",
+          "conflicts": 0,
+          "fields": 0,
+          "mode": "observe",
+          "path": "tickers/AMZN/financials/2026-Q2",
+          "period": "2026-Q2",
+          "source": "SEC EDGAR",
+          "status": "noop",
+          "symbol": "AMZN"
+        }
+      ]
+    },
+    "D_proposed_catalog_and_control_updated_first_eligible_run": {
+      "failures": [],
+      "now": "2026-11-06T17:00:00+00:00",
+      "results": [
+        {
+          "reason": "recent_submission_history_only; older archives not scanned",
+          "status": "scope",
+          "symbol": "AMZN"
+        },
+        {
+          "candidate_sha256": "d7d69a4fd68a357af6df7c324ed789563b8bc4bf8ac54f2c84207409c8ac4062",
+          "conflicts": 0,
+          "fields": 0,
+          "mode": "observe",
+          "path": "tickers/AMZN/financials/2026-Q2",
+          "period": "2026-Q2",
+          "source": "SEC EDGAR",
+          "status": "noop",
+          "symbol": "AMZN"
+        },
+        {
+          "candidate_sha256": "a2bcba0c8d65dde51386d198a10ad4f4b757b699246a57892ee3e256440e67f8",
+          "conflicts": 0,
+          "fields": 10,
+          "mode": "observe",
+          "path": "tickers/AMZN/financials/2026-Q3",
+          "period": "2026-Q3",
+          "source": "SEC EDGAR",
+          "status": "fill",
+          "symbol": "AMZN"
+        }
+      ]
+    }
+  },
+  "period": "2026-Q3",
+  "period_end": "2026-09-30",
+  "period_start": "2026-07-01",
+  "prepared_on": "2026-10-31",
+  "q2_rerun": "2026-Q2 re-checked under the proposed binding: noop, 0 fields, 0 conflicts; its September SEC fill and audit stay as they are.",
+  "q3_side_by_side": [
+    {
+      "conflict": false,
+      "field": "income.Net Income",
+      "filing_statement_line": "Net income",
+      "filing_statement_usd_millions": 20685,
+      "sec_concept": "us-gaap:NetIncomeLoss",
+      "sec_matches_filing_statement": true,
+      "sec_value_usd": 20685000000,
+      "stored_value_yahoo": "NaN (blank)",
+      "would_fill": true
+    },
+    {
+      "conflict": false,
+      "field": "income.Tax Provision",
+      "filing_statement_line": "Provision for income taxes",
+      "filing_statement_usd_millions": 6180,
+      "sec_concept": "us-gaap:IncomeTaxExpenseBenefit",
+      "sec_matches_filing_statement": true,
+      "sec_value_usd": 6180000000,
+      "stored_value_yahoo": "NaN (blank)",
+      "would_fill": true
+    },
+    {
+      "conflict": false,
+      "field": "income.Total Revenue",
+      "filing_statement_line": "Total net sales",
+      "filing_statement_usd_millions": 201944,
+      "sec_concept": "RevenueFromContractWithCustomerExcludingAssessedTax",
+      "sec_matches_filing_statement": true,
+      "sec_value_usd": 201944000000,
+      "stored_value_yahoo": "NaN (blank)",
+      "would_fill": true
+    },
+    {
+      "conflict": false,
+      "field": "balance_sheet.Goodwill",
+      "filing_statement_line": "Goodwill",
+      "filing_statement_usd_millions": 23743,
+      "sec_concept": "us-gaap:Goodwill",
+      "sec_matches_filing_statement": true,
+      "sec_value_usd": 23743000000,
+      "stored_value_yahoo": "absent",
+      "would_fill": true
+    },
+    {
+      "conflict": false,
+      "field": "balance_sheet.Net PPE",
+      "filing_statement_line": "Property and equipment, net",
+      "filing_statement_usd_millions": 508862,
+      "not_filled_because": "Amazon tags it us-gaap:PropertyPlantAndEquipmentAndFinanceLeaseRightOfUseAssetAfterAccumulatedDepreciationAndAmortization (508,862m), not the mapped us-gaap:PropertyPlantAndEquipmentNet",
+      "sec_concept": null,
+      "sec_matches_filing_statement": null,
+      "sec_value_usd": null,
+      "stored_value_yahoo": "absent",
+      "would_fill": false
+    },
+    {
+      "conflict": false,
+      "field": "balance_sheet.Retained Earnings",
+      "filing_statement_line": "Retained earnings",
+      "filing_statement_usd_millions": 364123,
+      "sec_concept": "us-gaap:RetainedEarningsAccumulatedDeficit",
+      "sec_matches_filing_statement": true,
+      "sec_value_usd": 364123000000,
+      "stored_value_yahoo": "absent",
+      "would_fill": true
+    },
+    {
+      "conflict": false,
+      "field": "balance_sheet.Stockholders Equity",
+      "filing_statement_line": "Total stockholders’ equity",
+      "filing_statement_usd_millions": 613601,
+      "sec_concept": "us-gaap:StockholdersEquity",
+      "sec_matches_filing_statement": true,
+      "sec_value_usd": 613601000000,
+      "stored_value_yahoo": "absent",
+      "would_fill": true
+    },
+    {
+      "conflict": false,
+      "field": "balance_sheet.Total Assets",
+      "filing_statement_line": "Total assets",
+      "filing_statement_usd_millions": 1243390,
+      "sec_concept": "us-gaap:Assets",
+      "sec_matches_filing_statement": true,
+      "sec_value_usd": 1243390000000,
+      "stored_value_yahoo": "absent",
+      "would_fill": true
+    },
+    {
+      "conflict": false,
+      "field": "balance_sheet.Total Liabilities Net Minority Interest",
+      "filing_statement_line": "No total-liabilities line in the statement",
+      "filing_statement_usd_millions": null,
+      "not_filled_because": "Amazon reports no us-gaap:Liabilities fact (statement has no total-liabilities line)",
+      "sec_concept": null,
+      "sec_matches_filing_statement": null,
+      "sec_value_usd": null,
+      "stored_value_yahoo": "absent",
+      "would_fill": false
+    },
+    {
+      "conflict": false,
+      "field": "cash_flow.Capital Expenditure",
+      "filing_statement_line": "Purchases of property and equipment",
+      "filing_statement_usd_millions": -77259,
+      "not_filled_because": "Amazon tags it us-gaap:PaymentsToAcquireProductiveAssets (77,259m), not the mapped us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "sec_concept": null,
+      "sec_matches_filing_statement": null,
+      "sec_value_usd": null,
+      "stored_value_yahoo": "absent",
+      "would_fill": false
+    },
+    {
+      "conflict": false,
+      "field": "cash_flow.Financing Cash Flow",
+      "filing_statement_line": "Net cash provided by (used in) financing activities",
+      "filing_statement_usd_millions": 48935,
+      "sec_concept": "us-gaap:NetCashProvidedByUsedInFinancingActivities",
+      "sec_matches_filing_statement": true,
+      "sec_value_usd": 48935000000,
+      "stored_value_yahoo": "absent",
+      "would_fill": true
+    },
+    {
+      "conflict": false,
+      "field": "cash_flow.Investing Cash Flow",
+      "filing_statement_line": "Net cash provided by (used in) investing activities",
+      "filing_statement_usd_millions": -113642,
+      "sec_concept": "us-gaap:NetCashProvidedByUsedInInvestingActivities",
+      "sec_matches_filing_statement": true,
+      "sec_value_usd": -113642000000,
+      "stored_value_yahoo": "absent",
+      "would_fill": true
+    },
+    {
+      "conflict": false,
+      "field": "cash_flow.Operating Cash Flow",
+      "filing_statement_line": "Net cash provided by (used in) operating activities",
+      "filing_statement_usd_millions": 42422,
+      "sec_concept": "us-gaap:NetCashProvidedByUsedInOperatingActivities",
+      "sec_matches_filing_statement": true,
+      "sec_value_usd": 42422000000,
+      "stored_value_yahoo": "absent",
+      "would_fill": true
+    },
+    {
+      "conflict": false,
+      "field": "cash_flow.Free Cash Flow",
+      "filing_statement_line": "Not a statement line; OCF 42,422 minus purchases of property and equipment 77,259 = -34,837",
+      "filing_statement_usd_millions": null,
+      "not_filled_because": "Derived only from mapped Operating Cash Flow + Capital Expenditure; capital expenditure is unmapped, so not computed",
+      "sec_value_usd": null,
+      "stored_value_yahoo": "absent",
+      "would_fill": false
+    }
+  ],
+  "q3_stored_field_counts": {
+    "balance_sheet": 0,
+    "cash_flow": 0,
+    "income": 46
+  },
+  "q3_stored_note": "Stored income has 46 keys but 42 are NaN; only EPS and average shares are populated, and they match the filing.",
+  "q3_stored_values_sec_does_not_touch": [
+    {
+      "field": "income.Basic Average Shares",
+      "filing_statement_line": "Weighted-average shares, basic (millions)",
+      "filing_value": 10797,
+      "matches_filing": true,
+      "sec_touches_it": false,
+      "stored_value_yahoo": 10797000000.0
+    },
+    {
+      "field": "income.Basic EPS",
+      "filing_statement_line": "Basic earnings per share",
+      "filing_value": 1.92,
+      "matches_filing": true,
+      "sec_touches_it": false,
+      "stored_value_yahoo": 1.92
+    },
+    {
+      "field": "income.Diluted Average Shares",
+      "filing_statement_line": "Weighted-average shares, diluted (millions)",
+      "filing_value": 10929,
+      "matches_filing": true,
+      "sec_touches_it": false,
+      "stored_value_yahoo": 10929000000.0
+    },
+    {
+      "field": "income.Diluted EPS",
+      "filing_statement_line": "Diluted earnings per share",
+      "filing_value": 1.89,
+      "matches_filing": true,
+      "sec_touches_it": false,
+      "stored_value_yahoo": 1.89
+    }
+  ],
+  "schema": 1,
+  "sec_requests": [
+    {
+      "at": "2026-10-31T04:23:26.660069+00:00",
+      "url": "https://data.sec.gov/submissions/CIK0001018724.json"
+    },
+    {
+      "at": "2026-10-31T04:23:27.299731+00:00",
+      "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001018724.json"
+    },
+    {
+      "at": "2026-10-31T04:23:27.809041+00:00",
+      "url": "https://www.sec.gov/Archives/edgar/data/1018724/000101872426000040/amzn-20260930.htm"
+    }
+  ],
+  "simulation_assumptions": [
+    "prepared_at / now = 2026-11-06T17:00Z, the first scheduled run after the 168-hour grace; today the September report is not yet eligible",
+    "Control sec_bindings/54247d1b-... simulated as re-pointed to the proposed binding digest; today it holds 289efd69... (the June binding)",
+    "Stored 2026-Q3 as captured 2026-10-31; if Yahoo fills any of these fields before 6 Nov, SEC fills fewer and any differing value becomes a conflict held for review"
+  ],
+  "status": "PREPARED FOR OWNER REVIEW; NOT ACTIVE; NO WRITES",
+  "symbol": "AMZN",
+  "trigger": {
+    "failure": "AMZN:filings_need_review",
+    "job": "quarterly-financial-pull, 2026-10-30 noon ET",
+    "log": {
+      "form": "10-Q",
+      "reason": "report_outside_reviewed_interval",
+      "reportDate": "2026-09-30"
+    },
+    "reproduced_offline": true
+  },
+  "yahoo_requests": 0
+}

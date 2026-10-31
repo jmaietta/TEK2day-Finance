@@ -1,6 +1,6 @@
 """Synthetic multi-security enrollment, translation, recovery and isolation."""
 from copy import deepcopy
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 import json
 
 import pytest
@@ -217,9 +217,10 @@ def test_batch_interruption_replays_only_uncheckpointed_symbol(db):
 
 def test_packaged_catalog_matches_approved_amzn_enrollment():
     from pathlib import Path
-    approved = json.loads((Path(__file__).parent / 'docs/amzn-proposed-enrollment-20260913.json').read_text())['bindings'][0]
+    approved = json.loads((Path(__file__).parent / 'docs/amzn-proposed-enrollment-20261031.json').read_text())['bindings'][0]
     assert set(BINDINGS) == {'BNY', 'AMZN'}
     assert digest(load_catalog()['AMZN']) == digest(approved)
+    assert approved['periods_from'] == '2026-04-01' and approved['periods_through'] == '2026-09-30'
 
 
 def test_real_amzn_uses_shared_profile_and_exact_quarter():
@@ -235,6 +236,29 @@ def test_real_amzn_uses_shared_profile_and_exact_quarter():
     assert c['cash_flow']['Operating Cash Flow'] == 45_387_000_000
     assert c['period_start'] == '2026-04-01' and c['period_end'] == '2026-06-30'
     assert 'Diluted EPS' not in c['income'] and 'Net PPE' not in c['balance_sheet']
+
+
+def test_real_amzn_september_quarter_inside_extended_interval_only():
+    from pathlib import Path
+    root = Path(__file__).parent
+    b = json.loads((root / 'docs/amzn-proposed-enrollment-20261031.json').read_text())['bindings'][0]
+    e = json.loads((root / 'tests/fixtures/sec_amzn_2026_q3.json').read_text())
+    accepted = datetime(2026, 10, 29, 22, 20, 46, tzinfo=timezone.utc)
+    # Still inside the 168-hour grace period: no report selected, no review notice.
+    early, notices = filings_from(e['submissions'], b, accepted + timedelta(days=6))
+    assert early == [] and not [n for n in notices if n['status'] == 'review']
+    reports, _ = filings_from(e['submissions'], b, accepted + timedelta(days=7))
+    c = build_candidate(e['facts'], e['receipt'], b, reports[0], reports)
+    assert c['period'] == '2026-Q3' and c['period_start'] == '2026-07-01' and c['period_end'] == '2026-09-30'
+    assert c['income']['Total Revenue'] == 201_944_000_000
+    assert c['income']['Net Income'] == 20_685_000_000
+    assert c['balance_sheet']['Total Assets'] == 1_243_390_000_000
+    assert c['cash_flow']['Operating Cash Flow'] == 42_422_000_000
+    assert 'Free Cash Flow' not in c['cash_flow'] and 'Net PPE' not in c['balance_sheet']
+    # The June binding still refuses this report.
+    june = json.loads((root / 'docs/amzn-proposed-enrollment-20260913.json').read_text())['bindings'][0]
+    _, notices = filings_from(e['submissions'], june, accepted + timedelta(days=7))
+    assert [n['reason'] for n in notices] == ['report_outside_reviewed_interval']
 
 
 def test_scheduled_cohort_uses_shared_client_and_idempotent_repairs(db, monkeypatch):

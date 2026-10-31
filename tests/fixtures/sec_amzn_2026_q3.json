@@ -1,0 +1,317 @@
+{
+  "description": "Bounded public SEC Company Facts and submissions, never private Firestore data",
+  "facts": {
+    "cik": 1018724,
+    "facts": {
+      "us-gaap": {
+        "Assets": {
+          "units": {
+            "USD": [
+              {
+                "accn": "0001018724-26-000040",
+                "end": "2026-09-30",
+                "filed": "2026-10-30",
+                "form": "10-Q",
+                "fp": "Q3",
+                "frame": "CY2026Q3I",
+                "fy": 2026,
+                "val": 1243390000000
+              }
+            ]
+          }
+        },
+        "Goodwill": {
+          "units": {
+            "USD": [
+              {
+                "accn": "0001018724-26-000040",
+                "end": "2026-09-30",
+                "filed": "2026-10-30",
+                "form": "10-Q",
+                "fp": "Q3",
+                "frame": "CY2026Q3I",
+                "fy": 2026,
+                "val": 23743000000
+              }
+            ]
+          }
+        },
+        "IncomeTaxExpenseBenefit": {
+          "units": {
+            "USD": [
+              {
+                "accn": "0001018724-26-000040",
+                "end": "2026-09-30",
+                "filed": "2026-10-30",
+                "form": "10-Q",
+                "fp": "Q3",
+                "fy": 2026,
+                "start": "2026-01-01",
+                "val": 33939000000
+              },
+              {
+                "accn": "0001018724-26-000040",
+                "end": "2026-09-30",
+                "filed": "2026-10-30",
+                "form": "10-Q",
+                "fp": "Q3",
+                "frame": "CY2026Q3",
+                "fy": 2026,
+                "start": "2026-07-01",
+                "val": 6180000000
+              }
+            ]
+          }
+        },
+        "NetCashProvidedByUsedInFinancingActivities": {
+          "units": {
+            "USD": [
+              {
+                "accn": "0001018724-26-000040",
+                "end": "2026-09-30",
+                "filed": "2026-10-30",
+                "form": "10-Q",
+                "fp": "Q3",
+                "frame": "CY2026",
+                "fy": 2026,
+                "start": "2025-10-01",
+                "val": 124139000000
+              },
+              {
+                "accn": "0001018724-26-000040",
+                "end": "2026-09-30",
+                "filed": "2026-10-30",
+                "form": "10-Q",
+                "fp": "Q3",
+                "fy": 2026,
+                "start": "2026-01-01",
+                "val": 111848000000
+              },
+              {
+                "accn": "0001018724-26-000040",
+                "end": "2026-09-30",
+                "filed": "2026-10-30",
+                "form": "10-Q",
+                "fp": "Q3",
+                "frame": "CY2026Q3",
+                "fy": 2026,
+                "start": "2026-07-01",
+                "val": 48935000000
+              }
+            ]
+          }
+        },
+        "NetCashProvidedByUsedInInvestingActivities": {
+          "units": {
+            "USD": [
+              {
+                "accn": "0001018724-26-000040",
+                "end": "2026-09-30",
+                "filed": "2026-10-30",
+                "form": "10-Q",
+                "fp": "Q3",
+                "frame": "CY2026",
+                "fy": 2026,
+                "start": "2025-10-01",
+                "val": -304344000000
+              },
+              {
+                "accn": "0001018724-26-000040",
+                "end": "2026-09-30",
+                "filed": "2026-10-30",
+                "form": "10-Q",
+                "fp": "Q3",
+                "fy": 2026,
+                "start": "2026-01-01",
+                "val": -257099000000
+              },
+              {
+                "accn": "0001018724-26-000040",
+                "end": "2026-09-30",
+                "filed": "2026-10-30",
+                "form": "10-Q",
+                "fp": "Q3",
+                "frame": "CY2026Q3",
+                "fy": 2026,
+                "start": "2026-07-01",
+                "val": -113642000000
+              }
+            ]
+          }
+        },
+        "NetCashProvidedByUsedInOperatingActivities": {
+          "units": {
+            "USD": [
+              {
+                "accn": "0001018724-26-000040",
+                "end": "2026-09-30",
+                "filed": "2026-10-30",
+                "form": "10-Q",
+                "fp": "Q3",
+                "frame": "CY2026",
+                "fy": 2026,
+                "start": "2025-10-01",
+                "val": 168300000000
+              },
+              {
+                "accn": "0001018724-26-000040",
+                "end": "2026-09-30",
+                "filed": "2026-10-30",
+                "form": "10-Q",
+                "fp": "Q3",
+                "fy": 2026,
+                "start": "2026-01-01",
+                "val": 113841000000
+              },
+              {
+                "accn": "0001018724-26-000040",
+                "end": "2026-09-30",
+                "filed": "2026-10-30",
+                "form": "10-Q",
+                "fp": "Q3",
+                "frame": "CY2026Q3",
+                "fy": 2026,
+                "start": "2026-07-01",
+                "val": 42422000000
+              }
+            ]
+          }
+        },
+        "NetIncomeLoss": {
+          "units": {
+            "USD": [
+              {
+                "accn": "0001018724-26-000040",
+                "end": "2026-09-30",
+                "filed": "2026-10-30",
+                "form": "10-Q",
+                "fp": "Q3",
+                "frame": "CY2026",
+                "fy": 2026,
+                "start": "2025-10-01",
+                "val": 134779000000
+              },
+              {
+                "accn": "0001018724-26-000040",
+                "end": "2026-09-30",
+                "filed": "2026-10-30",
+                "form": "10-Q",
+                "fp": "Q3",
+                "fy": 2026,
+                "start": "2026-01-01",
+                "val": 113587000000
+              },
+              {
+                "accn": "0001018724-26-000040",
+                "end": "2026-09-30",
+                "filed": "2026-10-30",
+                "form": "10-Q",
+                "fp": "Q3",
+                "frame": "CY2026Q3",
+                "fy": 2026,
+                "start": "2026-07-01",
+                "val": 20685000000
+              }
+            ]
+          }
+        },
+        "RetainedEarningsAccumulatedDeficit": {
+          "units": {
+            "USD": [
+              {
+                "accn": "0001018724-26-000040",
+                "end": "2026-09-30",
+                "filed": "2026-10-30",
+                "form": "10-Q",
+                "fp": "Q3",
+                "frame": "CY2026Q3I",
+                "fy": 2026,
+                "val": 364123000000
+              }
+            ]
+          }
+        },
+        "RevenueFromContractWithCustomerExcludingAssessedTax": {
+          "units": {
+            "USD": [
+              {
+                "accn": "0001018724-26-000040",
+                "end": "2026-09-30",
+                "filed": "2026-10-30",
+                "form": "10-Q",
+                "fp": "Q3",
+                "fy": 2026,
+                "start": "2026-01-01",
+                "val": 584069000000
+              },
+              {
+                "accn": "0001018724-26-000040",
+                "end": "2026-09-30",
+                "filed": "2026-10-30",
+                "form": "10-Q",
+                "fp": "Q3",
+                "frame": "CY2026Q3",
+                "fy": 2026,
+                "start": "2026-07-01",
+                "val": 201944000000
+              }
+            ]
+          }
+        },
+        "StockholdersEquity": {
+          "units": {
+            "USD": [
+              {
+                "accn": "0001018724-26-000040",
+                "end": "2026-09-30",
+                "filed": "2026-10-30",
+                "form": "10-Q",
+                "fp": "Q3",
+                "frame": "CY2026Q3I",
+                "fy": 2026,
+                "val": 613601000000
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "receipt": {
+    "bytes": 4554378,
+    "retrieved_at": "2026-10-31T04:23:27.554132+00:00",
+    "sha256": "acddb7c0a6973a1fd08372de3b292298a34eae7f42a7eedc4bdebd3ac659c8fd",
+    "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001018724.json"
+  },
+  "submissions": {
+    "cik": "0001018724",
+    "exchanges": [
+      "Nasdaq"
+    ],
+    "filings": {
+      "recent": {
+        "acceptanceDateTime": [
+          "2026-10-29T22:20:46.000Z"
+        ],
+        "accessionNumber": [
+          "0001018724-26-000040"
+        ],
+        "filingDate": [
+          "2026-10-30"
+        ],
+        "form": [
+          "10-Q"
+        ],
+        "primaryDocument": [
+          "amzn-20260930.htm"
+        ],
+        "reportDate": [
+          "2026-09-30"
+        ]
+      }
+    },
+    "tickers": [
+      "AMZN"
+    ]
+  }
+}
