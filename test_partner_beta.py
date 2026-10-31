@@ -166,8 +166,11 @@ def test_unreadable_records_say_unavailable_not_uncovered(monkeypatch):
     check("covered null, unavailable", [(_row(body, s)["covered"], _row(body, s)["beta_reason"],
                                          _row(body, s)["industry_beta_reason"]) for s in ("NVDA", "AMD")]
           == [(None, "unavailable", "unavailable")] * 2, str(body["data"]["companies"]))
-    check("warned once, nothing listed as not covered",
-          _codes(body) == ["beta_unavailable"] and body["data"]["not_covered"] == [], str(body["quality"]))
+    check("volatility unavailable too", [_row(body, s)["volatility_1y_reason"] for s in ("NVDA", "AMD")]
+          == ["unavailable"] * 2)
+    check("warned once each, nothing listed as not covered",
+          _codes(body) == ["beta_unavailable", "volatility_unavailable"] and body["data"]["not_covered"] == [],
+          str(body["quality"]))
 
 
 def test_unreadable_betas_say_unavailable(monkeypatch):
@@ -208,7 +211,7 @@ def test_the_fields_and_their_meanings_are_the_metrics_rows_own(monkeypatch):
     metrics_tests.install()
     _, metrics = metrics_tests.call("NVDA")
     mrow = metrics_tests._row(metrics, "NVDA")
-    shared = {k for k in mrow if k.startswith(("beta", "industry_beta")) or k == "quote_type"}
+    shared = {k for k in mrow if k.startswith(("beta", "industry_beta", "volatility_1y")) or k == "quote_type"}
     _install(monkeypatch)
     _, body = call("NVDA")
     row = _row(body, "NVDA")
