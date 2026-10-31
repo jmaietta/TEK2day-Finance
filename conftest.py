@@ -10,7 +10,7 @@ import importlib
 
 import pytest
 
-_SHARED = ("storage", "terminal", "partner_api", "beta")
+_SHARED = ("storage", "terminal", "partner_api", "beta", "volatility")
 
 
 @pytest.fixture(autouse=True)
@@ -43,3 +43,14 @@ def _no_beta_reads(monkeypatch):
     monkeypatch.setattr(beta, "industry_standin", lambda industry, window_end=None: {
         "industry_beta_median": None, "industry_beta_peers": 0, "industry_beta_industry": industry or None,
         "industry_beta_reason": None})
+
+
+@pytest.fixture(autouse=True)
+def _no_volatility_reads(monkeypatch):
+    """volatility.for_symbols reads Firestore and every price write leaves a
+    volatility mark. Every test gets a blank figure and no mark unless it puts
+    its own in; test_volatility.py tests the real ones against fakes."""
+    import volatility
+    monkeypatch.setattr(volatility, "for_symbols",
+                        lambda symbols, metas: {s: dict.fromkeys(volatility.FIELDS) for s in symbols})
+    monkeypatch.setattr(volatility, "mark", lambda symbol, oldest: True)

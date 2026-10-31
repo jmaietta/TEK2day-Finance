@@ -1290,6 +1290,40 @@ def _beta_row(got: dict) -> dict:
 
 _NO_STANDIN = {"industry_beta_median": None, "industry_beta_peers": None, "industry_beta_industry": None,
                "industry_beta_reason": None}
+
+
+def _vol_row(got: dict) -> dict:
+    import volatility  # noqa: PLC0415
+    return {
+        "volatility_1y": got["volatility"],
+        "volatility_1y_days_used": got["days_used"],
+        "volatility_1y_reason": got["reason"],
+        "volatility_1y_window_start": got["window_start"],
+        "volatility_1y_window_end": got["window_end"],
+        "volatility_1y_method": volatility.METHOD,
+    }
+
+
+_VOL_UNAVAILABLE = {"code": "volatility_unavailable",
+                    "note": "Volatility could not be read just now; rows with volatility_1y_reason "
+                            "\"unavailable\" are not a missing figure. Try again."}
+
+
+def _with_volatility(symbols, metas: dict):
+    """(betas, volatilities) for a set: the two stored tables read side by side,
+    so the wait is the slower of the two, and a volatility read that fails
+    never touches the betas (Kilby, 31 Oct 2026: the portfolio's beta heads
+    the watchlist panel)."""
+    import beta  # noqa: PLC0415
+    import volatility  # noqa: PLC0415
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        vols = pool.submit(volatility.for_symbols, symbols, metas)
+        betas = beta.for_symbols(symbols, metas)
+        try:
+            return betas, vols.result()
+        except Exception:  # noqa: BLE001
+            logger.warning("volatility unavailable for %d companies", len(symbols), exc_info=True)
+            return betas, {s: dict(volatility.UNAVAILABLE) for s in symbols}
 _BETA_UNAVAILABLE = {"code": "beta_unavailable",
                      "note": "Beta could not be read just now; rows with beta_reason or industry_beta_reason "
                              "\"unavailable\" are not a missing beta. Try again."}
@@ -1353,6 +1387,25 @@ _BETA_DEFINITIONS = {
                              "older week than this row's beta (the weekly run is part way through, or "
                              "failed), or this row's own beta could not be read: industry_beta_median "
                              "and industry_beta_peers are then null. Else null"),
+    "volatility_1y": (
+        "TEK2day's realized volatility over one year, as a fraction (0.314 is 31.4%): the sample "
+        "standard deviation (n - 1) of the stock's daily log returns, LN(close / previous close), "
+        "times the square root of 252. The window is SPY's last 253 stored dates, 252 return "
+        "slots; a slot counts only when this stock has a close on both of its SPY dates. Excel: "
+        "STDEV.S of the LN returns times SQRT(252), from /equities/prices. Worked out every "
+        "weekday evening after the price run and stored: volatility_1y_window_end says which day"
+    ),
+    "volatility_1y_days_used": "Daily returns in the figure: up to 252",
+    "volatility_1y_reason": (
+        "Why volatility_1y is null, else null: unavailable (it could not be read just now: try "
+        "again; the volatility_unavailable warning says so), not_yet_computed (newly added: worked "
+        "out the next weekday evening), split_since_refresh (a split since Thursday's 5-year "
+        "re-adjust), short_history (no positive close stored on or before "
+        "volatility_1y_window_start: under a year of prices), not_enough_days (fewer than 200 of the 252 returns)"
+    ),
+    "volatility_1y_window_start": "First SPY date of the window (the close before the first return)",
+    "volatility_1y_window_end": "Last SPY date of the window",
+    "volatility_1y_method": "\"daily_log_close_to_close_252\"",
 }
 
 
@@ -1410,6 +1463,7 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1), in
     quietly dropped a name would report coverage the caller does not have.
     """
     import beta  # noqa: PLC0415
+    import volatility  # noqa: PLC0415
     require_kilby(request)
     requested, ordered, refused = _symbol_set(symbols)
     if refused is not None:
@@ -1446,6 +1500,7 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1), in
         )
         row["financial_upstream"] = envelope.financial_upstream(financials)
         row.update(_beta_row(dict.fromkeys(beta.FIELDS)))    # filled below, in one batched read
+        row.update(_vol_row(dict.fromkeys(volatility.FIELDS)))   # and beside it
         # Yahoo's own security type, as stored, null when none: Kilby treats
         # MONEYMARKET as cash (beta 0). Asked 31 Oct 2026; no extra read.
         row["quote_type"] = (meta or {}).get("quote_type") or None
@@ -1460,9 +1515,10 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1), in
     workers = min(len(ordered), _METRICS_MAX_WORKERS)
     with ThreadPoolExecutor(max_workers=workers) as pool:
         rows = list(pool.map(load, ordered))
-    betas = beta.for_symbols(ordered, {norm: row["_held"] for norm, row in zip(ordered, rows)})
+    betas, vols = _with_volatility(ordered, {norm: row["_held"] for norm, row in zip(ordered, rows)})
     for norm, row in zip(ordered, rows):
         row.update(_beta_row(betas[norm]))
+        row.update(_vol_row(vols[norm]))
     if "industry_beta" in str(include).split(","):
         _industry_standins(rows)
     for row in rows:
@@ -1522,6 +1578,8 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1), in
         })
     if any("unavailable" in (row.get("beta_reason"), row.get("industry_beta_reason")) for row in rows):
         warnings.append(dict(_BETA_UNAVAILABLE))
+    if any(row.get("volatility_1y_reason") == "unavailable" for row in rows):
+        warnings.append(dict(_VOL_UNAVAILABLE))
 
     return envelope.build(
         "equity_metrics", data, requested,
@@ -1555,6 +1613,7 @@ def equity_beta(request: Request, symbols: str = Query(..., min_length=1), inclu
     covered null and beta_reason "unavailable", with the beta_unavailable
     warning: 200, so a caller says "try again" rather than tripping a breaker."""
     import beta  # noqa: PLC0415
+    import volatility  # noqa: PLC0415
     from security_identity import IdentityError  # noqa: PLC0415
     require_kilby(request)
     requested, ordered, refused = _symbol_set(symbols)
@@ -1588,16 +1647,18 @@ def equity_beta(request: Request, symbols: str = Query(..., min_length=1), inclu
     # as this week's (Kilby's review, 31 Oct 2026).
     metas = {s: m for s, m in metas.items() if m and m.get("active") is not False}
 
-    betas = beta.for_symbols([s for s in ordered if s not in unreadable], metas)
+    betas, vols = _with_volatility([s for s in ordered if s not in unreadable], metas)
     rows = []
     for s in ordered:
         if s in unreadable:
             rows.append({"symbol": s, "covered": None, "quote_type": None, **_beta_row(beta.UNAVAILABLE),
-                         **_NO_STANDIN, "industry_beta_reason": "unavailable", "_industry": None})
+                         **_NO_STANDIN, "industry_beta_reason": "unavailable",
+                         **_vol_row(volatility.UNAVAILABLE), "_industry": None})
             continue
         meta = metas.get(s)
         rows.append({"symbol": s, "covered": bool(meta), "quote_type": (meta or {}).get("quote_type") or None,
-                     **_beta_row(betas[s]), **_NO_STANDIN, "_industry": (meta or {}).get("industry") or None})
+                     **_beta_row(betas[s]), **_NO_STANDIN, **_vol_row(vols[s]),
+                     "_industry": (meta or {}).get("industry") or None})
     if "industry_beta" in str(include).split(","):
         _industry_standins(rows)
     for row in rows:
@@ -1610,6 +1671,8 @@ def equity_beta(request: Request, symbols: str = Query(..., min_length=1), inclu
                          "note": "Not covered by TEK2day Finance: " + ", ".join(missing) + "."})
     if any("unavailable" in (row.get("beta_reason"), row.get("industry_beta_reason")) for row in rows):
         warnings.append(dict(_BETA_UNAVAILABLE))
+    if any(row.get("volatility_1y_reason") == "unavailable" for row in rows):
+        warnings.append(dict(_VOL_UNAVAILABLE))
     return envelope.build(
         "equity_beta",
         {"companies": rows, "not_covered": missing,
