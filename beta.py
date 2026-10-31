@@ -4,8 +4,9 @@ Owner decision, 30 Oct 2026, after a day on Yahoo's beta: Kilby's risk table
 shows beta beside R-squared, Yahoo publishes no R-squared, and the two must come
 from one calculation. Two years weekly is Bloomberg's default, and weekly closes
 keep foreign listings (TSM, ASML, NSRGY) from reading low on days their home
-market was shut. Spec agreed with Kilby the same day. The website (/ticker, the
-/stock pages) and Kilby (/equities/metrics, /equities/summary) all read it here.
+market was shut. Spec agreed with Kilby the same day, the one-year minimum on
+31 Oct. The website (/ticker, the /stock pages) and Kilby (/equities/metrics,
+/equities/summary) all read it here.
 
 THE METHOD, reproducible in Excel from /partner/v1/equities/prices?days=520:
   - Week-end dates: for each Monday-Sunday week, SPY's last stored close in it
@@ -16,16 +17,20 @@ THE METHOD, reproducible in Excel from /partner/v1/equities/prices?days=520:
     end; the last finished week's window holds until the close is stored. A
     close dated today counts only after the price run has settled (7 PM ET).
     The nightly run rewrites five days, so a later close means Friday's is in.
-  - The last 105 week-end dates: 104 weekly returns.
+  - The last 105 week-end dates: 104 weekly returns. A stock with less than
+    two years of prices but at least one (owner, 31 Oct 2026) is fitted from
+    the first week-end on or after its first stored close, over the weeks it
+    has; `years` says how long (1.7 for 88 weeks) and every label shows it.
+    It moves up a week each Friday until it is a full two years.
   - A week's return counts only when the stock has closes on both that week's
     end date and the previous one. Nothing is filled in.
   - Slope of the stock's simple weekly return on SPY's: least squares with an
     intercept, Excel's SLOPE. R-squared from the same fit, Excel's RSQ. Raw: no
     Blume adjustment.
   - Blank, with the reason, in this order: split_since_refresh (older closes on
-    the pre-split basis until Thursday's 5-year re-adjust), short_history (the
-    first stored close is after the window start), not_enough_weeks (fewer
-    than 80 of the 104).
+    the pre-split basis until Thursday's 5-year re-adjust), short_history
+    (fewer than 52 weekly returns since the first stored close),
+    not_enough_weeks (fewer than 52 used, or more missing than 24 of 104).
 
 Stored prices only: no Yahoo request, ever. A symbol costs about 107 Firestore
 reads (one per week-end date, its first stored date, its split record), cached
@@ -45,11 +50,12 @@ from envelope import finite
 logger = logging.getLogger("ydp.beta")
 
 BENCHMARK = "SPY"
-METHOD = "2y_weekly_vs_spy"
-LABEL = "Beta (2Y weekly vs SPY)"
+METHOD = "weekly_vs_spy_up_to_2y"
+LABEL = "Beta (Weekly)"
 WEEKS = 104
-MIN_WEEKS = 80
-FIELDS = ("beta", "r_squared", "weeks_used", "reason", "window_start", "window_end")
+MIN_WEEKS = 52               # a year: below this, blank
+FULL_MIN_WEEKS = 80          # of 104; a shorter fit may miss the same share
+FIELDS = ("beta", "r_squared", "weeks_used", "years", "reason", "window_start", "window_end")
 
 _EASTERN = ZoneInfo("America/New_York")
 _HISTORY_DAYS = 560          # SPY rows read: 105 weeks of trading days and the week in progress
@@ -108,11 +114,16 @@ def week_ends(dates) -> list[str]:
 
 def compute(ends, spy: dict, stock: dict, first_close: str | None = None,
             split: str | None = None) -> dict:
-    """Beta of `stock` on `spy` ({date: close}) over the last 105 of `ends`."""
+    """Beta of `stock` on `spy` ({date: close}) over the last 105 of `ends`, or
+    from the first of them on or after `first_close` when the stock is younger."""
     window = list(ends)[-(WEEKS + 1):]
+    if first_close:
+        window = [d for d in window if d >= first_close]
     out = dict.fromkeys(FIELDS)
     out["window_start"] = window[0] if window else None
     out["window_end"] = window[-1] if window else None
+    possible = max(len(window) - 1, 0)
+    out["years"] = round(possible / 52, 1) if possible else None
     xs, ys = [], []
     for a, b in zip(window, window[1:]):
         if all(finite(c) and c > 0 for c in (spy.get(a), spy.get(b), stock.get(a), stock.get(b))):
@@ -122,9 +133,9 @@ def compute(ends, spy: dict, stock: dict, first_close: str | None = None,
 
     if split:
         out["reason"] = "split_since_refresh"
-    elif len(window) < WEEKS + 1 or not first_close or first_close > window[0]:
+    elif not first_close or possible < MIN_WEEKS:
         out["reason"] = "short_history"
-    elif len(xs) < MIN_WEEKS:
+    elif len(xs) < MIN_WEEKS or len(xs) * WEEKS < possible * FULL_MIN_WEEKS:
         out["reason"] = "not_enough_weeks"
     if out["reason"]:
         return out

@@ -263,6 +263,7 @@ def _summary_payload(symbol: str) -> dict | None:
     desc = terminal._company_summary(symbol, snap)
     estimates = _estimates_payload(symbol)
     short_interest = _short_interest_payload(symbol)
+    beta_value, beta_title = terminal._beta(symbol)
 
     return {
         "overview": {
@@ -282,7 +283,7 @@ def _summary_payload(symbol: str) -> dict | None:
                 {"label": "52wk Low", "value": terminal._price(snap.get("fifty_two_week_low"))},
                 {"label": "Sector", "value": str(snap.get("sector") or "N/A")},
                 {"label": "Industry", "value": str(snap.get("industry") or "N/A")},
-                {"label": "Beta (2Y weekly vs SPY)", "value": terminal._num(terminal._beta(symbol))},
+                {"label": "Beta (Weekly)", "value": beta_value, "title": beta_title},
                 {"label": "P/E TTM (GAAP)", "value": terminal._ratio(snap.get("pe_ttm"))},
                 {"label": "Fwd P/E (Est)", "value": terminal._ratio(snap.get("forward_pe"))},
                 {"label": "P/S (TTM)", "value": terminal._ratio(snap.get("ps_ttm"))},

@@ -829,8 +829,8 @@ def equity_summary(request: Request, symbol: str):
                    "Fundamentals themselves are not converted."),
             "ttm_as_of": "Last day of the twelve months every TTM figure covers",
             "balance_sheet_as_of": "Period end of the balance sheet behind enterprise value",
-            "beta": ("TEK2day's own beta, 2 years of weekly returns vs SPY, with the R-squared and "
-                     "window of the same fit: the same fields as /equities/metrics, defined there"),
+            "beta": ("TEK2day's own beta, up to 2 years of weekly returns vs SPY, with the R-squared, "
+                     "span and window of the same fit: the same fields as /equities/metrics, defined there"),
         },
         "basis": {
             "live": list(_LIVE_FIELDS),
@@ -1273,6 +1273,7 @@ def _beta_fields(symbol: str) -> dict:
         "beta": got["beta"],
         "beta_r_squared": got["r_squared"],
         "beta_weeks_used": got["weeks_used"],
+        "beta_years": got["years"],
         "beta_reason": got["reason"],
         "beta_window_start": got["window_start"],
         "beta_window_end": got["window_end"],
@@ -1410,19 +1411,22 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1)):
                 "with an intercept (Excel SLOPE), raw. Weeks end on SPY's last stored close of each "
                 "Monday-Sunday week; a week counts once its Friday close (or, in a holiday week, the "
                 "next week's first close) is stored by a finished price run. The last 105 week-ends, "
-                "104 returns; a week counts only when this stock has both closes. Reproducible from "
-                "/equities/prices. Changes once a week"
+                "104 returns; a stock with one to two years of prices is fitted over the weeks it has, "
+                "from beta_window_start. A week counts only when this stock has both closes. "
+                "Reproducible from /equities/prices. Changes once a week"
             ),
+            "beta_years": ("Span of the fit in years, to 0.1: 2.0 for the full 104 weeks, less for a "
+                           "younger stock (1.7 for 88 weeks). Show it whenever it is under 2.0"),
             "beta_r_squared": "R-squared of the same fit (Excel RSQ); null when the stock's weekly returns never varied",
-            "beta_weeks_used": "Weekly returns in the fit, of 104",
+            "beta_weeks_used": "Weekly returns in the fit: up to 104",
             "beta_reason": (
                 "Why beta is null, else null: split_since_refresh (a split since Thursday's 5-year "
-                "re-adjust), short_history (first stored close after beta_window_start), "
-                "not_enough_weeks (fewer than 80 used)"
+                "re-adjust), short_history (fewer than 52 weekly returns since the first stored "
+                "close), not_enough_weeks (fewer than 52 used, or more missing than 24 of 104)"
             ),
-            "beta_window_start": "First week-end date of the window",
+            "beta_window_start": "First week-end date of the fit",
             "beta_window_end": "Last week-end date of the window",
-            "beta_method": "\"2y_weekly_vs_spy\"; beta_source is \"tek2day\"",
+            "beta_method": "\"weekly_vs_spy_up_to_2y\"; beta_source is \"tek2day\"",
             "annual_eps_outlook": (
                 "Consensus EPS for the fiscal years NOT yet reported, continuing straight on "
                 "from annual_diluted_eps. Yahoo's current year is the year in progress, so the "

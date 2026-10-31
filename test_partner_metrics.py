@@ -250,7 +250,7 @@ def test_absent_financial_history_is_explicitly_empty():
 
 def test_beta_is_ours_with_the_fit_it_came_from():
     install()
-    fits = {"NVDA": {"beta": 1.83, "r_squared": 0.41, "weeks_used": 104, "reason": None,
+    fits = {"NVDA": {"beta": 1.83, "r_squared": 0.41, "weeks_used": 104, "years": 2.0, "reason": None,
                      "window_start": "2024-10-25", "window_end": "2026-10-23"},
             "AMD": {**dict.fromkeys(beta.FIELDS), "weeks_used": 60, "reason": "short_history"}}
     beta.for_symbol = lambda s: dict(fits.get(s) or dict.fromkeys(beta.FIELDS))
@@ -258,10 +258,11 @@ def test_beta_is_ours_with_the_fit_it_came_from():
     nvda, amd = _row(body, "NVDA"), _row(body, "AMD")
     check("NVDA", (nvda["beta"], nvda["beta_r_squared"], nvda["beta_weeks_used"], nvda["beta_window_end"])
           == (1.83, 0.41, 104, "2026-10-23"), str(nvda))
-    check("ours", (nvda["beta_source"], nvda["beta_method"]) == ("tek2day", "2y_weekly_vs_spy"))
+    check("ours", (nvda["beta_source"], nvda["beta_method"], nvda["beta_years"])
+          == ("tek2day", "weekly_vs_spy_up_to_2y", 2.0), str(nvda))
     check("AMD blank with why", (amd["beta"], amd["beta_reason"]) == (None, "short_history"), str(amd))
     check("no Yahoo date", "beta_as_of" not in nvda)
-    for key in ("beta", "beta_r_squared", "beta_weeks_used", "beta_reason"):
+    for key in ("beta", "beta_r_squared", "beta_weeks_used", "beta_years", "beta_reason"):
         check(f"{key} defined", key in body["data"]["definitions"])
 
 

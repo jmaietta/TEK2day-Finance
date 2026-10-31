@@ -1555,7 +1555,7 @@
     function metricGridHtml(metrics) {
       return `<div class="metric-grid">${(metrics || []).map((metric) => `
         <div class="metric">
-          <span>${escapeHtml(metric.label)}</span>
+          <span title="${escapeHtml(metric.title || metric.label)}">${escapeHtml(metric.label)}</span>
           <strong>${valueMarkup(metric.value === null || metric.value === undefined || metric.value === "" ? "N/A" : metric.value)}</strong>
         </div>`).join("")}</div>`;
     }
