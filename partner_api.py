@@ -1451,7 +1451,7 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1), in
         row["quote_type"] = (meta or {}).get("quote_type") or None
         row.update(_NO_STANDIN)
         row["_industry"] = (meta or {}).get("industry") or None
-        row["_held"] = bool(meta)
+        row["_held"] = meta
         return row
 
     # Bounded rather than one worker per symbol: these are Firestore reads and a

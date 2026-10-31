@@ -307,6 +307,57 @@ def test_one_company_reads_its_record_then_its_beta_and_never_raises(monkeypatch
     check("unavailable, not an error", REAL_FOR_SYMBOL("KO") == beta.UNAVAILABLE)
 
 
+
+# An inactive company keeps the beta of the last week it was worked out; the
+# weekly run no longer refreshes it, so no reader serves it (Kilby, 31 Oct 2026).
+GONE = {"symbol": "GONE", "name": "Gone Inc", "active": False, "industry": "Semiconductors"}
+GONE_BETA = {f"{beta.STORED}/GONE": _doc("GONE", beta=1.2, years=2.0, window_end="2026-09-25")}
+
+
+def _gone(monkeypatch, install=lambda: None):
+    db = _DB(dict(GONE_BETA))
+
+    def patch():
+        monkeypatch.setattr(storage, "get_db", lambda: db)
+        monkeypatch.setattr(storage, "get_ticker_meta", lambda s: dict(GONE) if s == "GONE" else None)
+        monkeypatch.setattr(beta, "for_symbol", REAL_FOR_SYMBOL)
+        monkeypatch.setattr(beta, "for_symbols", REAL_FOR_SYMBOLS)
+    patch()        # first, so the originals are what goes back after the test,
+    install()      # not another suite's fakes, which it assigns in plain
+    patch()
+    return db
+
+
+def test_an_inactive_company_reads_as_no_record_and_costs_no_read(monkeypatch):
+    db = _gone(monkeypatch)
+    check("all None, reason None", REAL_FOR_SYMBOLS(["GONE"], {"GONE": GONE}) == {"GONE": dict.fromkeys(beta.FIELDS)})
+    check("one company too", REAL_FOR_SYMBOL("GONE") == dict.fromkeys(beta.FIELDS))
+    check("its beta doc never read", db.batched == [], str(db.batched))
+
+
+def test_the_metrics_row_of_an_inactive_company_has_no_beta(monkeypatch):
+    import test_partner_metrics as metrics_tests  # noqa: PLC0415
+    db = _gone(monkeypatch, metrics_tests.install)
+    _, body = metrics_tests.call("GONE")
+    row = metrics_tests._row(body, "GONE")
+    check("null, no reason", (row["beta"], row["beta_reason"], row["beta_window_end"]) == (None, None, None), str(row))
+    check("not read", db.batched == [], str(db.batched))
+
+
+def test_the_summary_of_an_inactive_company_has_no_beta(monkeypatch):
+    import test_partner_summary as summary_tests  # noqa: PLC0415
+    db = _gone(monkeypatch, lambda: summary_tests.install({**summary_tests.SNAP, "symbol": "GONE", "name": "Gone Inc"}))
+    _, body = summary_tests.call("GONE")
+    f = body["data"]["fundamentals"]
+    check("null, no reason", (f["beta"], f["beta_reason"], f["beta_window_end"]) == (None, None, None), str(f))
+    check("not read", db.batched == [], str(db.batched))
+
+
+def test_the_website_cell_of_an_inactive_company_has_no_beta(monkeypatch):
+    db = _gone(monkeypatch)
+    check("N/A", terminal._beta("GONE")[0] == "N/A", str(terminal._beta("GONE")))
+    check("not read", db.batched == [], str(db.batched))
+
 # ── the weekly run ───────────────────────────────────────────────────────────
 
 def _week(monkeypatch, companies, fits, stored=None):
