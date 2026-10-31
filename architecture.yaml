@@ -57,7 +57,10 @@ cloud_run_jobs:
     image: quarterly-financials
     tag: latest
     task_count: 1
-    max_retries: 1
+    max_retries: 0        # 0 since 30 Oct 2026, owner's call. The job reports
+                          # failure only AFTER its whole Yahoo pull (e.g. a new
+                          # filing waiting on review), so a retry repeated the
+                          # pull: ~9,000 extra Yahoo requests that day.
     note: "SEC financial fallback is part of this job, default SEC_FALLBACK_MODE=off.
            No separate SEC job or scheduler; reviewed BNY enrollment only initially."
   architecture-check:
