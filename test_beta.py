@@ -228,6 +228,9 @@ class _Query:
         self.field, self.value = field, value
         return self
 
+    def select(self, fields):
+        return self
+
     def stream(self):
         prefix = self.name + "/"
         return [_Snap(p[len(prefix):], d) for p, d in sorted(self.db.docs.items())
@@ -357,8 +360,9 @@ def test_the_weekly_run_stores_each_fit_its_history_and_the_industry_medians(mon
           and kept["window_end"] == "2026-10-30", str(kept))
 
 
-def test_a_week_already_stored_reads_only_spy_and_stops(monkeypatch):
+def test_a_week_already_covered_reads_the_active_list_and_stops(monkeypatch):
     db = _week(monkeypatch, COMPANIES, FITS, stored={"window_end": "2026-10-30", "complete": True})
+    db.docs[beta.COVERAGE] = {"window_end": "2026-10-30", "symbols": ["FDRXX", "GD", "HONA", "LMT", "RTX"]}
     check("skipped", beta.run() == {"skipped": True, "window_end": "2026-10-30"})
     check("no writes", db.writes == [], str(db.writes))
     db = _week(monkeypatch, COMPANIES, FITS, stored={"window_end": "2026-10-23", "complete": True})
@@ -429,6 +433,24 @@ def test_companies_a_complete_week_left_out_are_retried_the_next_evening(monkeyp
     check("then nothing to do", beta.run() == {"skipped": True, "window_end": "2026-10-30"})
 
 
+def test_a_company_added_midweek_gets_its_beta_the_next_evening(monkeypatch):
+    db = _week(monkeypatch, COMPANIES, FITS)
+    beta.run()
+    medians = dict(db.docs[beta.INDUSTRIES]["industries"])
+    db.docs[f"{storage.COLLECTION_ROOT}/NOC"] = {"active": True, "industry": "Aerospace & Defense"}
+    db.docs[f"{storage.COLLECTION_ROOT}/OLD"]["active"] = True     # and one switched back on
+    fits = {**FITS, "NOC": {"beta": 0.2}}
+    monkeypatch.setattr(beta, "fit", lambda symbol, cal: {**dict.fromkeys(beta.FIELDS), **fits[symbol],
+                                                          "window_end": "2026-10-30"})
+    nxt = beta.run()
+    check("just the two", (nxt["companies"], nxt["written"], nxt["retried"]) == (2, 2, 2), str(nxt))
+    check("NOC has this week's", db.docs[f"{beta.STORED}/NOC"]["beta"] == 0.2
+          and f"{beta.STORED}/NOC/{beta.HISTORY}/2026-10-30" in db.docs)
+    check("medians wait for the next week", db.docs[beta.INDUSTRIES]["industries"] == medians)
+    check("covered now", {"NOC", "OLD"} <= set(db.docs[beta.COVERAGE]["symbols"]))
+    check("then nothing to do", beta.run() == {"skipped": True, "window_end": "2026-10-30"})
+
+
 def test_a_trial_writes_only_the_companies_named(monkeypatch):
     db = _week(monkeypatch, COMPANIES, FITS)
     got = beta.run(symbols=["LMT", "HONA"])
@@ -496,4 +518,4 @@ def test_the_website_cell_shows_the_span_beside_the_number(monkeypatch):
     check("two years", terminal._beta("AAPL") == ("1.04 2Y", "TEK2day's own beta: 2 years of weekly returns vs SPY"),
           str(terminal._beta("AAPL")))
     check("1.7 years", terminal._beta("SNDK")[0] == "1.43 1.7Y", str(terminal._beta("SNDK")))
-    check("blank says why", terminal._beta("SPCX") == ("N/A", "Under 1 year of prices"))
+    check("blank says why", terminal._beta("SPCX") == ("N/A", "Insufficient history"))

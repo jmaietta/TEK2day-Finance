@@ -78,6 +78,7 @@ _IN_RUN_SECONDS = 300
 STORED = "beta_weekly"        # the collection: beta_weekly/{symbol}
 HISTORY = "history"           # beta_weekly/{symbol}/history/{week ending}: append-only
 INDUSTRIES = "beta_industries/latest"
+COVERAGE = "beta_industries/coverage"    # {window_end, symbols}: the companies the week is worked out for
 _WORKERS = 32                 # the weekly run: Firestore round trips, not work
 _STOP_FAILED_SHARE = 0.02     # more than 2% of companies unreadable: fail the run
 _RECHECK_SECONDS = 60         # a row newer than the cached medians re-reads at most this often
@@ -333,10 +334,13 @@ def run(force: bool = False, symbols=None) -> dict:
 
     Runs every weekday evening after the price run. First reads SPY alone: if
     the newest finished week is not newer than the stored table's (Friday's
-    close not in yet, or already done), it stops there, unless the week's run
-    left some companies out (at most 2%): then it works out just those, so
-    none waits a week. `symbols` limits the run to those companies and leaves
-    the industry table alone (a trial).
+    close not in yet, or already done), it works out only the active companies
+    the week does not cover yet: ones it left out (at most 2%) and ones added
+    since (owner, 31 Oct 2026: "I do not want to have to wait a week for a
+    stock to pick up its beta"). That costs the active list (one read a
+    company) and the work for those alone; the medians wait for the next week.
+    `symbols` limits the run to those companies and leaves the industry table
+    alone (a trial).
 
     More than 2% failing makes the run incomplete: the industry table keeps the
     previous week's medians (readers then serve no stand-in for this week's
@@ -352,13 +356,19 @@ def run(force: bool = False, symbols=None) -> dict:
         raise RuntimeError("beta: no finished week in SPY's stored prices")
     state = db.document(INDUSTRIES).get()
     state = (state.to_dict() or {}) if state.exists else {}
-    retry = []
+    retry, covered = [], set()
     if symbols is None and not force and state.get("complete") and state.get("window_end") == window_end:
-        retry = sorted(state.get("failed_symbols") or [])
+        cover = db.document(COVERAGE).get()
+        cover = (cover.to_dict() or {}) if cover.exists else {}
+        covered = set(cover.get("symbols") or []) if cover.get("window_end") == window_end else set()
+        active = {doc.id for doc in
+                  db.collection(storage.COLLECTION_ROOT).where("active", "==", True).select([]).stream()}
+        retry = sorted(active - covered)
         if not retry:
             logger.info("beta: the table already covers the week ending %s; nothing to do", window_end)
             return {"skipped": True, "window_end": window_end}
-        logger.info("beta: the week ending %s left %d companies out; working out those", window_end, len(retry))
+        logger.info("beta: the week ending %s does not cover %d active companies (left out or added "
+                    "since); working out those", window_end, len(retry))
 
     if symbols is None and not retry:
         metas = {doc.id: doc.to_dict() or {}
@@ -389,6 +399,7 @@ def run(force: bool = False, symbols=None) -> dict:
         logger.info("beta trial: %s", summary)
         return {**summary, "results": done, "errors": failed}
     if retry:
+        db.document(COVERAGE).set({"window_end": window_end, "symbols": sorted(covered | set(done))})
         db.document(INDUSTRIES).set({"failed_symbols": sorted(failed), "failed": len(failed),
                                      "retried_at": computed_at}, merge=True)
         logger.info("beta: retried %s", summary)
@@ -414,8 +425,10 @@ def run(force: bool = False, symbols=None) -> dict:
     latest = {**week, "complete": True, **counts, "failed_symbols": sorted(failed)}
     history = db.document(f"{INDUSTRIES}/{HISTORY}/{window_end}")
     batch = db.batch()
+    coverage = {"window_end": window_end, "symbols": sorted(done)}
     batch.create(history, week)
     batch.set(db.document(INDUSTRIES), latest)
+    batch.set(db.document(COVERAGE), coverage)
     try:
         batch.commit()
     except AlreadyExists:
@@ -423,5 +436,6 @@ def run(force: bool = False, symbols=None) -> dict:
             raise RuntimeError(f"beta: industry medians for the week ending {window_end} differ "
                                "from the ones kept") from None
         db.document(INDUSTRIES).set(latest)
+        db.document(COVERAGE).set(coverage)
     logger.info("beta: %s, %d industries", summary, len(peers))
     return summary

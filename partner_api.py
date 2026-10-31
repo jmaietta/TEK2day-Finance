@@ -1468,8 +1468,8 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1), in
             "beta_weeks_used": "Weekly returns in the fit: up to 104",
             "beta_reason": (
                 "Why beta is null, else null: unavailable (it could not be read just now: try again; "
-                "the beta_unavailable warning says so), not_yet_computed (the weekly run has not reached this "
-                "company yet), split_since_refresh (a split since Thursday's 5-year "
+                "the beta_unavailable warning says so), not_yet_computed (newly added: worked out the next weekday "
+                "evening), split_since_refresh (a split since Thursday's 5-year "
                 "re-adjust), short_history (fewer than 52 weekly returns since the first stored "
                 "close), not_enough_weeks (fewer than 52 used, or more missing than 24 of 104)"
             ),

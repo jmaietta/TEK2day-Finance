@@ -102,6 +102,14 @@ Four fixes went in after the runs above, with tests:
 stand. The trial's run() checks predate the fixes; the tests cover the new
 paths.
 
+Owner, the same day:
+
+- The hovers for not_yet_computed and short_history now read "Insufficient
+  history".
+- A company added midweek gets its beta the next weekday evening. Each
+  evening reads the active list (about 10,300 reads, about $0.006) and
+  works out only the companies the week does not cover yet.
+
 ## Still to come (each needs the owner's go)
 
 - **GO 2:** push and PR.

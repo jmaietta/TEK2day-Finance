@@ -1355,10 +1355,10 @@ def _market_snapshot(symbol, quote=None):
 
 
 _BETA_BLANK = {
-    "short_history": "Under 1 year of prices",
+    "short_history": "Insufficient history",
     "not_enough_weeks": "Too many weeks without a close",
     "split_since_refresh": "Recent split: back after next Friday's update",
-    "not_yet_computed": "Not worked out yet: weekly, after Friday's close",
+    "not_yet_computed": "Insufficient history",    # owner, 31 Oct 2026; it lasts one weekday evening at most
     "unavailable": "Couldn't load beta just now, try again",
 }
 
