@@ -16,7 +16,9 @@ THE METHOD, reproducible in Excel from /partner/v1/equities/prices?days=253:
     (n - 1), as a fraction (0.314 is 31.4%).
   - Null, with the reason, in this order: split_since_refresh (older closes
     on the pre-split basis until Thursday's 5-year re-adjust), short_history
-    (no stored close on or before window_start: under a year of prices),
+    (no positive close stored on or before window_start: under a year of
+    prices; a history that opens with zero or missing closes starts at its
+    first real one),
     not_enough_days (fewer than 200 of the 252 returns).
 
 STORED, KEPT UP TO DATE FROM THE NEW PRICES (owner, 31 Oct 2026: "Why
@@ -184,10 +186,25 @@ def _closes_from(ref, start: str) -> dict:
     return out
 
 
-def _first_close(ref) -> str | None:
-    for doc in ref.collection("prices").order_by("date").limit(1).stream():
-        return str((doc.to_dict() or {}).get("date") or doc.id)[:10]
-    return None
+def _first_close(ref, until: str) -> str | None:
+    """The date of the stock's first positive close, looked for no later than
+    `until`; None if there is none by then. Usually one read: rows without a
+    usable close are skipped a page at a time. A zero or missing close is not
+    a price, so a history that begins with them begins at the first real one
+    (Kilby's volatility() counts from its first valid close the same way)."""
+    query, after = ref.collection("prices").order_by("date"), None
+    while True:
+        page = list((query.start_after(after) if after else query).limit(1 if after is None else 50).stream())
+        for doc in page:
+            row = doc.to_dict() or {}
+            day = str(row.get("date") or doc.id)[:10]
+            if day > until:
+                return None
+            if _good(row.get("close")):
+                return day
+        if not page:
+            return None
+        after = page[-1]
 
 
 def _since(marker) -> str | None:
@@ -232,14 +249,14 @@ def update(window, held: dict | None, ref, since: str | None, split: str | None,
     if why:
         closes = _closes_from(ref, window[0])
         rets = returns(window, closes)
-        first = _first_close(ref)
+        first = _first_close(ref, window[-1])
         rebuilt = True
     else:
         j = next(k for k, d in enumerate(window) if d >= start)
         closes = _closes_from(ref, window[j - 1])
         fresh = returns(window[j - 1:], closes)
         rets = {d: (fresh[d] if d >= window[j] else held["returns"].get(d)) for d in window[1:]}
-        first = held.get("first_close") or (min(closes) if closes else None)
+        first = held.get("first_close") or min((d for d, c in closes.items() if _good(c)), default=None)
         rebuilt = False
     figure = compute(window, rets, first, split)
     return {**figure, "returns": rets, "first_close": first, "price_path": ref.path}, (why or "update"), rebuilt

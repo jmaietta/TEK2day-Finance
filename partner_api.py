@@ -1400,8 +1400,8 @@ _BETA_DEFINITIONS = {
         "Why volatility_1y is null, else null: unavailable (it could not be read just now: try "
         "again; the volatility_unavailable warning says so), not_yet_computed (newly added: worked "
         "out the next weekday evening), split_since_refresh (a split since Thursday's 5-year "
-        "re-adjust), short_history (no stored close on or before volatility_1y_window_start: under "
-        "a year of prices), not_enough_days (fewer than 200 of the 252 returns)"
+        "re-adjust), short_history (no positive close stored on or before "
+        "volatility_1y_window_start: under a year of prices), not_enough_days (fewer than 200 of the 252 returns)"
     ),
     "volatility_1y_window_start": "First SPY date of the window (the close before the first return)",
     "volatility_1y_window_end": "Last SPY date of the window",

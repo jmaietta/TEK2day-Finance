@@ -190,18 +190,21 @@ class _Batch:
 
 
 class _Query:
-    def __init__(self, db, name, start=None, first=False):
-        self.db, self.name, self.start, self.first = db, name, start, first
+    def __init__(self, db, name, start=None, after=None, n=None):
+        self.db, self.name, self.start, self.after, self.n = db, name, start, after, n
 
     def where(self, filter=None):
         assert (filter.field_path, filter.op_string) == ("date", ">=")
-        return _Query(self.db, self.name, filter.value)
+        return _Query(self.db, self.name, filter.value, self.after, self.n)
 
     def order_by(self, field):
-        return _Query(self.db, self.name, self.start, True)
+        return self
+
+    def start_after(self, snap):
+        return _Query(self.db, self.name, self.start, snap.id, self.n)
 
     def limit(self, n):
-        return self
+        return _Query(self.db, self.name, self.start, self.after, n)
 
     def select(self, fields):
         return self
@@ -213,8 +216,9 @@ class _Query:
         prefix = self.name + "/"
         out = [_Snap(self.db, p, d, self.db.times.get(p)) for p, d in sorted(self.db.docs.items())
                if p.startswith(prefix) and "/" not in p[len(prefix):]
-               and (self.start is None or p[len(prefix):] >= self.start)]
-        out = out[:1] if self.first else out
+               and (self.start is None or p[len(prefix):] >= self.start)
+               and (self.after is None or p[len(prefix):] > self.after)]
+        out = out if self.n is None else out[:self.n]
         self.db.reads += max(len(out), 1)
         if self.name.endswith("/prices"):
             self.db.price_reads += max(len(out), 1)
@@ -333,6 +337,27 @@ def test_the_first_run_reads_every_window_and_matches_kilby(monkeypatch):
     check("version 1 in history", m.db.docs.get(f"{volatility.STORED}/AAA/history/{m.spy_dates[-1]}-1") ==
           {k: doc[k] for k in ("symbol", *volatility.FIELDS, "method", "version", "computed_at")})
     check("the run's summary", m.db.docs[volatility.LATEST]["window_end"] == m.spy_dates[-1])
+
+
+def test_a_history_that_opens_with_zero_closes_starts_at_its_first_real_one(monkeypatch):
+    """GMEX, 31 Oct 2026: 89 zero closes before its first real price. A zero is
+    not a price, so the year counts from the first positive close, as Kilby's
+    volatility() does from its first valid one."""
+    m = Market(monkeypatch, stocks=("EARLY", "LATE", "AAA"))
+    start = m.spy_dates.index(m.spy_dates[-253])
+    m._store("EARLY", {d: 0.0 for d in m.spy_dates[:start - 5]})        # zeros, then real closes before the window
+    m._store("LATE", {d: 0.0 for d in m.spy_dates[:start + 60]})        # zeros well into the window
+    out = volatility.run()
+    check("all written", (out["written"], out["failed"]) == (3, 0), str(out))
+    m.check_against_full("zeros first")
+    early, late = m.doc("EARLY"), m.doc("LATE")
+    check("a real close before the window: a figure", early["volatility"] is not None
+          and early["first_close"] == m.spy_dates[start - 5], str(early.get("first_close")))
+    check("first real close inside the window: short_history", (late["volatility"], late["reason"]) ==
+          (None, "short_history") and late["first_close"] == m.spy_dates[start + 60], str(late.get("first_close")))
+    m.next_day()
+    volatility.run()
+    m.check_against_full("zeros first, next night")
 
 
 def test_a_night_reads_only_the_new_closes_and_lands_on_the_full_figure(monkeypatch):
