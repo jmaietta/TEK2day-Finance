@@ -1354,11 +1354,24 @@ def _market_snapshot(symbol, quote=None):
     }
 
 
+_BETA_BLANK = {
+    "short_history": "Under 1 year of prices",
+    "not_enough_weeks": "Too many weeks without a close",
+    "split_since_refresh": "Recent split: back after Thursday's price refresh",
+}
+
+
 def _beta(symbol):
-    """TEK2day's own beta, 2 years weekly vs SPY (beta.py): the number Kilby
-    serves. Owner decision, 30 Oct 2026; Yahoo's beta is no longer shown."""
+    """(value, hover) for the Beta (Weekly) cell: TEK2day's own beta with its
+    span beside it, "1.04 2Y" or "1.43 1.7Y" (beta.py; owner, 31 Oct 2026:
+    label option B). The same number Kilby serves; Yahoo's is never shown."""
     import beta  # noqa: PLC0415
-    return beta.for_symbol(symbol)["beta"]
+    got = beta.for_symbol(symbol)
+    if got["beta"] is None:
+        return "N/A", _BETA_BLANK.get(got["reason"], "Not available")
+    years = f"{got['years']:g}"
+    return (f"{_num(got['beta'])} {years}Y",
+            f"TEK2day's own beta: {years} years of weekly returns vs SPY")
 
 
 def _company_summary(symbol, snap):
@@ -1426,7 +1439,7 @@ def cmd_overview(symbol, info=None):
          "EV/Rev (TTM)", _ratio(snap.get("ev_revenue"))),
         ("Industry", str(snap.get("industry") or "N/A")[:26],
          "", ""),
-        ("Beta (2Y weekly vs SPY)", _num(_beta(symbol)),
+        ("Beta (Weekly)", _beta(symbol)[0],
          "", ""),
     ]
     for r in rows:

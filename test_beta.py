@@ -59,6 +59,7 @@ def test_beta_and_r_squared_match_excel():
     check("SLOPE", abs(got["beta"] - slope) < 1e-12, f"{got['beta']} vs {slope}")
     check("RSQ", abs(got["r_squared"] - rsq) < 1e-12, f"{got['r_squared']} vs {rsq}")
     check("window", (got["window_start"], got["window_end"]) == (ends[0], ends[-1]), str(got))
+    check("two years", got["years"] == 2.0, str(got))
     check("no reason", got["reason"] is None)
 
 
@@ -83,12 +84,36 @@ def test_blank_reasons_in_order():
     ends, spy, stock = _market()
     got = beta.compute(ends, spy, stock, first_close=ends[0], split="2026-10-21")
     check("split first", (got["beta"], got["reason"]) == (None, "split_since_refresh"), str(got))
-    got = beta.compute(ends, spy, stock, first_close=ends[3])
+    got = beta.compute(ends, spy, stock, first_close=ends[-52])
     check("short history", (got["beta"], got["reason"]) == (None, "short_history"), str(got))
     thin = {d: c for i, (d, c) in enumerate(stock.items()) if i % 3}
     got = beta.compute(ends, spy, thin, first_close=ends[0])
     check("not enough weeks", (got["beta"], got["reason"]) == (None, "not_enough_weeks"), str(got))
     check("weeks still counted", 0 < got["weeks_used"] < 80, str(got))
+
+
+def test_a_younger_stock_is_fitted_over_the_weeks_it_has():
+    """Owner, 31 Oct 2026: one to two years of prices gets a beta, with its span."""
+    ends, spy, stock = _market()
+    listed = (date.fromisoformat(ends[16]) - timedelta(days=2)).isoformat()    # a Wednesday
+    young = {d: c for d, c in stock.items() if d >= listed}
+    got = beta.compute(ends, spy, young, first_close=listed)
+    slope, rsq, n = _excel(ends[16:], spy, young)
+    check("from its first week-end", got["window_start"] == ends[16] and got["window_end"] == ends[-1], str(got))
+    check("88 weeks, 1.7 years", (got["weeks_used"], got["years"]) == (88, 1.7) and n == 88, str(got))
+    check("Excel's slope and RSQ", abs(got["beta"] - slope) < 1e-12 and abs(got["r_squared"] - rsq) < 1e-12)
+
+
+def test_a_year_is_the_least_and_gaps_count_the_same_share():
+    ends, spy, stock = _market()
+    got = beta.compute(ends, spy, stock, first_close=ends[-53])
+    check("52 weeks: a beta", got["beta"] is not None and got["years"] == 1.0, str(got))
+    got = beta.compute(ends, spy, stock, first_close=ends[-52])
+    check("51 weeks: blank", got["reason"] == "short_history", str(got))
+    held = {d: c for d, c in stock.items() if d >= ends[-89]}
+    del held[ends[-80]], held[ends[-70]], held[ends[-60]], held[ends[-50]], held[ends[-40]], held[ends[-30]],         held[ends[-20]], held[ends[-10]], held[ends[-5]], held[ends[-3]], held[ends[-85]]
+    got = beta.compute(ends, spy, held, first_close=ends[-89])
+    check("88 possible, 66 used: more than 24 of 104 missing", got["reason"] == "not_enough_weeks", str(got))
 
 
 def test_eighty_weeks_is_enough():
@@ -213,9 +238,14 @@ def test_the_weekly_profile_keeps_yahoos_beta_under_its_own_name(monkeypatch):
         check(f"nothing for {missing}", "yahoo_beta" not in meta, str(meta))
 
 
-def test_ticker_shows_our_beta_and_asks_yahoo_nothing(monkeypatch):
+def test_the_website_cell_shows_the_span_beside_the_number(monkeypatch):
     def no_yahoo(symbol):
         raise AssertionError("the beta row asked Yahoo")
     monkeypatch.setattr(terminal, "_yahoo", no_yahoo)
-    monkeypatch.setattr(beta, "for_symbol", lambda s: {**dict.fromkeys(beta.FIELDS), "beta": 0.61})
-    check("ours", terminal._beta("KO") == 0.61)
+    fits = {"AAPL": {"beta": 1.043, "years": 2.0}, "SNDK": {"beta": 1.431, "years": 1.7},
+            "SPCX": {"reason": "short_history"}}
+    monkeypatch.setattr(beta, "for_symbol", lambda s: {**dict.fromkeys(beta.FIELDS), **fits[s]})
+    check("two years", terminal._beta("AAPL") == ("1.04 2Y", "TEK2day's own beta: 2 years of weekly returns vs SPY"),
+          str(terminal._beta("AAPL")))
+    check("1.7 years", terminal._beta("SNDK")[0] == "1.43 1.7Y", str(terminal._beta("SNDK")))
+    check("blank says why", terminal._beta("SPCX") == ("N/A", "Under 1 year of prices"))
