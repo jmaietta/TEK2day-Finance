@@ -1298,12 +1298,16 @@ _BETA_UNAVAILABLE = {"code": "beta_unavailable",
 def _industry_standins(rows) -> None:
     """Fill industry_beta_* on the covered rows without a beta of their own,
     from the weekly table's industry medians (one stored document, cached).
-    Only on request (include=industry_beta)."""
+    Only on request (include=industry_beta). A row whose own beta could not be
+    read gets no stand-in: it may well have a beta, and an estimate in its
+    place would go into a portfolio sum (Kilby's review, 31 Oct 2026)."""
     import beta  # noqa: PLC0415
     for row in rows:
         if not row.get("covered") or row.get("beta") is not None:
             continue
-        if row["_industry"]:
+        if row.get("beta_reason") == "unavailable":
+            row.update(_NO_STANDIN, industry_beta_industry=row["_industry"], industry_beta_reason="unavailable")
+        elif row["_industry"]:
             row.update(beta.industry_standin(row["_industry"], row.get("beta_window_end")))
         else:
             row.update(_NO_STANDIN, industry_beta_peers=0)
@@ -1481,9 +1485,10 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1), in
                            "null when the record has none"),
             "industry_beta_peers": "How many peer betas went into industry_beta_median (0 when none)",
             "industry_beta_industry": "The industry it came from (Yahoo's classification, else from SEC SIC codes)",
-            "industry_beta_reason": ("\"unavailable\" when the industry medians could not be read, or are from an "
-                                     "older week than this row's beta (the weekly run is part way through): "
-                                     "industry_beta_median and industry_beta_peers are then null. Else null"),
+            "industry_beta_reason": ("\"unavailable\" when the industry medians could not be read, are from an "
+                                     "older week than this row's beta (the weekly run is part way through, or "
+                                     "failed), or this row's own beta could not be read: industry_beta_median "
+                                     "and industry_beta_peers are then null. Else null"),
             "annual_eps_outlook": (
                 "Consensus EPS for the fiscal years NOT yet reported, continuing straight on "
                 "from annual_diluted_eps. Yahoo's current year is the year in progress, so the "

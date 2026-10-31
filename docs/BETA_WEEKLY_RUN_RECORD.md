@@ -89,6 +89,19 @@ it ran on the free tier.
 - The empty `beta-trial` database made in yfinance-cli at 05:25 UTC was
   deleted. The databases are now `(default)` and `staging` only.
 
+## After Kilby's code review (31 Oct 2026)
+
+Four fixes went in after the runs above, with tests:
+
+- A row whose own beta could not be read gets no industry stand-in.
+- An incomplete run keeps the previous week's medians.
+- Companies that a complete week left out are retried the next evening.
+- Each complete week's medians are kept in beta_industries/latest/history/{week}.
+
+`fit()` and `compute()` did not change, so the tie-out and Excel results
+stand. The trial's run() checks predate the fixes; the tests cover the new
+paths.
+
 ## Still to come (each needs the owner's go)
 
 - **GO 2:** push and PR.

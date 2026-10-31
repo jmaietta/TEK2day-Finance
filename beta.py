@@ -40,7 +40,8 @@ weekday 8 PM ET) works out every active company once a week and stores it in
 its own collection, beta_weekly/{symbol}, which every reader uses: one read a
 company, a set in one batched read. Each week is also kept, never overwritten,
 in beta_weekly/{symbol}/history/{week ending}. Each industry's median is in
-beta_industries/latest. Company records are never written. Every doc carries
+beta_industries/latest, each complete week's kept in its history. Company
+records are never written. Every doc carries
 its symbol, and a doc that does not match the one it is filed under is
 "unavailable", as is every row when the read fails. Stored prices only: no
 Yahoo request, ever.
@@ -332,9 +333,16 @@ def run(force: bool = False, symbols=None) -> dict:
 
     Runs every weekday evening after the price run. First reads SPY alone: if
     the newest finished week is not newer than the stored table's (Friday's
-    close not in yet, or already done), it stops there. `symbols` limits the
-    run to those companies and leaves the industry table alone (a trial).
-    Raises when too many companies fail, so the job reports a failure."""
+    close not in yet, or already done), it stops there, unless the week's run
+    left some companies out (at most 2%): then it works out just those, so
+    none waits a week. `symbols` limits the run to those companies and leaves
+    the industry table alone (a trial).
+
+    More than 2% failing makes the run incomplete: the industry table keeps the
+    previous week's medians (readers then serve no stand-in for this week's
+    rows), is marked incomplete so the next evening runs the week again, and
+    the job fails. A complete week's medians are also kept, never overwritten,
+    in beta_industries/latest/history/{week ending}."""
     from concurrent.futures import ThreadPoolExecutor  # noqa: PLC0415
 
     db = storage.get_db()
@@ -344,15 +352,19 @@ def run(force: bool = False, symbols=None) -> dict:
         raise RuntimeError("beta: no finished week in SPY's stored prices")
     state = db.document(INDUSTRIES).get()
     state = (state.to_dict() or {}) if state.exists else {}
+    retry = []
     if symbols is None and not force and state.get("complete") and state.get("window_end") == window_end:
-        logger.info("beta: the table already covers the week ending %s; nothing to do", window_end)
-        return {"skipped": True, "window_end": window_end}
+        retry = sorted(state.get("failed_symbols") or [])
+        if not retry:
+            logger.info("beta: the table already covers the week ending %s; nothing to do", window_end)
+            return {"skipped": True, "window_end": window_end}
+        logger.info("beta: the week ending %s left %d companies out; working out those", window_end, len(retry))
 
-    if symbols is None:
+    if symbols is None and not retry:
         metas = {doc.id: doc.to_dict() or {}
                  for doc in db.collection(storage.COLLECTION_ROOT).where("active", "==", True).stream()}
     else:
-        metas = {s: storage.get_ticker_meta(s) or {} for s in symbols}
+        metas = {s: storage.get_ticker_meta(s) or {} for s in (symbols if symbols is not None else retry)}
     computed_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
     def one(symbol):
@@ -376,19 +388,40 @@ def run(force: bool = False, symbols=None) -> dict:
     if symbols is not None:
         logger.info("beta trial: %s", summary)
         return {**summary, "results": done, "errors": failed}
+    if retry:
+        db.document(INDUSTRIES).set({"failed_symbols": sorted(failed), "failed": len(failed),
+                                     "retried_at": computed_at}, merge=True)
+        logger.info("beta: retried %s", summary)
+        return {**summary, "retried": len(retry)}
+
+    counts = {k: v for k, v in summary.items() if k != "window_end"}
+    if len(failed) > _STOP_FAILED_SHARE * max(len(metas), 1):
+        db.document(INDUSTRIES).set({
+            **state, "complete": False,
+            "attempt": {"window_end": window_end, "computed_at": computed_at, **counts},
+        })
+        raise RuntimeError(f"beta: {len(failed)} of {len(metas)} companies failed; the table keeps "
+                           f"the week ending {state.get('window_end')} and is marked incomplete")
 
     peers = {}
     for symbol, held in done.items():
         industry = metas[symbol].get("industry")
         if industry and held["beta"] is not None:
             peers.setdefault(industry, []).append(held["beta"])
-    complete = len(failed) <= _STOP_FAILED_SHARE * max(len(metas), 1)
-    db.document(INDUSTRIES).set({
-        "window_end": window_end, "computed_at": computed_at, "complete": complete,
-        "method": METHOD, **{k: v for k, v in summary.items() if k != "window_end"},
-        "industries": {name: {"median": statistics.median(b), "peers": len(b)} for name, b in sorted(peers.items())},
-    })
+    week = {"window_end": window_end, "computed_at": computed_at, "method": METHOD,
+            "industries": {name: {"median": statistics.median(b), "peers": len(b)}
+                           for name, b in sorted(peers.items())}}
+    latest = {**week, "complete": True, **counts, "failed_symbols": sorted(failed)}
+    history = db.document(f"{INDUSTRIES}/{HISTORY}/{window_end}")
+    batch = db.batch()
+    batch.create(history, week)
+    batch.set(db.document(INDUSTRIES), latest)
+    try:
+        batch.commit()
+    except AlreadyExists:
+        if not _same(history.get().to_dict() or {}, week):
+            raise RuntimeError(f"beta: industry medians for the week ending {window_end} differ "
+                               "from the ones kept") from None
+        db.document(INDUSTRIES).set(latest)
     logger.info("beta: %s, %d industries", summary, len(peers))
-    if not complete:
-        raise RuntimeError(f"beta: {len(failed)} of {len(metas)} companies failed; the table is marked incomplete")
     return summary

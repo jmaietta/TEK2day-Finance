@@ -390,6 +390,21 @@ def test_a_doc_filed_under_the_wrong_symbol_is_never_served(monkeypatch):
     check("warned", any(w["code"] == "beta_unavailable" for w in body["quality"]["warnings"]))
 
 
+def test_a_row_whose_own_beta_could_not_be_read_gets_no_stand_in(monkeypatch):
+    install()
+    _held_semis()
+    beta.for_symbols = lambda symbols, metas: {s: dict(beta.UNAVAILABLE) for s in symbols}
+
+    def standin(industry, window_end=None):
+        raise AssertionError("gave an estimate in place of a beta that may exist")
+    beta.industry_standin = standin
+    body = _call_with("NVDA,AMD", "industry_beta")
+    amd = _row(body, "AMD")
+    check("no estimate, says why", (amd["industry_beta_median"], amd["industry_beta_peers"],
+                                    amd["industry_beta_reason"]) == (None, None, "unavailable"), str(amd))
+    check("warned", any(w["code"] == "beta_unavailable" for w in body["quality"]["warnings"]))
+
+
 def test_unreadable_industry_medians_warn_too():
     install()
     _held_semis()

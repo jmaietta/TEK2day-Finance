@@ -194,7 +194,7 @@ class _Ref:
 
     def set(self, data, merge=False):
         self.db.writes.append(("set", self.path, data))
-        self.db.docs[self.path] = dict(data)
+        self.db.docs[self.path] = {**(self.db.docs.get(self.path) or {}), **data} if merge else dict(data)
 
     def collection(self, name):
         return _Query(self.db, f"{self.path}/{name}")
@@ -352,6 +352,9 @@ def test_the_weekly_run_stores_each_fit_its_history_and_the_industry_medians(mon
     check("median of the active", table["industries"] == {"Aerospace & Defense": {"median": 0.4, "peers": 3}},
           str(table["industries"]))
     check("week and complete", (table["window_end"], table["complete"]) == ("2026-10-30", True), str(table))
+    kept = db.docs[f"{beta.INDUSTRIES}/{beta.HISTORY}/2026-10-30"]
+    check("the week's medians kept in history", kept["industries"] == table["industries"]
+          and kept["window_end"] == "2026-10-30", str(kept))
 
 
 def test_a_week_already_stored_reads_only_spy_and_stops(monkeypatch):
@@ -370,6 +373,9 @@ def test_history_is_never_overwritten_and_a_rerun_must_reproduce(monkeypatch):
     check("same week again: held, nothing written", (again["written"], again["held"], again["failed"]) == (0, 5, 0),
           str(again))
     check("history untouched", db.docs[f"{beta.STORED}/LMT/{beta.HISTORY}/2026-10-30"] == first)
+    medians = dict(db.docs[f"{beta.INDUSTRIES}/{beta.HISTORY}/2026-10-30"])
+    beta.run(force=True)
+    check("industry history untouched too", db.docs[f"{beta.INDUSTRIES}/{beta.HISTORY}/2026-10-30"] == medians)
     db = _week(monkeypatch, COMPANIES, {**FITS, "LMT": {"beta": 0.31}})
     db.docs[f"{beta.STORED}/LMT/{beta.HISTORY}/2026-10-30"] = first
     db.docs[f"{beta.STORED}/LMT"] = first
@@ -381,16 +387,46 @@ def test_history_is_never_overwritten_and_a_rerun_must_reproduce(monkeypatch):
 
 
 def test_too_many_failures_fail_the_job_and_mark_the_table_incomplete(monkeypatch):
-    db = _week(monkeypatch, COMPANIES, {**FITS, "RTX": RuntimeError("firestore down")})
+    last_week = {"window_end": "2026-10-23", "complete": True,
+                 "industries": {"Aerospace & Defense": {"median": 0.42, "peers": 3}}}
+    db = _week(monkeypatch, COMPANIES, {**FITS, "RTX": RuntimeError("firestore down")}, stored=last_week)
     try:
         beta.run()
         raised = False
     except RuntimeError:
         raised = True
     check("job fails", raised)
-    check("incomplete, so tomorrow runs again", db.docs[beta.INDUSTRIES]["complete"] is False)
+    table = db.docs[beta.INDUSTRIES]
+    check("incomplete, so tomorrow runs again", table["complete"] is False)
+    check("last week's medians and week kept, never a partial set",
+          (table["window_end"], table["industries"]) == ("2026-10-23", last_week["industries"]), str(table))
+    check("the attempt recorded", (table["attempt"]["window_end"], table["attempt"]["failed"]) == ("2026-10-30", 1))
+    check("no history for an incomplete week", f"{beta.INDUSTRIES}/{beta.HISTORY}/2026-10-30" not in db.docs)
+    beta._INDUSTRY_CACHE.clear()
+    check("this week's rows get no stand-in from last week's medians",
+          REAL_STANDIN("Aerospace & Defense", "2026-10-30")["industry_beta_reason"] == "unavailable")
     check("a failed company keeps no half write", f"{beta.STORED}/RTX" not in db.docs
           and f"{beta.STORED}/RTX/{beta.HISTORY}/2026-10-30" not in db.docs)
+
+
+def test_companies_a_complete_week_left_out_are_retried_the_next_evening(monkeypatch):
+    many = {**COMPANIES, **{f"C{i:02d}": {"active": True, "industry": "Banks"} for i in range(60)}}
+    fits = {**FITS, **{f"C{i:02d}": {"beta": 1.0} for i in range(60)}}
+    db = _week(monkeypatch, many, {**fits, "RTX": RuntimeError("firestore down")})
+    first = beta.run()
+    table = dict(db.docs[beta.INDUSTRIES])
+    check("1 of 65 failed: complete", (first["failed"], table["complete"], table["failed_symbols"])
+          == (1, True, ["RTX"]), str(table))
+    monkeypatch.setattr(beta, "fit", lambda symbol, cal: {**dict.fromkeys(beta.FIELDS), **fits[symbol],
+                                                          "window_end": "2026-10-30"})
+    nxt = beta.run()
+    check("the next evening works out just those", (nxt["companies"], nxt["written"], nxt["retried"])
+          == (1, 1, 1), str(nxt))
+    check("RTX now this week's", db.docs[f"{beta.STORED}/RTX"]["week_ending"] == "2026-10-30")
+    after = db.docs[beta.INDUSTRIES]
+    check("left-out list cleared, medians untouched", after["failed_symbols"] == []
+          and after["industries"] == table["industries"], str(after))
+    check("then nothing to do", beta.run() == {"skipped": True, "window_end": "2026-10-30"})
 
 
 def test_a_trial_writes_only_the_companies_named(monkeypatch):
