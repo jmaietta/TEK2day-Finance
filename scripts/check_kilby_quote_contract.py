@@ -59,7 +59,8 @@ def main():
          patch.object(terminal, "_firestore_meta", return_value=company), \
          patch.object(terminal, "_firestore_fundamentals", return_value=fundamentals), \
          patch.object(terminal, "_latest_forward_eps", return_value=None), \
-         patch.object(storage, "get_ticker_meta", return_value=company),          patch.object(beta, "for_symbol", return_value=dict.fromkeys(beta.FIELDS)), \
+         patch.object(storage, "get_ticker_meta", return_value=company), \
+         patch.object(beta, "for_symbol", return_value=dict.fromkeys(beta.FIELDS)), \
          patch.object(partner_api, "require_kilby", return_value="offline"), \
          patch.object(partner_api, "_estimates", return_value=None):
 

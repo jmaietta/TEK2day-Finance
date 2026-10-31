@@ -74,6 +74,19 @@ cloud_run_jobs:
            from the public repo; if GitHub is unreachable those checks are
            SKIPPED, never reported as drift, so an outage cannot email at 3am."
 
+  weekly-beta:
+    image: daily-prices          # reuses an existing image, no new Dockerfile
+    tag: latest
+    task_count: 1
+    max_retries: 0               # a failed week keeps last week's table; no Yahoo
+    note: "Runs weekly_beta.py every weekday 8 PM ET via Cloud Scheduler
+           (overrides the image's entrypoint, like architecture-check). Stops after
+           reading SPY unless a newer week has finished; then works out every
+           active company's beta (beta.py) and stores it in beta_weekly/{symbol},
+           each week also kept in beta_weekly/{symbol}/history; company records
+           are never written.
+           Added 31 Oct 2026, owner's go, agreed with Kilby."
+
   full-data-pull-v2:
     image: full-onboard
     tag: v2-fixed

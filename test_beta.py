@@ -13,6 +13,7 @@ import statistics
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
+from google.api_core.exceptions import AlreadyExists
 from testkit import check
 
 import beta
@@ -21,7 +22,9 @@ import share_counts
 import storage
 import terminal
 
-REAL_FOR_SYMBOL = beta.for_symbol    # conftest blanks it for every other test
+REAL_FOR_SYMBOL = beta.for_symbol    # conftest blanks these for every other test
+REAL_FOR_SYMBOLS = beta.for_symbols
+REAL_STANDIN = beta.industry_standin
 ET = ZoneInfo("America/New_York")
 
 
@@ -171,52 +174,319 @@ def test_a_beta_lasts_until_the_next_price_run():
     check("five minutes in a run", beta.expires_at(in_run) == (in_run + timedelta(minutes=5)).astimezone(timezone.utc))
 
 
-# ── reading it ───────────────────────────────────────────────────────────────
+# ── the stored table: what the website and the API read ─────────────────────
 
-def _install(monkeypatch, reads):
-    ends, spy, stock = _market()
-    beta._CACHE.clear()
-    beta._CALENDAR.clear()
-    # SPY's daily rows: the week-end closes plus a Wednesday in each week.
-    daily = [{"date": d, "close": c} for d, c in spy.items()]
-    daily += [{"date": (date.fromisoformat(d) - timedelta(days=2)).isoformat(), "close": c} for d, c in spy.items()]
+class _Snap:
+    def __init__(self, id, data):
+        self.id, self._data, self.exists = id, data, data is not None
 
-    def history(symbol, limit=1260):
-        reads.append(("history", symbol))
-        assert symbol == "SPY"
-        return sorted(daily, key=lambda r: r["date"])[-limit:]
-
-    def closes_on(symbol, dates):
-        reads.append(("closes", symbol))
-        return {d: stock[d] for d in dates if d in stock}
-
-    monkeypatch.setattr(storage, "get_prices_history", history)
-    monkeypatch.setattr(beta, "_closes_on", closes_on)
-    monkeypatch.setattr(beta, "_first_close", lambda s: "2021-11-01")
-    monkeypatch.setattr(share_counts, "split_since_refresh", lambda s: None)
-    return ends, spy, stock
+    def to_dict(self):
+        return None if self._data is None else dict(self._data)
 
 
-def test_for_symbol_reads_once_then_from_memory(monkeypatch):
+class _Ref:
+    def __init__(self, db, path):
+        self.db, self.path, self.id = db, path, path.split("/")[-1]
+
+    def get(self, transaction=None):
+        self.db.reads.append(self.path)
+        return _Snap(self.id, self.db.docs.get(self.path))
+
+    def set(self, data, merge=False):
+        self.db.writes.append(("set", self.path, data))
+        self.db.docs[self.path] = {**(self.db.docs.get(self.path) or {}), **data} if merge else dict(data)
+
+    def collection(self, name):
+        return _Query(self.db, f"{self.path}/{name}")
+
+
+class _Batch:
+    def __init__(self, db):
+        self.db, self.ops = db, []
+
+    def create(self, ref, data):
+        self.ops.append(("create", ref, data))
+
+    def set(self, ref, data):
+        self.ops.append(("set", ref, data))
+
+    def commit(self):
+        if any(op == "create" and ref.path in self.db.docs for op, ref, _ in self.ops):
+            raise AlreadyExists("exists")
+        if self.db.fail_commit:
+            raise RuntimeError("commit failed")
+        for op, ref, data in self.ops:
+            self.db.writes.append((op, ref.path, data))
+            self.db.docs[ref.path] = dict(data)
+
+
+class _Query:
+    def __init__(self, db, name):
+        self.db, self.name = db, name
+
+    def where(self, field, op, value):
+        self.field, self.value = field, value
+        return self
+
+    def select(self, fields):
+        return self
+
+    def stream(self):
+        prefix = self.name + "/"
+        return [_Snap(p[len(prefix):], d) for p, d in sorted(self.db.docs.items())
+                if p.startswith(prefix) and "/" not in p[len(prefix):] and d.get(self.field) == self.value]
+
+    def document(self, symbol):
+        return _Ref(self.db, f"{self.name}/{symbol}")
+
+
+class _DB:
+    def __init__(self, docs, broken=False):
+        self.docs, self.reads, self.writes, self.batched = docs, [], [], []
+        self.broken, self.fail_commit = broken, False
+
+    def document(self, path):
+        return _Ref(self, path)
+
+    def collection(self, name):
+        return _Query(self, name)
+
+    def batch(self):
+        return _Batch(self)
+
+    def get_all(self, refs):
+        refs = list(refs)
+        self.batched.append([r.path for r in refs])
+        if self.broken:
+            raise RuntimeError("firestore down")
+        return [_Snap(r.id, self.docs.get(r.path)) for r in refs]
+
+
+def _doc(symbol, **fields):
+    return {"symbol": symbol, **dict.fromkeys(beta.FIELDS), **fields, "method": beta.METHOD,
+            "week_ending": "2026-10-30", "computed_at": "2026-10-31T01:00:00+00:00"}
+
+
+def test_a_set_is_read_in_one_batch_from_its_own_collection(monkeypatch):
+    db = _DB({f"{beta.STORED}/AAPL": _doc("AAPL", beta=1.043, years=2.0, window_end="2026-10-30")})
+    monkeypatch.setattr(storage, "get_db", lambda: db)
+    got = REAL_FOR_SYMBOLS(["AAPL", "NEWCO", "NOPE"], {"AAPL": {"x": 1}, "NEWCO": {"x": 1}, "NOPE": None})
+    check("one batched read, only for held companies",
+          db.batched == [[f"{beta.STORED}/AAPL", f"{beta.STORED}/NEWCO"]], str(db.batched))
+    check("stored fields", got["AAPL"] == {**dict.fromkeys(beta.FIELDS), "beta": 1.043, "years": 2.0,
+                                           "window_end": "2026-10-30"}, str(got["AAPL"]))
+    check("not reached yet", got["NEWCO"] == {**dict.fromkeys(beta.FIELDS), "reason": "not_yet_computed"})
+    check("no record: all None", got["NOPE"] == dict.fromkeys(beta.FIELDS))
+    check("nothing to read, no read", REAL_FOR_SYMBOLS(["X"], {}) == {"X": dict.fromkeys(beta.FIELDS)}
+          and len(db.batched) == 1)
+
+
+def test_a_failed_read_or_a_doc_for_another_symbol_is_unavailable(monkeypatch):
+    monkeypatch.setattr(storage, "get_db", lambda: _DB({}, broken=True))
+    got = REAL_FOR_SYMBOLS(["AAPL", "MSFT"], {"AAPL": {"x": 1}, "MSFT": {"x": 1}})
+    check("every row unavailable", list(got.values()) == [beta.UNAVAILABLE] * 2, str(got))
+    db = _DB({f"{beta.STORED}/AAPL": _doc("MSFT", beta=0.9), f"{beta.STORED}/MSFT": {"beta": 0.9}})
+    monkeypatch.setattr(storage, "get_db", lambda: db)
+    got = REAL_FOR_SYMBOLS(["AAPL", "MSFT"], {"AAPL": {"x": 1}, "MSFT": {"x": 1}})
+    check("wrong symbol inside", got["AAPL"] == beta.UNAVAILABLE, str(got["AAPL"]))
+    check("no symbol inside", got["MSFT"] == beta.UNAVAILABLE, str(got["MSFT"]))
+
+
+def test_one_company_reads_its_record_then_its_beta_and_never_raises(monkeypatch):
+    db = _DB({f"{beta.STORED}/KO": _doc("KO", beta=0.5)})
+    monkeypatch.setattr(storage, "get_db", lambda: db)
+    monkeypatch.setattr(beta, "for_symbols", REAL_FOR_SYMBOLS)
     reads = []
-    ends, spy, stock = _install(monkeypatch, reads)
-    got = REAL_FOR_SYMBOL("KO")
-    slope, rsq, _ = _excel(ends, spy, stock)
-    check("Excel's slope", abs(got["beta"] - slope) < 1e-12, str(got))
-    check("window ends on the last Friday", got["window_end"] == ends[-1], str(got))
-    n = len(reads)
-    REAL_FOR_SYMBOL("KO")
-    check("second time reads nothing", len(reads) == n, str(reads))
+    monkeypatch.setattr(storage, "get_ticker_meta", lambda s: reads.append(s) or {"symbol": s})
+    check("read", REAL_FOR_SYMBOL("KO")["beta"] == 0.5 and reads == ["KO"])
+    check("record held: not read again", REAL_FOR_SYMBOL("KO", {"symbol": "KO"})["beta"] == 0.5 and reads == ["KO"])
 
-
-def test_unreadable_prices_give_a_blank_never_an_error(monkeypatch):
-    reads = []
-    _install(monkeypatch, reads)
-
-    def broken(symbol, dates):
+    def broken(symbol):
         raise RuntimeError("firestore down")
-    monkeypatch.setattr(beta, "_closes_on", broken)
-    check("blank", REAL_FOR_SYMBOL("KO") == dict.fromkeys(beta.FIELDS))
+    monkeypatch.setattr(storage, "get_ticker_meta", broken)
+    check("unavailable, not an error", REAL_FOR_SYMBOL("KO") == beta.UNAVAILABLE)
+
+
+# ── the weekly run ───────────────────────────────────────────────────────────
+
+def _week(monkeypatch, companies, fits, stored=None):
+    db = _DB({**{f"{storage.COLLECTION_ROOT}/{s}": d for s, d in companies.items()},
+              **({beta.INDUSTRIES: stored} if stored else {})})
+    monkeypatch.setattr(storage, "get_db", lambda: db)
+    monkeypatch.setattr(storage, "get_ticker_meta", lambda s: db.docs.get(f"{storage.COLLECTION_ROOT}/{s}"))
+    monkeypatch.setattr(beta, "calendar", lambda: {"ends": ["2026-10-23", "2026-10-30"], "spy": {}})
+
+    def fit(symbol, cal):
+        if isinstance(fits[symbol], Exception):
+            raise fits[symbol]
+        return {**dict.fromkeys(beta.FIELDS), **fits[symbol], "window_end": "2026-10-30"}
+    monkeypatch.setattr(beta, "fit", fit)
+    return db
+
+
+COMPANIES = {
+    "LMT": {"active": True, "industry": "Aerospace & Defense", "name": "Lockheed"},
+    "RTX": {"active": True, "industry": "Aerospace & Defense"},
+    "GD": {"active": True, "industry": "Aerospace & Defense"},
+    "HONA": {"active": True, "industry": "Aerospace & Defense"},
+    "FDRXX": {"active": True, "quote_type": "MONEYMARKET"},
+    "OLD": {"active": False, "industry": "Aerospace & Defense"},
+}
+FITS = {"LMT": {"beta": 0.3}, "RTX": {"beta": 0.5}, "GD": {"beta": 0.4},
+        "HONA": {"reason": "short_history"}, "FDRXX": {"reason": "short_history"}, "OLD": {"beta": 9.0}}
+
+
+def test_the_weekly_run_stores_each_fit_its_history_and_the_industry_medians(monkeypatch):
+    db = _week(monkeypatch, COMPANIES, FITS)
+    records = {p: dict(d) for p, d in db.docs.items()}
+    summary = beta.run()
+    check("counts", (summary["companies"], summary["written"], summary["held"], summary["with_beta"],
+                     summary["failed"]) == (5, 5, 0, 3, 0), str(summary))
+    check("company records never written",
+          not any(p.startswith(storage.COLLECTION_ROOT + "/") for _, p, _ in db.writes)
+          and all(db.docs[p] == d for p, d in records.items()), str(db.writes))
+    lmt = db.docs[f"{beta.STORED}/LMT"]
+    check("current doc", (lmt["symbol"], lmt["beta"], lmt["method"], lmt["week_ending"])
+          == ("LMT", 0.3, beta.METHOD, "2026-10-30"), str(lmt))
+    check("history the same", db.docs[f"{beta.STORED}/LMT/{beta.HISTORY}/2026-10-30"] == lmt)
+    check("history created, never set", all(op == "create" for op, p, _ in db.writes if f"/{beta.HISTORY}/" in p))
+    check("inactive left alone", f"{beta.STORED}/OLD" not in db.docs)
+    table = db.docs[beta.INDUSTRIES]
+    check("median of the active", table["industries"] == {"Aerospace & Defense": {"median": 0.4, "peers": 3}},
+          str(table["industries"]))
+    check("week and complete", (table["window_end"], table["complete"]) == ("2026-10-30", True), str(table))
+    kept = db.docs[f"{beta.INDUSTRIES}/{beta.HISTORY}/2026-10-30"]
+    check("the week's medians kept in history", kept["industries"] == table["industries"]
+          and kept["window_end"] == "2026-10-30", str(kept))
+
+
+def test_a_week_already_covered_reads_the_active_list_and_stops(monkeypatch):
+    db = _week(monkeypatch, COMPANIES, FITS, stored={"window_end": "2026-10-30", "complete": True})
+    db.docs[beta.COVERAGE] = {"window_end": "2026-10-30", "symbols": ["FDRXX", "GD", "HONA", "LMT", "RTX"]}
+    check("skipped", beta.run() == {"skipped": True, "window_end": "2026-10-30"})
+    check("no writes", db.writes == [], str(db.writes))
+    db = _week(monkeypatch, COMPANIES, FITS, stored={"window_end": "2026-10-23", "complete": True})
+    check("a newer week runs", beta.run()["written"] == 5)
+
+
+def test_history_is_never_overwritten_and_a_rerun_must_reproduce(monkeypatch):
+    db = _week(monkeypatch, COMPANIES, FITS)
+    beta.run()
+    first = dict(db.docs[f"{beta.STORED}/LMT/{beta.HISTORY}/2026-10-30"])
+    again = beta.run(force=True)
+    check("same week again: held, nothing written", (again["written"], again["held"], again["failed"]) == (0, 5, 0),
+          str(again))
+    check("history untouched", db.docs[f"{beta.STORED}/LMT/{beta.HISTORY}/2026-10-30"] == first)
+    medians = dict(db.docs[f"{beta.INDUSTRIES}/{beta.HISTORY}/2026-10-30"])
+    beta.run(force=True)
+    check("industry history untouched too", db.docs[f"{beta.INDUSTRIES}/{beta.HISTORY}/2026-10-30"] == medians)
+    db = _week(monkeypatch, COMPANIES, {**FITS, "LMT": {"beta": 0.31}})
+    db.docs[f"{beta.STORED}/LMT/{beta.HISTORY}/2026-10-30"] = first
+    db.docs[f"{beta.STORED}/LMT"] = first
+    got = beta.run(symbols=["LMT"])
+    check("a different answer for a stored week fails", "LMT" in got["errors"]
+          and "differs" in got["errors"]["LMT"], str(got))
+    check("old fit kept, current and history", db.docs[f"{beta.STORED}/LMT"]["beta"] == 0.3
+          and db.docs[f"{beta.STORED}/LMT/{beta.HISTORY}/2026-10-30"]["beta"] == 0.3)
+
+
+def test_too_many_failures_fail_the_job_and_mark_the_table_incomplete(monkeypatch):
+    last_week = {"window_end": "2026-10-23", "complete": True,
+                 "industries": {"Aerospace & Defense": {"median": 0.42, "peers": 3}}}
+    db = _week(monkeypatch, COMPANIES, {**FITS, "RTX": RuntimeError("firestore down")}, stored=last_week)
+    try:
+        beta.run()
+        raised = False
+    except RuntimeError:
+        raised = True
+    check("job fails", raised)
+    table = db.docs[beta.INDUSTRIES]
+    check("incomplete, so tomorrow runs again", table["complete"] is False)
+    check("last week's medians and week kept, never a partial set",
+          (table["window_end"], table["industries"]) == ("2026-10-23", last_week["industries"]), str(table))
+    check("the attempt recorded", (table["attempt"]["window_end"], table["attempt"]["failed"]) == ("2026-10-30", 1))
+    check("no history for an incomplete week", f"{beta.INDUSTRIES}/{beta.HISTORY}/2026-10-30" not in db.docs)
+    beta._INDUSTRY_CACHE.clear()
+    check("this week's rows get no stand-in from last week's medians",
+          REAL_STANDIN("Aerospace & Defense", "2026-10-30")["industry_beta_reason"] == "unavailable")
+    check("a failed company keeps no half write", f"{beta.STORED}/RTX" not in db.docs
+          and f"{beta.STORED}/RTX/{beta.HISTORY}/2026-10-30" not in db.docs)
+
+
+def test_companies_a_complete_week_left_out_are_retried_the_next_evening(monkeypatch):
+    many = {**COMPANIES, **{f"C{i:02d}": {"active": True, "industry": "Banks"} for i in range(60)}}
+    fits = {**FITS, **{f"C{i:02d}": {"beta": 1.0} for i in range(60)}}
+    db = _week(monkeypatch, many, {**fits, "RTX": RuntimeError("firestore down")})
+    first = beta.run()
+    table = dict(db.docs[beta.INDUSTRIES])
+    check("1 of 65 failed: complete", (first["failed"], table["complete"], table["failed_symbols"])
+          == (1, True, ["RTX"]), str(table))
+    monkeypatch.setattr(beta, "fit", lambda symbol, cal: {**dict.fromkeys(beta.FIELDS), **fits[symbol],
+                                                          "window_end": "2026-10-30"})
+    nxt = beta.run()
+    check("the next evening works out just those", (nxt["companies"], nxt["written"], nxt["retried"])
+          == (1, 1, 1), str(nxt))
+    check("RTX now this week's", db.docs[f"{beta.STORED}/RTX"]["week_ending"] == "2026-10-30")
+    after = db.docs[beta.INDUSTRIES]
+    check("left-out list cleared, medians untouched", after["failed_symbols"] == []
+          and after["industries"] == table["industries"], str(after))
+    check("then nothing to do", beta.run() == {"skipped": True, "window_end": "2026-10-30"})
+
+
+def test_a_company_added_midweek_gets_its_beta_the_next_evening(monkeypatch):
+    db = _week(monkeypatch, COMPANIES, FITS)
+    beta.run()
+    medians = dict(db.docs[beta.INDUSTRIES]["industries"])
+    db.docs[f"{storage.COLLECTION_ROOT}/NOC"] = {"active": True, "industry": "Aerospace & Defense"}
+    db.docs[f"{storage.COLLECTION_ROOT}/OLD"]["active"] = True     # and one switched back on
+    fits = {**FITS, "NOC": {"beta": 0.2}}
+    monkeypatch.setattr(beta, "fit", lambda symbol, cal: {**dict.fromkeys(beta.FIELDS), **fits[symbol],
+                                                          "window_end": "2026-10-30"})
+    nxt = beta.run()
+    check("just the two", (nxt["companies"], nxt["written"], nxt["retried"]) == (2, 2, 2), str(nxt))
+    check("NOC has this week's", db.docs[f"{beta.STORED}/NOC"]["beta"] == 0.2
+          and f"{beta.STORED}/NOC/{beta.HISTORY}/2026-10-30" in db.docs)
+    check("medians wait for the next week", db.docs[beta.INDUSTRIES]["industries"] == medians)
+    check("covered now", {"NOC", "OLD"} <= set(db.docs[beta.COVERAGE]["symbols"]))
+    check("then nothing to do", beta.run() == {"skipped": True, "window_end": "2026-10-30"})
+
+
+def test_a_trial_writes_only_the_companies_named(monkeypatch):
+    db = _week(monkeypatch, COMPANIES, FITS)
+    got = beta.run(symbols=["LMT", "HONA"])
+    check("two", got["written"] == 2 and set(got["results"]) == {"LMT", "HONA"}, str(got))
+    check("no industry table", beta.INDUSTRIES not in db.docs)
+
+
+def test_the_stand_in_comes_from_the_stored_table_and_never_from_an_older_week(monkeypatch):
+    db = _DB({beta.INDUSTRIES: {"window_end": "2026-10-23",
+                                "industries": {"Aerospace & Defense": {"median": 0.92, "peers": 106}}}})
+    monkeypatch.setattr(storage, "get_db", lambda: db)
+    beta._INDUSTRY_CACHE.clear()
+    got = REAL_STANDIN("Aerospace & Defense", "2026-10-23")
+    check("median", got == {"industry_beta_median": 0.92, "industry_beta_peers": 106,
+                            "industry_beta_industry": "Aerospace & Defense", "industry_beta_reason": None}, str(got))
+    REAL_STANDIN("Aerospace & Defense", "2026-10-23")
+    check("cached", len(db.reads) == 1, str(db.reads))
+    beta._INDUSTRY_CACHE["checked"] -= timedelta(seconds=61)
+    stale = REAL_STANDIN("Aerospace & Defense", "2026-10-30")
+    check("a row from a newer week: re-read, still older, unavailable",
+          (stale["industry_beta_median"], stale["industry_beta_reason"]) == (None, "unavailable")
+          and len(db.reads) == 2, str((stale, db.reads)))
+    REAL_STANDIN("Aerospace & Defense", "2026-10-30")
+    check("re-read at most once a minute", len(db.reads) == 2, str(db.reads))
+    db.docs[beta.INDUSTRIES] = {"window_end": "2026-10-30",
+                                "industries": {"Aerospace & Defense": {"median": 0.95, "peers": 107}}}
+    beta._INDUSTRY_CACHE["checked"] -= timedelta(seconds=61)
+    check("caught up", REAL_STANDIN("Aerospace & Defense", "2026-10-30")["industry_beta_median"] == 0.95)
+    check("no industry", REAL_STANDIN(None) == {"industry_beta_median": None, "industry_beta_peers": 0,
+                                                "industry_beta_industry": None, "industry_beta_reason": None})
+    check("no peers", REAL_STANDIN("Shell Companies", "2026-10-30")["industry_beta_peers"] == 0)
+    monkeypatch.setattr(storage, "get_db", lambda: (_ for _ in ()).throw(RuntimeError("down")))
+    beta._INDUSTRY_CACHE.clear()
+    down = REAL_STANDIN("Aerospace & Defense", "2026-10-30")
+    check("unreadable: unavailable", (down["industry_beta_median"], down["industry_beta_peers"],
+                                      down["industry_beta_reason"]) == (None, None, "unavailable"), str(down))
 
 
 # ── Yahoo's beta: saved under its own name, never shown ──────────────────────
@@ -244,8 +514,8 @@ def test_the_website_cell_shows_the_span_beside_the_number(monkeypatch):
     monkeypatch.setattr(terminal, "_yahoo", no_yahoo)
     fits = {"AAPL": {"beta": 1.043, "years": 2.0}, "SNDK": {"beta": 1.431, "years": 1.7},
             "SPCX": {"reason": "short_history"}}
-    monkeypatch.setattr(beta, "for_symbol", lambda s: {**dict.fromkeys(beta.FIELDS), **fits[s]})
+    monkeypatch.setattr(beta, "for_symbol", lambda s, meta=None: {**dict.fromkeys(beta.FIELDS), **fits[s]})
     check("two years", terminal._beta("AAPL") == ("1.04 2Y", "TEK2day's own beta: 2 years of weekly returns vs SPY"),
           str(terminal._beta("AAPL")))
     check("1.7 years", terminal._beta("SNDK")[0] == "1.43 1.7Y", str(terminal._beta("SNDK")))
-    check("blank says why", terminal._beta("SPCX") == ("N/A", "Under 1 year of prices"))
+    check("blank says why", terminal._beta("SPCX") == ("N/A", "Insufficient history"))
