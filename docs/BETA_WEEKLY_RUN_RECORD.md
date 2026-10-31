@@ -110,6 +110,39 @@ Owner, the same day:
   evening reads the active list (about 10,300 reads, about $0.006) and
   works out only the companies the week does not cover yet.
 
+## GO 3: the first production write (31 Oct 2026)
+
+**Backup:** managed export of `tickers` to
+gs://yfinance-cli-firestore-backups/2026-10-31-pre-beta-weekly/. Status
+SUCCESSFUL: 10,299 documents, 15.7 MB, ended 07:11:02 UTC.
+
+**Run** (the owner's direct "Yes" in the TEK2day session):
+- Script: `C:\Users\jmaie\beta-check\go3\beta_go3_run.py`, sha256 2d4e09a3…d85267.
+- Code: PR #32's code, extracted at 97d9a29.
+- Identity: jmaietta@ceorater.com.
+- T0: 2026-10-31T07:21:00Z.
+- Result for the week ending 2026-10-30: 10,298 companies, 10,298 written,
+  0 failed, 8,106 with a beta.
+- 1,103,107 reads, 332 s.
+- An earlier attempt never started: a SyntaxError in the script's docstring
+  meant nothing was read or written. It was fixed with a raw docstring and
+  approved again.
+
+**Read-back** (`beta_go3_readback.py`, sha256 7835bb76…; viewer identity;
+read_time T1 2026-10-31T07:31:00Z; writes refused):
+- 10,298 current docs and 10,298 history docs are equal to a fresh fit, bit
+  for bit, computed_at aside: **0 differences**.
+- 233 industries. `latest` and its history are equal to recomputed medians,
+  for week 2026-10-30, complete.
+- Coverage equals the active list.
+- `tickers`: 10,299 documents at T0 and at T1, 0 changed.
+- 1,144,303 reads.
+- A first read-back at T1 07:27:00 fell seconds before the run's last write.
+  It found 8,158 docs, all equal, and 2,140 not yet written. It was re-run at
+  07:31:00, which is the pass above.
+
+**Cost:** about 2.25M reads and 20,600 writes, about $1.40.
+
 ## Still to come (each needs the owner's go), in this order
 
 The first production write comes BEFORE the merge (Kilby, 31 Oct 2026).
