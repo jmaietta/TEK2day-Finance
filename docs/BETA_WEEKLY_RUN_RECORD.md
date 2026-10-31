@@ -143,23 +143,45 @@ read_time T1 2026-10-31T07:31:00Z; writes refused):
 
 **Cost:** about 2.25M reads and 20,600 writes, about $1.40.
 
-## Still to come (each needs the owner's go), in this order
+## The order, each step on the owner's go (all done 31 Oct 2026)
 
-The first production write comes BEFORE the merge (Kilby, 31 Oct 2026).
-Merging first would deploy code that reads an empty beta_weekly: every stock
-would read "Insufficient history" and Kilby would get no betas until the
-first run finished. Today's live code never reads beta_weekly, so writing it
-early is harmless.
+The first production write came BEFORE the merge (Kilby, 31 Oct 2026).
+Merging first would have deployed code that reads an empty beta_weekly: every
+stock would have read "Insufficient history" and Kilby would have got no
+betas until the first run finished. The live code then never read
+beta_weekly, so writing it early was harmless.
 
-1. **GO 2:** push the branch and open the PR. No merge.
-2. **GO 3:**
-   - Export the `tickers` collection to gs://yfinance-cli-firestore-backups/.
-   - Run the PR's code once, by hand, writing beta_weekly (current and
-     history), beta_industries/latest, its history, and
-     beta_industries/coverage.
-   - Read every one of those docs back and compare it bit for bit
-     (computed_at aside) with a fresh in-memory computation.
-3. **The owner merges.** Betas are served from the first request.
+1. **GO 2:** push the branch and open the PR (#32). No merge.
+2. **GO 3:** back up `tickers`, run the PR's code once by hand, and read every
+   doc back. Results above.
+3. **The owner merges.** Results below.
 4. **GO 4:** the weekly-beta Cloud Run job and its weekdays 8 PM ET schedule.
+   Results below.
 
-Each step's result is added here.
+## The merge (31 Oct 2026)
+
+- The owner merged PR #32 at 07:41:07 UTC: fa9bab1.
+- The deploy and the data-job image build both succeeded. Website revision
+  tek2day-api-00169-q9z has served since 07:43 UTC.
+- The website's /stock pages read the stored table: AAPL "1.03 2Y",
+  SNDK "2.65 1.7Y", NVDA "1.87 2Y", SPY "1.00 2Y". SPCX has no beta
+  (short_history).
+
+## GO 4: the weekly job (31 Oct 2026)
+
+Approved by the owner directly in the TEK2day session.
+
+- **Job `weekly-beta`** (us-central1):
+  - image daily-prices:latest, the #32 merge build (fa9bab1);
+  - command `python weekly_beta.py`;
+  - 1 task, no retries, task timeout 3,600 s, 1 CPU, 1 GiB;
+  - the same service account as daily-price-pull;
+  - FIRESTORE_PROJECT=yfinance-cli.
+- **Trigger `weekly-beta-trigger`** (us-central1):
+  - `0 20 * * 1-5` America/New_York, ENABLED;
+  - OAuth as the same service account, deadline 180 s.
+- **First run:** Monday 2 November, 8 PM ET (2026-11-03T01:00Z). The week of
+  30 October is already covered, so it should read the active list and skip.
+- **Architecture check,** run by hand at 07:55 UTC
+  (execution architecture-check-rw9qs): "architecture.yaml matches reality
+  (7 checks)".
