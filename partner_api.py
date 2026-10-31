@@ -1549,9 +1549,9 @@ def equity_beta(request: Request, symbols: str = Query(..., min_length=1), inclu
     the cached industry medians. About half a second for 250.
 
     Every requested symbol is accounted for, in the order asked. `covered`
-    means TEK2day holds a company record for it; unlike metrics, prices are not
-    checked, so a company with a record and no prices is covered here with
-    beta_reason short_history. If the records cannot be read, every row reads
+    means TEK2day holds an active company record for it; unlike metrics, prices
+    are not checked, so a company with a record and no prices is covered here
+    with beta_reason short_history. If the records cannot be read, every row reads
     covered null and beta_reason "unavailable", with the beta_unavailable
     warning: 200, so a caller says "try again" rather than tripping a breaker."""
     import beta  # noqa: PLC0415
@@ -1583,6 +1583,10 @@ def equity_beta(request: Request, symbols: str = Query(..., min_length=1), inclu
             metas[s] = None
         except Exception:  # noqa: BLE001
             unreadable.add(s)
+    # An inactive company keeps the beta of the last week it was worked out, and
+    # the weekly run no longer refreshes it: not covered, so it is never served
+    # as this week's (Kilby's review, 31 Oct 2026).
+    metas = {s: m for s, m in metas.items() if m and m.get("active") is not False}
 
     betas = beta.for_symbols([s for s in ordered if s not in unreadable], metas)
     rows = []
@@ -1609,8 +1613,8 @@ def equity_beta(request: Request, symbols: str = Query(..., min_length=1), inclu
     return envelope.build(
         "equity_beta",
         {"companies": rows, "not_covered": missing,
-         "definitions": {"covered": ("A company record is held; prices not checked (unlike /equities/metrics). "
-                                     "Null when the records could not be read"),
+         "definitions": {"covered": ("An active company record is held; prices not checked (unlike "
+                                     "/equities/metrics). Null when the records could not be read"),
                          **_BETA_DEFINITIONS}},
         requested, {"symbols": [row["symbol"] for row in rows]},
         live=False, warnings=warnings,

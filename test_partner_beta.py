@@ -73,6 +73,9 @@ DOCS = {
     "tickers/AMD": {"symbol": "AMD", "active": True, "industry": "Semiconductors", "quote_type": "EQUITY"},
     "tickers/NEWCO": {"symbol": "NEWCO", "active": True},             # a record, no prices yet
     "tickers/OLDCO": {"symbol": "OLDCO", "renamed_to": "NEWCO"},      # an alias
+    "tickers/GONE": {"symbol": "GONE", "active": False, "industry": "Semiconductors"},
+    "beta_weekly/GONE": {"symbol": "GONE", **dict.fromkeys(beta.FIELDS), "beta": 1.2, "years": 2.0,
+                         "window_end": "2026-09-25", "method": beta.METHOD, "week_ending": "2026-09-25"},
     "beta_weekly/NVDA": _fit("NVDA", beta=1.83, r_squared=0.41, weeks_used=104, years=2.0,
                              window_start="2024-11-01", window_end="2026-10-30"),
     "beta_weekly/AMD": _fit("AMD", reason="short_history", weeks_used=40, years=0.8,
@@ -133,6 +136,16 @@ def test_an_alias_record_is_not_covered(monkeypatch):
     _install(monkeypatch)
     _, body = call("OLDCO")
     check("alias", (_row(body, "OLDCO")["covered"], _row(body, "OLDCO")["beta"]) == (False, None), str(body))
+
+
+def test_an_inactive_company_is_not_covered_and_its_last_beta_never_served(monkeypatch):
+    db = _install(monkeypatch)
+    _, body = call("GONE,NVDA")
+    gone = _row(body, "GONE")
+    check("not covered, no beta", (gone["covered"], gone["beta"], gone["beta_window_end"]) == (False, None, None),
+          str(gone))
+    check("listed and warned", body["data"]["not_covered"] == ["GONE"] and "not_covered" in _codes(body))
+    check("its beta doc not even read", all("beta_weekly/GONE" not in b for b in db.batches), str(db.batches))
 
 
 def test_a_routed_listing_is_read_as_metrics_reads_it(monkeypatch):
