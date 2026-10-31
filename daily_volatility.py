@@ -5,7 +5,8 @@ Cloud Run job `daily-volatility`, every weekday 8:30 PM ET (after the price
 run), on the daily-prices image with this file as its command. Each evening it
 reads SPY's dates and, for each company, only the closes that can have changed
 since the last run; Thursday evenings, after the 5-year re-adjust, every
-window is read again in full (volatility.py). Stores the figure and its
+window is read again in full (volatility.py). A price run still writing is
+waited for, up to an hour; past that it computes nothing and exits 1. Stores the figure and its
 returns in volatility_daily/{symbol}, every distinct figure kept in its
 history. Company records and prices are never written. No Yahoo request.
 

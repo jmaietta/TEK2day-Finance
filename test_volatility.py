@@ -11,7 +11,7 @@ full read would give.
 """
 import math
 import random
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import numpy as np
 import pandas as pd
@@ -157,7 +157,7 @@ class _Ref:
             elif isinstance(value, firestore.ArrayUnion):
                 old[key] = sorted(set(old.get(key) or []) | set(value.values))
             elif value is firestore.SERVER_TIMESTAMP:
-                old[key] = self.db.tick()
+                old[key] = self.db.wall
             else:
                 old[key] = value
         self.db.put(self.path, old)
@@ -190,21 +190,30 @@ class _Batch:
 
 
 class _Query:
-    def __init__(self, db, name, start=None, after=None, n=None):
+    def __init__(self, db, name, start=None, after=None, n=None, newest=None):
         self.db, self.name, self.start, self.after, self.n = db, name, start, after, n
+        self.newest = newest                                 # order_by(field, DESCENDING): that field
+
+    def _with(self, **kw):
+        q = _Query(self.db, self.name, self.start, self.after, self.n, self.newest)
+        q.__dict__.update(kw)
+        return q
 
     def where(self, filter=None):
         assert (filter.field_path, filter.op_string) == ("date", ">=")
-        return _Query(self.db, self.name, filter.value, self.after, self.n)
+        return self._with(start=filter.value)
 
-    def order_by(self, field):
+    def order_by(self, field, direction=None):
+        if direction == firestore.Query.DESCENDING:
+            return self._with(newest=field)
+        assert field == "date"                               # prices: ids are dates, already in order
         return self
 
     def start_after(self, snap):
-        return _Query(self.db, self.name, self.start, snap.id, self.n)
+        return self._with(after=snap.id)
 
     def limit(self, n):
-        return _Query(self.db, self.name, self.start, self.after, n)
+        return self._with(n=n)
 
     def select(self, fields):
         return self
@@ -218,6 +227,9 @@ class _Query:
                if p.startswith(prefix) and "/" not in p[len(prefix):]
                and (self.start is None or p[len(prefix):] >= self.start)
                and (self.after is None or p[len(prefix):] > self.after)]
+        if self.newest:
+            out = sorted((o for o in out if o.to_dict().get(self.newest) is not None),
+                         key=lambda o: o.to_dict()[self.newest], reverse=True)
         out = out if self.n is None else out[:self.n]
         self.db.reads += max(len(out), 1)
         if self.name.endswith("/prices"):
@@ -228,6 +240,7 @@ class _Query:
 class _DB:
     def __init__(self):
         self.docs, self.times, self.clock = {}, {}, 0
+        self.wall = WEDNESDAY_EVENING - timedelta(hours=3)   # what SERVER_TIMESTAMP writes: the price run's hour
         self.reads = self.price_reads = 0
         self.broken_writes = self.broken_reads = False
         self.masks = []
@@ -263,6 +276,10 @@ class _DB:
                       self.times.get(r.path)) for r in refs]
 
 
+WEDNESDAY_EVENING = datetime(2026, 10, 29, 0, 30, tzinfo=timezone.utc)    # 8:30 PM New York, Wed 28 Oct
+THURSDAY_EVENING = WEDNESDAY_EVENING + timedelta(days=1)
+
+
 class Market:
     """SPY and some stocks with stored closes, and the evening run against them."""
 
@@ -281,6 +298,15 @@ class Market:
         monkeypatch.setattr(storage, "get_prices_history", self.history)
         monkeypatch.setattr(share_counts, "split_since_refresh", lambda s: self.splits.get(s))
         monkeypatch.setattr(volatility, "mark", REAL_MARK)
+        self.now, self.slept, self.while_waiting = WEDNESDAY_EVENING, [], []
+        monkeypatch.setattr(volatility, "_now", lambda: self.now)
+        monkeypatch.setattr(volatility.time, "sleep", self._sleep)
+
+    def _sleep(self, seconds):
+        self.slept.append(seconds)
+        self.now += timedelta(seconds=seconds)
+        for hook in list(self.while_waiting):
+            hook()
 
     def root(self, symbol):
         return self.routes.get(symbol, f"tickers/{symbol}")
@@ -402,9 +428,73 @@ def test_thursdays_re_adjust_is_read_in_full(monkeypatch):
     refreshed[hole] = closes[before] * 0.99
     m.write("BBB", refreshed)
     out = volatility.run()
-    check("re-read in full", out["read_as"] == {"update": 2, "since": 1}, str(out))
+    check("read again from the re-adjust's own mark", out["read_as"] == {"update": 2, "since": 1}, str(out))
     check("the filled day counts", m.doc("BBB")["days_used"] == 252, str(m.doc("BBB")["days_used"]))
     m.check_against_full("after the re-adjust")
+
+
+def test_thursday_evening_in_new_york_reads_every_window_with_no_marks(monkeypatch):
+    m = Market(monkeypatch)
+    volatility.run()
+    out = volatility.run()
+    check("a quiet Wednesday rerun reads nothing in full", "full" not in out["read_as"], str(out))
+    for when, label in ((THURSDAY_EVENING, "8:30 PM Thursday"),
+                        (THURSDAY_EVENING - timedelta(hours=20, minutes=29), "00:01 Thursday"),
+                        (THURSDAY_EVENING + timedelta(hours=3, minutes=29), "11:59 PM Thursday")):
+        m.now = when
+        out = volatility.run()
+        check(f"{label} New York: every window in full", out["read_as"] == {"full": 3}, str(out))
+    m.now = THURSDAY_EVENING + timedelta(hours=3, minutes=31)       # 00:01 Friday New York
+    out = volatility.run()
+    check("Friday in New York is not Thursday", "full" not in out["read_as"], str(out))
+    m.check_against_full("Thursday")
+
+
+def test_a_price_run_still_writing_is_waited_for(monkeypatch):
+    """Kilby's review, 31 Oct: a price run that overruns 8:30 PM would leave
+    the companies it had not reached without today's close."""
+    m = Market(monkeypatch)
+    volatility.run()
+    m.db.wall = m.now - timedelta(minutes=2)
+    d = m.next_day(symbols=["AAA"])                     # the run has reached SPY and AAA only
+    rest = iter([["BBB"], ["CCC"]])
+
+    def the_run_goes_on():
+        batch = next(rest, None)
+        if batch is None:
+            return
+        m.db.wall = m.now - timedelta(minutes=1)
+        for s in batch:
+            m.write(s, {d: m.closes(s)[m.spy_dates[-2]] * 1.01})
+    m.while_waiting = [the_run_goes_on]
+    out = volatility.run()
+    check("waited until ten quiet minutes", m.slept == [300, 300, 300, 300] and out["waited_seconds"] == 1200,
+          str(m.slept))
+    check("every company has today", all(m.doc(s)["window_end"] == d and m.doc(s)["days_used"] == 252
+                                         for s in m.active), str({s: m.doc(s)["days_used"] for s in m.active}))
+    m.check_against_full("after waiting")
+
+
+def test_a_price_run_writing_for_over_an_hour_fails_and_computes_nothing(monkeypatch):
+    m = Market(monkeypatch)
+    volatility.run()
+    before = {p: dict(v) for p, v in m.db.docs.items() if p.startswith(volatility.STORED)}
+    m.next_day(symbols=["AAA"])
+
+    def still_writing():
+        m.db.docs[f"{volatility.DIRTY}/AAA"]["marked_at"] = m.now - timedelta(minutes=1)
+    still_writing()
+    m.while_waiting = [still_writing]
+    with pytest.raises(RuntimeError, match="still being written"):
+        volatility.run()
+    check("an hour, in five-minute looks", sum(m.slept) == 3600 and len(m.slept) == 12, str(m.slept))
+    check("nothing written", {p: v for p, v in m.db.docs.items() if p.startswith(volatility.STORED)} == before)
+    check("the marks wait for tomorrow", f"{volatility.DIRTY}/AAA" in m.db.docs)
+    m.while_waiting = []
+    m.now += timedelta(days=1)
+    m.next_day()
+    volatility.run()
+    m.check_against_full("the next evening")
 
 
 def test_an_older_close_changed_is_recomputed_from_its_mark(monkeypatch):
@@ -429,8 +519,13 @@ def test_a_write_that_leaves_no_mark_waits_for_thursday(monkeypatch):
     volatility.run()
     stale = m.doc("CCC")["volatility"]
     check("not seen yet", abs(stale - kilby(m.spy_dates, m.closes("CCC"))) > 1e-6)
-    volatility.run(full=True)
-    m.check_against_full("after a full read")
+    m.now = THURSDAY_EVENING                                       # no mark anywhere, no --full
+    out = volatility.run()
+    check("Thursday reads every window", out["read_as"] == {"full": 3}, str(out))
+    m.check_against_full("after Thursday's full read")
+    m.now = THURSDAY_EVENING + timedelta(days=1)
+    out = volatility.run()
+    check("Friday reads only what changed", "full" not in out["read_as"], str(out))
 
 
 def test_a_lost_mark_is_repaired_the_same_evening_and_alerts(monkeypatch):

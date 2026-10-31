@@ -29,7 +29,11 @@ the closes that can have changed: from the oldest date any price write since
 the last run touched (volatility_dirty/{symbol}, which storage's price
 writers set after every write) or five SPY dates before the stored window
 end, whichever is older. Thursday's 5-year re-adjust rewrites every close,
-so on Thursday evenings every window is read again in full. A changed price
+so on Thursday evenings (New York) every window is read again in full. A
+price run still writing when the job starts is waited for: the run begins
+once no price has been written for ten minutes (the marks say when), and
+after an hour of waiting it computes nothing and fails, so its alert says so
+and the next evening catches up. A changed price
 path (a ticker migration), a price repair, a SPY calendar change, a gap of
 more than 20 SPY dates or a failed mark also reads the window again in full.
 Every distinct figure is kept, never overwritten, in
@@ -41,7 +45,9 @@ from __future__ import annotations
 import logging
 import math
 import statistics
-from datetime import datetime, timezone
+import time
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from google.api_core.exceptions import AlreadyExists, FailedPrecondition, NotFound
 
@@ -71,6 +77,10 @@ _MAX_GAP = 20                # more SPY dates than this since the stored window:
 _WORKERS = 32                # the run: Firestore round trips, not work
 _STOP_FAILED_SHARE = 0.02    # more than 2% of companies failing: the job fails
 _READ_MASK = ["symbol", *FIELDS]
+_QUIET = timedelta(minutes=10)   # no price written for this long: no price run is writing
+_WAIT_STEP = 300                 # seconds between looks while one is
+_WAIT_MAX = 3600                 # then give up: compute nothing, fail, catch up tomorrow
+_THURSDAY = 3                    # the 5-year re-adjust's evening: every window read in full
 
 
 def _good(close) -> bool:
@@ -313,11 +323,46 @@ def _repaired(db) -> tuple[set, dict]:
     return {s for s in symbols if s}, now
 
 
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _last_price_write(db) -> datetime | None:
+    """When the newest mark was set: the last price write. One read."""
+    from google.cloud import firestore  # noqa: PLC0415
+    query = db.collection(DIRTY).order_by("marked_at", direction=firestore.Query.DESCENDING).limit(1)
+    for snap in query.stream():
+        return (snap.to_dict() or {}).get("marked_at")
+    return None
+
+
+def _wait_for_prices(db) -> int:
+    """Wait while a price run is writing; the seconds waited. Every price write
+    marks its company and a run's six tasks each write one every few seconds;
+    a task's longest pause is a Firestore quota wait (up to five minutes, the
+    other five writing meanwhile), so ten minutes without a mark means no run
+    is writing. A manual run counts the same as the scheduled one.
+    Raises after _WAIT_MAX, before anything is read or written."""
+    waited = 0
+    while True:
+        last = _last_price_write(db)
+        if last is None or _now() - last >= _QUIET:
+            return waited
+        if waited >= _WAIT_MAX:
+            raise RuntimeError(f"volatility: prices still being written (last at {last.isoformat()}) after "
+                               f"{waited // 60} minutes; nothing computed, the next run catches up")
+        logger.info("volatility: a price was written at %s; waiting for the run to finish", last.isoformat())
+        time.sleep(_WAIT_STEP)
+        waited += _WAIT_STEP
+
+
 def run(symbols=None, full: bool = False) -> dict:
     """Bring every active company's volatility up to SPY's newest settled date.
 
     `symbols` limits the run to those companies (a trial); `full` reads every
-    window again. More than 2% of companies failing fails the job; their docs
+    window again, as every Thursday evening (New York) does, after the 5-year
+    re-adjust. A price run still writing is waited for first
+    (_wait_for_prices). More than 2% of companies failing fails the job; their docs
     keep the figure they had, with its own window_end. Marks that could not
     be written (volatility_meta/failed_marks) and a SPY calendar change are
     repaired by a full read and then fail the job too, so its alert says so."""
@@ -325,8 +370,10 @@ def run(symbols=None, full: bool = False) -> dict:
     import share_counts  # noqa: PLC0415
 
     db = storage.get_db()
+    waited = _wait_for_prices(db)
+    full = full or _now().astimezone(ZoneInfo("America/New_York")).weekday() == _THURSDAY
     window = calendar()
-    computed_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    computed_at = _now().isoformat(timespec="seconds")
     failed_snap = db.document(FAILED_MARKS).get()
     lost = set(((failed_snap.to_dict() or {}) if failed_snap.exists else {}).get("symbols") or [])
     repaired, repairs_now = _repaired(db)
@@ -369,7 +416,7 @@ def run(symbols=None, full: bool = False) -> dict:
                "written": sum(1 for r in results if r[3] == "written"),
                "held": sum(1 for r in results if r[3] == "held"),
                "with_volatility": sum(1 for r in results if r[1] and r[1]["volatility"] is not None),
-               "read_as": reads}
+               "read_as": reads, "waited_seconds": waited}
     if symbols is not None:
         logger.info("volatility trial: %s", summary)
         return {**summary, "results": {s: n for s, n, _, _, _ in results if n}, "errors": failed}

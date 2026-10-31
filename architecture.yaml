@@ -98,7 +98,8 @@ cloud_run_jobs:
            company's one-year volatility in volatility_daily/{symbol} from the
            closes changed since the last run (volatility_dirty/{symbol}, set by
            storage's price writers); Thursday evenings it reads every window in
-           full. Every distinct figure kept in its history. Company records and
+           full. Waits up to an hour for a price run still writing (task timeout
+           2 h); past that it computes nothing and exits 1. Every distinct figure kept in its history. Company records and
            prices are never written.
            Added 31 Oct 2026, owner's go, agreed with Kilby."
 
