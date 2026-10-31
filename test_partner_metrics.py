@@ -13,6 +13,7 @@ And NO SIX-SYMBOL CAP. The comparison caps because each of its columns is a live
 quote; nothing here is live, so a real watchlist must go through in one request.
 That is the whole reason this endpoint exists rather than reusing /comparisons.
 """
+import json
 import sys
 from copy import deepcopy
 
@@ -268,23 +269,69 @@ def test_beta_is_ours_with_the_fit_it_came_from():
         check(f"{key} defined", key in body["data"]["definitions"])
 
 
-def test_a_stock_without_a_beta_gets_its_industrys_and_its_type():
-    install()
+def _held_semis():
     held = {**UNIVERSE, "NVDA": {**UNIVERSE["NVDA"], "industry": "Semiconductors", "quote_type": "EQUITY"},
             "AMD": {**UNIVERSE["AMD"], "industry": "Semiconductors", "quote_type": "EQUITY"}}
     storage.get_ticker_meta = lambda s: held.get(s)
     beta.for_symbol = lambda s: {**dict.fromkeys(beta.FIELDS), "beta": 1.8 if s == "NVDA" else None}
-    beta.industry_standin = lambda industry, symbol: {
-        "industry_beta_median": 1.6, "industry_beta_peers": 41, "industry_beta_industry": industry}
-    _, body = call("NVDA,AMD,INTC")
+
+
+def _call_with(symbols, include):
+    result = partner_api.equity_metrics(Req(), symbols=symbols, include=include)
+    return json.loads(result.body) if hasattr(result, "body") else result
+
+
+def test_a_stock_without_a_beta_gets_its_industrys_when_asked():
+    install()
+    _held_semis()
+    asked = []
+
+    def standin(industry, symbol):
+        asked.append((industry, symbol))
+        return {"industry_beta_median": 1.6, "industry_beta_peers": 41, "industry_beta_industry": industry}
+    beta.industry_standin = standin
+    body = _call_with("NVDA,AMD,INTC", "industry_beta")
     nvda, amd, intc = _row(body, "NVDA"), _row(body, "AMD"), _row(body, "INTC")
     check("own beta: no stand-in", (nvda["industry_beta_median"], nvda["industry_beta_peers"]) == (None, None), str(nvda))
     check("stand-in", (amd["industry_beta_median"], amd["industry_beta_peers"], amd["industry_beta_industry"])
           == (1.6, 41, "Semiconductors"), str(amd))
+    check("no industry: null, 0", (intc["industry_beta_median"], intc["industry_beta_peers"],
+                                   intc["industry_beta_industry"]) == (None, 0, None), str(intc))
+    check("asked once per industry, then per stock", asked == [("Semiconductors", ""), ("Semiconductors", "AMD")],
+          str(asked))
     check("type passed through", nvda["quote_type"] == "EQUITY")
     check("no type is null, not a guess", intc["quote_type"] is None, str(intc))
+    check("no working field leaks", "_industry" not in amd)
     for key in ("industry_beta_median", "industry_beta_peers", "quote_type"):
         check(f"{key} defined", key in body["data"]["definitions"])
+
+
+def test_callers_that_do_not_ask_pay_nothing():
+    install()
+    _held_semis()
+
+    def standin(industry, symbol):
+        raise AssertionError("worked out an industry beta nobody asked for")
+    beta.industry_standin = standin
+    body = _call_with("NVDA,AMD", "")
+    amd = _row(body, "AMD")
+    check("keys there, null", (amd["industry_beta_median"], amd["industry_beta_peers"],
+                               amd["industry_beta_industry"]) == (None, None, None), str(amd))
+
+
+def test_a_slow_industry_does_not_hold_the_request():
+    import time
+    install()
+    _held_semis()
+    beta.industry_standin = lambda industry, symbol: time.sleep(0.5) or {
+        "industry_beta_median": 1.6, "industry_beta_peers": 41, "industry_beta_industry": industry}
+    partner_api._STANDIN_WAIT_SECONDS = 0.05
+    started = time.monotonic()
+    body = _call_with("NVDA,AMD", "industry_beta")
+    check("did not wait", time.monotonic() - started < 0.4, str(time.monotonic() - started))
+    check("left null", _row(body, "AMD")["industry_beta_median"] is None)
+    check("said so", any(w["code"] == "industry_beta_pending" for w in body["quality"]["warnings"]),
+          str(body["quality"]["warnings"]))
 
 
 if __name__ == "__main__":

@@ -1282,8 +1282,36 @@ def _beta_fields(symbol: str) -> dict:
     }
 
 
+_NO_STANDIN = {"industry_beta_median": None, "industry_beta_peers": None, "industry_beta_industry": None}
+# Industry stand-ins are worked out here, not in the request's threads, so one
+# still running when the wait ends finishes and is cached for the next call.
+_STANDIN_POOL = ThreadPoolExecutor(max_workers=8, thread_name_prefix="industry-beta")
+_STANDIN_WAIT_SECONDS = 10
+
+
+def _industry_standins(rows) -> list[str]:
+    """Fill industry_beta_* on the rows without a beta of their own, waiting at
+    most _STANDIN_WAIT_SECONDS for all their industries together (Kilby's
+    metrics call times out at 30 s). Returns the industries not ready in time;
+    their rows keep nulls. Only on request (include=industry_beta), so callers
+    that never use it pay nothing."""
+    from concurrent.futures import wait  # noqa: PLC0415
+    import beta  # noqa: PLC0415
+    wanted = [row for row in rows if row.get("covered") and row.get("beta") is None]
+    jobs = {ind: _STANDIN_POOL.submit(beta.industry_standin, ind, "")
+            for ind in {row["_industry"] for row in wanted if row["_industry"]}}
+    wait(jobs.values(), timeout=_STANDIN_WAIT_SECONDS)
+    pending = sorted(ind for ind, job in jobs.items() if not job.done())
+    for row in wanted:
+        if not row["_industry"]:
+            row.update(_NO_STANDIN, industry_beta_peers=0)
+        elif row["_industry"] not in pending:
+            row.update(beta.industry_standin(row["_industry"], row["symbol"]))
+    return pending
+
+
 @router.get("/equities/metrics")
-def equity_metrics(request: Request, symbols: str = Query(..., min_length=1)):
+def equity_metrics(request: Request, symbols: str = Query(..., min_length=1), include: str = Query("")):
     """Price trend and forward-multiple trajectory for a set of companies.
 
     Built for watchlist analysis, which is why it does NOT share `/comparisons`'
@@ -1367,12 +1395,8 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1)):
         # Yahoo's own security type, as stored, null when none: Kilby treats
         # MONEYMARKET as cash (beta 0). Asked 31 Oct 2026; no extra read.
         row["quote_type"] = (meta or {}).get("quote_type") or None
-        # The industry's typical beta, only for a stock without its own: Kilby
-        # uses it in a portfolio's beta, labelled an estimate. Null otherwise.
-        import beta  # noqa: PLC0415
-        row.update(beta.industry_standin((meta or {}).get("industry"), norm) if row["beta"] is None
-                   else {"industry_beta_median": None, "industry_beta_peers": None,
-                         "industry_beta_industry": None})
+        row.update(_NO_STANDIN)
+        row["_industry"] = (meta or {}).get("industry") or None
         return row
 
     # Bounded rather than one worker per symbol: these are Firestore reads and a
@@ -1381,6 +1405,9 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1)):
     workers = min(len(ordered), _METRICS_MAX_WORKERS)
     with ThreadPoolExecutor(max_workers=workers) as pool:
         rows = list(pool.map(load, ordered))
+    pending = _industry_standins(rows) if "industry_beta" in str(include).split(",") else []
+    for row in rows:
+        row.pop("_industry", None)
 
     missing = [row["symbol"] for row in rows if not row.get("covered")]
 
@@ -1437,7 +1464,7 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1)):
             "beta_window_end": "Last week-end date of the window",
             "beta_method": "\"weekly_vs_spy_up_to_2y\"; beta_source is \"tek2day\"",
             "industry_beta_median": (
-                "Only when beta is null: the median of TEK2day's own betas of the other active "
+                "Only with include=industry_beta, and only when beta is null: the median of TEK2day's own betas of the other active "
                 "companies in the same industry (same method, same week). An ESTIMATE for a "
                 "portfolio's beta, not this stock's beta. Null when no peer has a beta"
             ),
@@ -1457,6 +1484,10 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1)):
     }
 
     warnings = []
+    if pending:
+        warnings.append({"code": "industry_beta_pending",
+                         "note": "Industry betas still being worked out for: " + ", ".join(pending)
+                                 + ". Ask again in a minute."})
     if missing:
         warnings.append({
             "code": "not_covered",
