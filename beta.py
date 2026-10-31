@@ -224,13 +224,16 @@ def for_symbols(symbols, metas: dict) -> dict:
     """{symbol: stored fit} for a set of companies, in one batched read
     (Kilby's metrics call: up to 250). `metas` holds the company record the
     caller already read for each symbol; one with no record reads all None and
-    costs no read. A covered company the weekly run has not reached reads
+    costs no read, and so does an inactive one (active false): it keeps the
+    beta of the last week it was worked out, which the weekly run no longer
+    refreshes, and that must never read as this week's (Kilby, 31 Oct 2026). A
+    covered company the weekly run has not reached reads
     "not_yet_computed". Never raises: if the read fails, every row reads
     "unavailable", which the API flags with the beta_unavailable warning
     (agreed with Kilby 31 Oct 2026), so a failed read never looks like "this
     stock has no beta"."""
     out = {s: dict.fromkeys(FIELDS) for s in symbols}
-    wanted = [s for s in out if metas.get(s)]
+    wanted = [s for s in out if metas.get(s) and not (isinstance(metas[s], dict) and metas[s].get("active") is False)]
     if not wanted:
         return out
     try:
