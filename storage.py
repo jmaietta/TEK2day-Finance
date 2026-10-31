@@ -168,22 +168,46 @@ def get_estimate_history(symbol: str, limit: int = 90) -> list[dict]:
 
 # ── Prices ────────────────────────────────────────────────────────────────────
 
+def _mark_volatility(symbol: str, dates) -> None:
+    """Tell the evening volatility run which closes may have changed, after
+    every price write, including one that failed part way (volatility.mark).
+    Never raises: a price write never fails because of it."""
+    try:
+        dates = [str(d)[:10] for d in dates if d]
+        if dates:
+            import volatility
+            volatility.mark(public_symbol(symbol), min(dates))
+    except Exception as exc:  # noqa: BLE001
+        import logging
+        logging.getLogger("ydp.volatility").error("%s: volatility mark not written: %s", symbol, exc)
+
+
 def write_price(symbol: str, date_str: str, data: dict) -> None:
     db = get_db()
     data = copy.deepcopy(data)
     data["fetched_at"] = _now_iso()
-    if identity_storage.guarded_write(db, symbol, [(f"/prices/{date_str}", data)]):
-        return
-    (
-        db.collection(COLLECTION_ROOT)
-        .document(symbol)
-        .collection("prices")
-        .document(date_str)
-        .set(data)
-    )
+    try:
+        if identity_storage.guarded_write(db, symbol, [(f"/prices/{date_str}", data)]):
+            return
+        (
+            db.collection(COLLECTION_ROOT)
+            .document(symbol)
+            .collection("prices")
+            .document(date_str)
+            .set(data)
+        )
+    finally:
+        _mark_volatility(symbol, [date_str])
 
 
 def write_prices_batch(symbol: str, rows: list[dict]) -> None:
+    try:
+        _write_prices_batch(symbol, rows)
+    finally:
+        _mark_volatility(symbol, [row.get("date") for row in rows])
+
+
+def _write_prices_batch(symbol: str, rows: list[dict]) -> None:
     db = get_db()
     rows = copy.deepcopy(rows)
     now = _now_iso()
