@@ -2,7 +2,7 @@
 from copy import deepcopy
 
 from sec_catalog import validate_binding, validate_profile
-from sec_enrollment import activation_plan
+from sec_enrollment import accepts, activation_plan
 from sec_fallback import filings_from, build_candidate
 from sec_maintenance import make_plan, reviewed_repair
 from sec_mapping import PROFILES, COMMON
@@ -29,7 +29,7 @@ def prepare(bindings, captures, sources, now):
             state = enrollment['writes'][0]['data']
         else:
             state = control['data']
-            require(state.get('status') == 'active' and state.get('binding_sha256') == digest(binding),
+            require(state.get('status') == 'active' and accepts(state, binding),
                     'Existing enrollment changed')
         native.update(route=state, route_path=binding['control_path'])
         reports, notices = filings_from(evidence['submissions'], binding, now)
