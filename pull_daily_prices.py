@@ -14,7 +14,9 @@ import os
 import random
 import sys
 import time
+from collections import Counter
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from google.api_core.exceptions import ResourceExhausted
 
@@ -37,6 +39,18 @@ MAX_FIRESTORE_RETRIES = 5
 
 # Override for catch-up runs after an outage, e.g. PRICE_PULL_PERIOD=1mo.
 PERIOD = os.environ.get("PRICE_PULL_PERIOD", "5d")
+
+# THURSDAY'S 5-YEAR RE-ADJUST, AND WHICH ROWS IT WRITES BACK (owner, 1 Nov 2026:
+# "only 1 version of the truth ... a full stock price rewrite only once per month").
+# Closes are adjusted for dividends and splits, so only an event moves a
+# stock's older rows; rewriting all ~1,260 rows of every stock cost 10.2M
+# writes a run (29 Oct). With PRICE_REFRESH_MODE=events (set only in the
+# Thursday scheduler's override; "full", today's behaviour, by default) a stock
+# gets its full history rewritten only when refresh_rows says so, and otherwise
+# its newest NEW_ROWS rows, as on a weeknight. The download is the same either way.
+REFRESH_MODE = os.environ.get("PRICE_REFRESH_MODE", "full").strip().lower()
+NEW_ROWS = 5
+_COMPARED = ("open", "high", "low", "close", "volume")
 
 # ⚠️ A RUN THAT WRITES NOTHING MUST NOT REPORT SUCCESS.
 #
@@ -126,6 +140,42 @@ def firestore_write_with_retry(fn, label):
     return False
 
 
+def refresh_rows(symbol, rows, splits, adjustments, today):
+    """(rows to write, why) for one stock's 5-year download. Every row the full
+    history is not rewritten for is already stored on the same basis. Full when:
+      - the switch is off ("full");
+      - it is a month's first Thursday ("monthly"): the safety net for a
+        revision nothing below sees;
+      - this stock has no last 5-year date, or it cannot be read ("no_refresh_date",
+        "unreadable");
+      - a split, dividend or capital-gains payout is dated on or after it ("event");
+      - the stored row for the download's oldest day differs from Yahoo's
+        ("tripwire"): a late-added dividend or a revised history moves it.
+    Otherwise the newest NEW_ROWS rows ("new_rows"). At most two reads."""
+    if REFRESH_MODE != "events":
+        return rows, "full"
+    if today.day <= 7:
+        return rows, "monthly"
+    try:
+        last = share_counts.last_refresh(symbol)
+    except Exception as exc:  # noqa: BLE001 - unknown means rewrite it all
+        logger.warning("%s: last 5-year date unreadable, full rewrite: %s", symbol, exc)
+        return rows, "unreadable"
+    if not last:
+        return rows, "no_refresh_date"
+    if any(day >= last for day in [*splits, *adjustments]):
+        return rows, "event"
+    ordered = sorted(rows, key=lambda r: r["date"])
+    try:
+        held = storage.get_price(symbol, ordered[0]["date"])
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("%s: oldest stored day unreadable, full rewrite: %s", symbol, exc)
+        return rows, "unreadable"
+    if not held or any(held.get(k) != ordered[0].get(k) for k in _COMPARED):
+        return rows, "tripwire"
+    return ordered[-NEW_ROWS:], "new_rows"
+
+
 def main():
     # A manual run of just the universe sync and the sector fill (owner, 2026-10-02:
     # "The first fill will run this weekend as we will manually push a job"):
@@ -182,6 +232,8 @@ def main():
     success = 0
     failed = 0
     continuity_failed = []
+    paths, rows_written = Counter(), 0
+    today_et = datetime.now(ZoneInfo("America/New_York")).date()
     # Names the universe sync added get their price history on their first night,
     # in the one request the job makes for them anyway (no extra Yahoo calls).
     backfill = universe_sync.backfill_pending() if tickers else set()
@@ -193,15 +245,19 @@ def main():
         yahoo_sym = symbol.replace(".", "-")
 
         period = universe_sync.BACKFILL_PERIOD if symbol in backfill else PERIOD
-        splits = {}
+        splits, adjustments = {}, set()
         rows = call_with_retry(
-            lambda s=yahoo_sym, p=period: fetchers.fetch_prices(s, period=p, splits=splits),
+            lambda s=yahoo_sym, p=period: fetchers.fetch_prices(s, period=p, splits=splits,
+                                                                adjustments=adjustments),
             f"{symbol} prices",
         )
 
         if rows:
             for r in rows:
                 r["symbol"] = symbol
+            if period in share_counts.LONG_PERIODS and symbol not in backfill:
+                rows, path = refresh_rows(symbol, rows, splits, adjustments, today_et)
+                paths[path] += 1
             written = firestore_write_with_retry(
                 lambda s=symbol, r=rows: storage.write_prices_batch(s, r),
                 f"{symbol} prices write",
@@ -209,6 +265,7 @@ def main():
             if written:
                 logger.info("[%d/%d] %s: %d price rows written", i, total, symbol, len(rows))
                 success += 1
+                rows_written += len(rows)
                 # The same answer's splits, for share counts (no extra Yahoo call).
                 share_counts.save_splits(None, symbol, splits, period)
                 if symbol in backfill:
@@ -238,6 +295,10 @@ def main():
     # ASCII deliberately: log lines should not depend on the console's encoding.
     logger.info("%sDaily price pull complete: %d success, %d failed, %.1f minutes",
                 "SMOKE TEST - " if smoke else "", success, failed, elapsed)
+    if paths:
+        # The measured share of each path, which the owner's yes to switch on waits for.
+        logger.info("5-year refresh (mode %s): %s; %d rows written", REFRESH_MODE,
+                    ", ".join(f"{k} {v}" for k, v in sorted(paths.items())), rows_written)
     if smoke:
         logger.warning(
             "*** THIS WAS A SMOKE TEST OVER %d TICKER(S), NOT THE NIGHTLY PULL. "

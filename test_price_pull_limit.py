@@ -87,7 +87,7 @@ class _Rec:
     def __init__(self, succeed):
         self.succeed, self.written = set(succeed), []
 
-    def fetch_prices(self, symbol, period="5d", splits=None):
+    def fetch_prices(self, symbol, period="5d", splits=None, adjustments=None):
         if symbol in self.succeed:
             return [{"date": "2026-08-19", "symbol": symbol, "open": 1.0,
                      "high": 2.0, "low": 0.5, "close": 1.5, "volume": 10}]

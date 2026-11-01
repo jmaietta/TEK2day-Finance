@@ -237,7 +237,7 @@ def _drive_price_job(monkeypatch, task_index=0, task_count=1, sync=None, pending
     monkeypatch.setattr(pdp.storage, "list_active_tickers", lambda: ["AAA", "BBB", "NEWCO"])
     monkeypatch.setattr(pdp.storage, "event_for", lambda s: None)
     monkeypatch.setattr(pdp.fetchers, "fetch_prices",
-                        lambda s, period, splits=None: periods.__setitem__(s, period) or [{"date": "2026-10-02", "close": 1.0}])
+                        lambda s, period, splits=None, adjustments=None: periods.__setitem__(s, period) or [{"date": "2026-10-02", "close": 1.0}])
     monkeypatch.setattr(pdp.storage, "write_prices_batch", lambda s, rows: None)
     monkeypatch.setattr(pdp.time, "sleep", lambda _s: None)
     monkeypatch.setattr(pdp, "DELAY", 0)

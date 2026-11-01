@@ -413,6 +413,12 @@ def get_all_financials(symbol: str) -> list[dict]:
 
 # ── Prices (read) ────────────────────────────────────────────────────────────
 
+def get_price(symbol: str, date_str: str) -> dict | None:
+    """One stored day, or None: one read."""
+    snap = ticker_ref(symbol).collection("prices").document(date_str).get()
+    return snap.to_dict() if snap.exists else None
+
+
 def get_prices_history(symbol: str, limit: int = 1260) -> list[dict]:
     db = get_db()
     docs = (

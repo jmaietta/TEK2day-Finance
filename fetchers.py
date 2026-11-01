@@ -361,7 +361,8 @@ def _bar_from_metadata(meta: dict, symbol: str) -> dict | None:
     }
 
 
-def fetch_prices(symbol: str, period: str = "5d", splits: dict | None = None) -> list[dict]:
+def fetch_prices(symbol: str, period: str = "5d", splits: dict | None = None,
+                 adjustments: set | None = None) -> list[dict]:
     """
     Fetch OHLCV price history. Default last 5 days to catch up
     after weekends/holidays. For backfill, pass period='max'.
@@ -370,6 +371,10 @@ def fetch_prices(symbol: str, period: str = "5d", splits: dict | None = None) ->
     "Stock Splits" column (4.0 for 4-for-1, 0.1 for 1-for-10). The weekly 5-year
     download carries every split in five years, at no extra Yahoo call
     (share_counts.save_splits).
+
+    `adjustments`, when given, is filled with the dates of every dividend and
+    capital-gains payout in the same answer: each one moves every older
+    adjusted close (the Thursday run's refresh_rows).
     """
     try:
         t = yf.Ticker(symbol)
@@ -384,6 +389,13 @@ def fetch_prices(symbol: str, period: str = "5d", splits: dict | None = None) ->
                 ratio = float(ratio)
                 if ratio and not math.isnan(ratio):
                     splits[idx.strftime("%Y-%m-%d")] = ratio
+        if adjustments is not None:
+            for column in ("Dividends", "Capital Gains"):
+                if column in hist.columns:
+                    for idx, amount in hist[column].items():
+                        amount = float(amount)
+                        if amount and not math.isnan(amount):
+                            adjustments.add(idx.strftime("%Y-%m-%d"))
 
         def _num(value):
             value = float(value)

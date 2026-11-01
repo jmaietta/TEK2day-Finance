@@ -339,6 +339,14 @@ def split_since_refresh(symbol: str) -> str | None:
     return later[-1][:10] if later and refreshed else None
 
 
+def last_refresh(symbol: str) -> str | None:
+    """The date of this stock's last 5-year download (checked_at), else None."""
+    import storage
+    snap = storage.get_db().collection(SPLITS).document(symbol).get()
+    record = (snap.to_dict() or {}) if snap.exists else {}
+    return str(record.get("checked_at") or "")[:10] or None
+
+
 def fetch_frames(db, today: date, get=None, sleep=time.sleep) -> dict:
     """{(tag, period): {cik: [end, shares]}} from storage, refreshing what is due.
 
