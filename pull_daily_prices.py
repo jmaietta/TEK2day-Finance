@@ -160,7 +160,7 @@ def firestore_write_with_retry(fn, label):
 def _spread(ordered):
     """CHECKED days spread across the download, its oldest first."""
     n = len(ordered)
-    return [ordered[i] for i in sorted({i * n // CHECKED for i in range(CHECKED)})]
+    return [ordered[i] for i in sorted({i * n // CHECKED for i in range(CHECKED)})] if n else []
 
 
 def _differs(old, new):
@@ -226,7 +226,10 @@ def refresh_rows(symbol, rows, splits, adjustments, today, checks=None):
         return rows, "full"
     ordered = sorted(rows, key=lambda r: r["date"])
     monthly = today.day <= 7
-    compared = ordered if monthly else _spread(ordered)
+    # The newest NEW_ROWS days are left out: weeknights rewrite them anyway, and
+    # this run's own newest day is not stored yet.
+    history = ordered[:-NEW_ROWS]
+    compared = history if monthly else _spread(history)
     try:
         last = share_counts.last_refresh(symbol)
         held = storage.get_prices_on(symbol, [r["date"] for r in compared])

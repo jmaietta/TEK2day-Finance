@@ -14,7 +14,7 @@ THURSDAY = date(2026, 11, 12)          # not in a month's first week
 FIRST_THURSDAY = date(2026, 12, 3)
 
 
-def _rows(n=10, close=10.0):
+def _rows(n=20, close=10.0):
     return [{"date": f"2026-10-{d:02d}", "symbol": "AAPL", "open": close, "high": close,
              "low": close, "close": close, "volume": 100} for d in range(1, n + 1)]
 
@@ -45,7 +45,7 @@ def stored(monkeypatch):
 
 def test_an_unchanged_stock_gets_only_its_newest_rows(stored):
     rows, why = pdp.refresh_rows("AAPL", _rows(), {}, set(), THURSDAY)
-    check("new rows", why == "new_rows" and [r["date"] for r in rows] == [f"2026-10-{d:02d}" for d in range(6, 11)],
+    check("new rows", why == "new_rows" and [r["date"] for r in rows] == [f"2026-10-{d:02d}" for d in range(16, 21)],
           str((why, rows)))
     check("seven reads: the date, 5 checked days, the market cap", stored["reads"] == 7)
 
@@ -58,16 +58,16 @@ def test_an_unchanged_stock_gets_only_its_newest_rows(stored):
 ])
 def test_a_split_or_dividend_since_the_last_refresh_rewrites_everything(stored, splits, adjustments, why):
     rows, got = pdp.refresh_rows("AAPL", _rows(), splits, adjustments, THURSDAY)
-    check(why, got == why and len(rows) == (10 if why == "event" else 5), str((got, len(rows))))
+    check(why, got == why and len(rows) == (20 if why == "event" else 5), str((got, len(rows))))
 
 
-@pytest.mark.parametrize("day", ["2026-10-01", "2026-10-05", "2026-10-09"])   # checked days
+@pytest.mark.parametrize("day", ["2026-10-01", "2026-10-07", "2026-10-13"])   # checked days
 def test_a_moved_checked_day_rewrites_everything(stored, day):
     """A dividend Yahoo added late, or a revised history, moves older rows
     without an event since the last refresh."""
     stored["rows"][day]["close"] = 9.9731
     rows, why = pdp.refresh_rows("AAPL", _rows(), {}, set(), THURSDAY)
-    check("tripwire", why == "tripwire" and len(rows) == 10, why)
+    check("tripwire", why == "tripwire" and len(rows) == 20, why)
 
 
 def test_any_change_at_all_rewrites_everything(stored):
@@ -93,7 +93,7 @@ def test_a_day_between_the_checked_ones_waits_for_the_month(stored):
 def test_no_refresh_date_rewrites_everything(stored):
     stored["last"] = None
     rows, why = pdp.refresh_rows("AAPL", _rows(), {}, set(), THURSDAY)
-    check("no date", why == "no_refresh_date" and len(rows) == 10, why)
+    check("no date", why == "no_refresh_date" and len(rows) == 20, why)
 
 
 def test_an_unreadable_record_rewrites_everything(stored, monkeypatch):
@@ -112,7 +112,7 @@ def test_companies_worth_a_billion_or_more_are_rewritten_every_week(stored, cap,
     counts as smaller."""
     stored["cap"] = cap
     rows, got = pdp.refresh_rows("AAPL", _rows(), {}, set(), THURSDAY)
-    check(why, got == why and len(rows) == (10 if why == "large" else 5), str((cap, got)))
+    check(why, got == why and len(rows) == (20 if why == "large" else 5), str((cap, got)))
 
 
 def test_an_unreadable_company_record_rewrites_everything(stored, monkeypatch):
@@ -124,13 +124,23 @@ def test_an_unreadable_company_record_rewrites_everything(stored, monkeypatch):
 
 def test_a_months_first_thursday_rewrites_every_stock_after_checking_every_day(stored):
     rows, why = pdp.refresh_rows("AAPL", _rows(), {}, set(), FIRST_THURSDAY)
-    check("monthly", why == "monthly" and len(rows) == 10 and stored["reads"] == 11, str((why, stored["reads"])))
+    check("monthly", why == "monthly" and len(rows) == 20 and stored["reads"] == 16, str((why, stored["reads"])))
+
+
+def test_a_months_first_thursday_does_not_count_todays_unstored_day(stored, caplog):
+    """The newest days are this run's to write: only weeknights' stored days
+    before them are compared, so an ordinary stock logs nothing."""
+    del stored["rows"]["2026-10-20"]
+    checks = []
+    pdp.refresh_rows("AAPL", _rows(), {}, set(), FIRST_THURSDAY, checks)
+    check("nothing", checks[0]["missing"] == 0 and checks[0]["differing"] == 0
+          and checks[0]["compared"] == 15 and "price check" not in caplog.text, str((checks, caplog.text)))
 
 
 def test_switched_off_is_todays_full_rewrite_without_reading(stored, monkeypatch):
     monkeypatch.setattr(pdp, "REFRESH_MODE", "full")
     rows, why = pdp.refresh_rows("AAPL", _rows(), {}, set(), THURSDAY)
-    check("full", why == "full" and len(rows) == 10 and stored["reads"] == 0, why)
+    check("full", why == "full" and len(rows) == 20 and stored["reads"] == 0, why)
 
 
 @pytest.mark.parametrize("symbol", ["AMZN", "BNY", "XOM"])   # enrolled, renamed, successor
@@ -139,7 +149,7 @@ def test_a_reviewed_identity_keeps_todays_full_rewrite(stored, symbol):
     price_repair rows: nothing about their Thursday changes. They are checked."""
     checks = []
     rows, why = pdp.refresh_rows(symbol, _rows(), {}, set(), THURSDAY, checks)
-    check(symbol, why == "guarded" and len(rows) == 10 and len(checks) == 1, why)
+    check(symbol, why == "guarded" and len(rows) == 20 and len(checks) == 1, why)
     check("others are not", not pdp.storage.reviewed_identity("AAPL"))
 
 
@@ -147,7 +157,7 @@ def test_a_reviewed_identity_keeps_todays_full_rewrite(stored, symbol):
 
 @pytest.mark.parametrize("close, differing", [(10.0001, 0), (10.0009, 0), (10.002, 1), (11.0, 1)])
 def test_a_difference_is_more_than_one_rounding_step_and_a_hundredth_of_a_percent(stored, close, differing):
-    stored["rows"]["2026-10-05"]["close"] = close
+    stored["rows"]["2026-10-07"]["close"] = close
     checks = []
     pdp.refresh_rows("AAPL", _rows(), {}, set(), THURSDAY, checks)
     check(str(close), checks[0]["differing"] == differing and checks[0]["compared"] == 5, str(checks))
@@ -162,7 +172,7 @@ def test_pennies_need_more_than_one_rounding_step(stored):
 
 
 def test_an_unexplained_move_over_one_percent_alerts(stored, caplog):
-    stored["rows"]["2026-10-05"]["close"] = 10.5    # Yahoo now says 10.0: -4.76%
+    stored["rows"]["2026-10-07"]["close"] = 10.5    # Yahoo now says 10.0: -4.76%
     checks = []
     pdp.refresh_rows("AAPL", _rows(), {}, set(), THURSDAY, checks)
     check("unexplained", checks[0]["differing"] == 1 and not checks[0]["expected"], str(checks))
@@ -172,7 +182,7 @@ def test_an_unexplained_move_over_one_percent_alerts(stored, caplog):
 
 
 def test_a_small_unexplained_move_is_logged_without_alerting(stored, caplog):
-    stored["rows"]["2026-10-05"]["close"] = 10.05   # -0.5%
+    stored["rows"]["2026-10-07"]["close"] = 10.05   # -0.5%
     pdp.refresh_rows("AAPL", _rows(), {}, set(), THURSDAY)
     check("warning", "price check AAPL" in caplog.text and "ALERT" not in caplog.text, caplog.text)
 
@@ -187,7 +197,7 @@ def test_a_dividend_since_the_last_full_rewrite_explains_the_move(stored, caplog
 
 
 def test_repaired_days_are_not_yahoos_and_are_left_out(stored):
-    stored["rows"]["2026-10-05"].update(close=12.0, price_repair={"source": "reviewed"})
+    stored["rows"]["2026-10-07"].update(close=12.0, price_repair={"source": "reviewed"})
     checks = []
     pdp.refresh_rows("AAPL", _rows(), {}, set(), THURSDAY, checks)
     check("left out", checks[0]["compared"] == 4 and checks[0]["differing"] == 0, str(checks))
@@ -201,9 +211,15 @@ def test_switched_off_checks_nothing(stored, monkeypatch):
 
 
 def test_the_checked_days_span_the_whole_download():
-    days = pdp._spread([{"date": f"d{i:04d}"} for i in range(1260)])
-    check("spread", [d["date"] for d in days] == ["d0000", "d0252", "d0504", "d0756", "d1008"], str(days))
+    days = pdp._spread([{"date": f"d{i:04d}"} for i in range(1255)])     # 1,260 less the newest 5
+    check("spread", [d["date"] for d in days] == ["d0000", "d0251", "d0502", "d0753", "d1004"], str(days))
     check("short", len(pdp._spread([{"date": "a"}, {"date": "b"}])) == 2)
+
+
+def test_a_download_of_only_new_days_checks_nothing(stored):
+    checks = []
+    rows, why = pdp.refresh_rows("AAPL", _rows(n=5), {}, set(), THURSDAY, checks)
+    check("nothing", checks[0]["compared"] == 0 and why == "new_rows" and len(rows) == 5, str((why, checks)))
 
 
 # ── the run ──────────────────────────────────────────────────────────────────
@@ -255,7 +271,7 @@ def test_the_thursday_run_writes_new_rows_and_says_why(monkeypatch, caplog):
 
 def test_a_new_ticker_still_gets_its_whole_history(monkeypatch):
     written = _run(monkeypatch, "5y", "events", backfill={"NEW"})
-    check("backfill", written == {"AAPL": 5, "NEW": 10}, str(written))
+    check("backfill", written == {"AAPL": 5, "NEW": 20}, str(written))
 
 
 def test_only_a_full_rewrite_moves_the_last_refresh_date(monkeypatch):
@@ -282,8 +298,8 @@ def test_a_short_download_keeps_the_date_and_adds_its_events():
 
 
 def test_weeknights_and_the_switch_off_are_unchanged(monkeypatch):
-    check("weeknight", _run(monkeypatch, "5d", "events") == {"AAPL": 10, "NEW": 10})
-    check("switch off", _run(monkeypatch, "5y", "full") == {"AAPL": 10, "NEW": 10})
+    check("weeknight", _run(monkeypatch, "5d", "events") == {"AAPL": 20, "NEW": 20})
+    check("switch off", _run(monkeypatch, "5y", "full") == {"AAPL": 20, "NEW": 20})
 
 
 # ── the dates, from the download already made ───────────────────────────────
