@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -48,8 +49,13 @@ def main():
     require(digest(load_catalog()[args.symbol]) == digest(new), 'This checkout does not hold the new catalog')
     if args.action == 'apply':
         require(os.getenv('TEK2DAY_ALLOW_SEC_ENROLLMENT') == '1', 'Explicit enrollment write gate required')
+    # As run_sec_enrollment.py: the project owner's gcloud account, not the
+    # machine's default credentials, which cannot write controls.
+    token = subprocess.run(['gcloud.cmd', 'auth', 'print-access-token', '--account=jmaietta@ceorater.com'],
+                           check=True, capture_output=True, text=True).stdout.strip()
     from google.cloud import firestore
-    db = firestore.Client(project=args.confirm_project, database='(default)')
+    from google.oauth2.credentials import Credentials
+    db = firestore.Client(project=args.confirm_project, database='(default)', credentials=Credentials(token))
     snap = db.document(old['control_path']).get()
     plan = change_plan(args.step, old, new, {'exists': snap.exists, 'data': snap.to_dict() if snap.exists else None})
     outcome = apply_change(db, plan, apply=args.action == 'apply')
