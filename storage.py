@@ -422,10 +422,11 @@ def reviewed_identity(symbol: str) -> bool:
     return bool(event_for(symbol) or binding_for(symbol) or succession_for(symbol))
 
 
-def get_price(symbol: str, date_str: str) -> dict | None:
-    """One stored day, or None: one read."""
-    snap = ticker_ref(symbol).collection("prices").document(date_str).get()
-    return snap.to_dict() if snap.exists else None
+def get_prices_on(symbol: str, dates) -> dict:
+    """{date: stored row} for the stored days among `dates`: one read per date."""
+    db = get_db()
+    prices = ticker_ref(symbol, db=db).collection("prices")
+    return {snap.id: snap.to_dict() for snap in db.get_all([prices.document(d) for d in dates]) if snap.exists}
 
 
 def get_prices_history(symbol: str, limit: int = 1260) -> list[dict]:
