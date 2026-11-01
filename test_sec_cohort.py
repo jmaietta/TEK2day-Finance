@@ -1,6 +1,6 @@
 """Synthetic multi-security enrollment, translation, recovery and isolation."""
 from copy import deepcopy
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 import json
 
 import pytest
@@ -217,9 +217,10 @@ def test_batch_interruption_replays_only_uncheckpointed_symbol(db):
 
 def test_packaged_catalog_matches_approved_amzn_enrollment():
     from pathlib import Path
-    approved = json.loads((Path(__file__).parent / 'docs/amzn-proposed-enrollment-20260913.json').read_text())['bindings'][0]
+    approved = json.loads((Path(__file__).parent / 'docs/amzn-proposed-enrollment-20261031.json').read_text())['bindings'][0]
     assert set(BINDINGS) == {'BNY', 'AMZN'}
     assert digest(load_catalog()['AMZN']) == digest(approved)
+    assert approved['periods_from'] == '2026-04-01' and approved['periods_through'] == '2026-09-30'
 
 
 def test_real_amzn_uses_shared_profile_and_exact_quarter():
@@ -235,6 +236,29 @@ def test_real_amzn_uses_shared_profile_and_exact_quarter():
     assert c['cash_flow']['Operating Cash Flow'] == 45_387_000_000
     assert c['period_start'] == '2026-04-01' and c['period_end'] == '2026-06-30'
     assert 'Diluted EPS' not in c['income'] and 'Net PPE' not in c['balance_sheet']
+
+
+def test_real_amzn_september_quarter_inside_extended_interval_only():
+    from pathlib import Path
+    root = Path(__file__).parent
+    b = json.loads((root / 'docs/amzn-proposed-enrollment-20261031.json').read_text())['bindings'][0]
+    e = json.loads((root / 'tests/fixtures/sec_amzn_2026_q3.json').read_text())
+    accepted = datetime(2026, 10, 29, 22, 20, 46, tzinfo=timezone.utc)
+    # Still inside the 168-hour grace period: no report selected, no review notice.
+    early, notices = filings_from(e['submissions'], b, accepted + timedelta(days=6))
+    assert early == [] and not [n for n in notices if n['status'] == 'review']
+    reports, _ = filings_from(e['submissions'], b, accepted + timedelta(days=7))
+    c = build_candidate(e['facts'], e['receipt'], b, reports[0], reports)
+    assert c['period'] == '2026-Q3' and c['period_start'] == '2026-07-01' and c['period_end'] == '2026-09-30'
+    assert c['income']['Total Revenue'] == 201_944_000_000
+    assert c['income']['Net Income'] == 20_685_000_000
+    assert c['balance_sheet']['Total Assets'] == 1_243_390_000_000
+    assert c['cash_flow']['Operating Cash Flow'] == 42_422_000_000
+    assert 'Free Cash Flow' not in c['cash_flow'] and 'Net PPE' not in c['balance_sheet']
+    # The June binding still refuses this report.
+    june = json.loads((root / 'docs/amzn-proposed-enrollment-20260913.json').read_text())['bindings'][0]
+    _, notices = filings_from(e['submissions'], june, accepted + timedelta(days=7))
+    assert [n['reason'] for n in notices] == ['report_outside_reviewed_interval']
 
 
 def test_scheduled_cohort_uses_shared_client_and_idempotent_repairs(db, monkeypatch):
@@ -350,3 +374,112 @@ def test_native_execution_verifier_detects_unapproved_descendant_change(db, monk
     after['records'][protected]['data']['close'] = 999
     with pytest.raises(IdentityError, match='Protected observation'):
         verify_exact(cohort, before, after)
+
+
+# ── a reviewed catalog change, staged (owner, 1 Nov 2026: "fix amzn the safe way") ──
+
+def _control(db, b):
+    snap = db.document(b['control_path']).get()
+    return {'exists': snap.exists, 'data': snap.to_dict() if snap.exists else None}
+
+
+def _longer(b):
+    return {**deepcopy(b), 'periods_through': '2027-03-31'}
+
+
+def _step(db, step, old, new, apply=True):
+    from sec_enrollment import apply_change, change_plan
+    return apply_change(db, change_plan(step, old, new, _control(db, old)), apply=apply)
+
+
+def test_staged_change_admits_old_and_new_catalog_then_only_new(db, monkeypatch):
+    from sec_enrollment import NEXT
+    old = binding(); enrolled(db, monkeypatch, old)
+    new = _longer(old)
+    before = deepcopy(db.data[old['control_path']])
+    from sec_enrollment import apply_change, change_plan
+    plan = change_plan('stage', old, new, _control(db, old))
+    assert apply_change(db, plan) == 'planned' and db.data[old['control_path']] == before
+    assert apply_change(db, plan, apply=True) == 'stage'
+    assert db.data[old['control_path']] == {**before, NEXT: digest(new)}
+    assert apply_change(db, plan, apply=True) == 'noop'          # a rerun after an interruption
+    for held in (old, new):                       # a deploy on either catalog reads and writes
+        monkeypatch.setitem(BINDINGS, 'ALFA', held)
+        assert context(db, 'ALFA', write=True)[1].path == old['root_path']
+    monkeypatch.setitem(BINDINGS, 'ALFA', {**deepcopy(old), 'periods_through': '2026-11-30'})
+    with pytest.raises(IdentityError, match='missing or changed'): context(db, 'ALFA')
+    assert _step(db, 'promote', old, new) == 'promote'
+    assert db.data[old['control_path']] == {**before, 'binding_sha256': digest(new)}
+    monkeypatch.setitem(BINDINGS, 'ALFA', new)
+    assert context(db, 'ALFA', write=True)
+    monkeypatch.setitem(BINDINGS, 'ALFA', old)
+    with pytest.raises(IdentityError, match='missing or changed'): context(db, 'ALFA')
+
+
+def test_staged_change_withdraws_to_the_exact_old_control(db, monkeypatch):
+    old = binding(); enrolled(db, monkeypatch, old)
+    before = deepcopy(db.data[old['control_path']])
+    _step(db, 'stage', old, _longer(old))
+    assert _step(db, 'withdraw', old, _longer(old)) == 'withdraw'
+    assert db.data[old['control_path']] == before
+
+
+@pytest.mark.parametrize('change', ['security_id', 'cik', 'root_path', 'same'])
+def test_staged_change_cannot_alter_the_security(db, monkeypatch, change):
+    from sec_enrollment import change_plan
+    old = binding(); enrolled(db, monkeypatch, old)
+    new = _longer(old)
+    if change == 'same':
+        new = deepcopy(old)
+    elif change == 'cik':
+        new['cik'] = new['identity_guard']['cik'] = '0000000009'
+    else:
+        new[change] = {'security_id': '20000000-0000-4000-8000-000000000009', 'root_path': 'tickers/OTHER'}[change]
+    with pytest.raises(IdentityError): change_plan('stage', old, new, _control(db, old))
+
+
+def test_staged_change_is_fenced_on_the_reviewed_control(db, monkeypatch):
+    from sec_enrollment import apply_change, change_plan
+    old = binding(); enrolled(db, monkeypatch, old)
+    new = _longer(old)
+    with pytest.raises(IdentityError, match='does not hold'): change_plan('promote', old, new, _control(db, old))
+    plan = change_plan('stage', old, new, _control(db, old))
+    db.data[old['control_path']]['status'] = 'paused'          # changed after the review
+    with pytest.raises(IdentityError, match='changed since review'): apply_change(db, plan, apply=True)
+    with pytest.raises(IdentityError, match='plan changed'):
+        apply_change(db, {**plan, 'writes': [{'path': old['control_path'], 'data': {'status': 'active'}}]}, apply=True)
+    with pytest.raises(IdentityError, match='not on the reviewed old'):
+        change_plan('stage', _longer(old), {**_longer(old), 'periods_through': '2027-06-30'}, _control(db, old))
+
+
+def test_pause_and_resume_keep_a_staged_change(db, monkeypatch):
+    from sec_enrollment import NEXT
+    old = binding(); _, plan = enrolled(db, monkeypatch, old)
+    _step(db, 'stage', old, _longer(old))
+    assert control_status(db, plan, 'paused') == 'paused'
+    assert db.data[old['control_path']][NEXT] == digest(_longer(old))
+    with pytest.raises(IdentityError): context(db, 'ALFA', write=True)
+    assert control_status(db, plan, 'active') == 'active'
+    assert db.data[old['control_path']][NEXT] == digest(_longer(old))
+
+
+def test_real_amzn_change_stages_june_to_september():
+    from pathlib import Path
+    from sec_enrollment import NEXT, change_plan
+    root = Path(__file__).parent
+    june = json.loads((root / 'docs/amzn-proposed-enrollment-20260913.json').read_text())['bindings'][0]
+    sept = json.loads((root / 'docs/amzn-proposed-enrollment-20261031.json').read_text())['bindings'][0]
+    assert digest(load_catalog()['AMZN']) == digest(sept)
+    control = {'status': 'active', 'binding_sha256': digest(june), 'root_path': june['root_path'],
+               'issuer_id': june['issuer_id'], 'security_id': june['security_id']}
+    plan = change_plan('stage', june, sept, {'exists': True, 'data': control})
+    assert plan['writes'] == [{'path': june['control_path'], 'data': {**control, NEXT: digest(sept)}}]
+
+
+def test_cohort_review_reads_a_staged_control(db, monkeypatch):
+    old = binding(); n, _ = enrolled(db, monkeypatch, old)
+    new = _longer(old)
+    _step(db, 'stage', old, new)
+    n = {**n, 'control': _control(db, old)}
+    cohort = prepare([new], {'ALFA': n}, {'ALFA': evidence(new)[0]}, NOW + timedelta(days=30))
+    assert cohort['items'][0]['activation'] is None

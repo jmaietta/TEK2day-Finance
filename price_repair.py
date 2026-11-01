@@ -54,10 +54,10 @@ def build_plan(capture, *, start, end, basis_review):
         currency, exchange = event['to']['currency'], event['to']['exchange_mic']
         venues = {'XNYS': {'NYQ', 'NYSE', 'XNYS'}}.get(exchange, {exchange})
     else:
-        from sec_enrollment import check_metadata
+        from sec_enrollment import accepts, check_metadata
         # Ordinary securities must use their already-published exact control.
         require(control_path == binding['control_path'] and root == binding['root_path'], 'Enrollment target changed')
-        require(state.get('binding_sha256') == digest(binding) and
+        require(accepts(state, binding) and
                 all(state.get(k) == binding[k] for k in ('root_path', 'issuer_id', 'security_id')), 'Enrollment control changed')
         check_metadata(records[root]['data'], binding)
         currency = binding['identity_guard']['currency']
