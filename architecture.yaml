@@ -48,6 +48,17 @@ cloud_run_jobs:
                           # enabled would make a failing night hit Yahoo TWICE
                           # (~19,800 requests). "I don't want it to auto-run as I
                           # do not want Yahoo to throttle us." DO NOT RAISE THIS.
+    note: "Thursdays (scheduler daily-price-pull-thursday-refresh, override
+           PRICE_PULL_PERIOD=5y) it re-adjusts five years. PRICE_REFRESH_MODE=events
+           in that override (owner's yes; unset = full, today's behaviour) rewrites a
+           stock's whole history only after a split, dividend or capital-gains
+           payout since its last full rewrite, a moved oldest day, or on a month's
+           first Thursday (reviewed identities and companies worth $1B or more:
+           always); otherwise its newest 5 rows. With the same switch, every
+           stock's stored closes are first compared with the download (5 days
+           spread over five years; every day on a month's first Thursday), an
+           unexplained difference over 1% logging ERROR 'PRICE CHECK ALERT'.
+           Added Nov 2026, owner's go, agreed with Kilby."
   weekly-estimate-pull:
     image: weekly-estimates
     tag: latest

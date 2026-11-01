@@ -413,6 +413,22 @@ def get_all_financials(symbol: str) -> list[dict]:
 
 # ── Prices (read) ────────────────────────────────────────────────────────────
 
+def reviewed_identity(symbol: str) -> bool:
+    """A rename, SEC enrollment or registrant succession covers this ticker
+    (its price writes are fenced, and only it can hold price_repair rows).
+    From the reviewed catalogs in code: no read."""
+    from registrant_succession import succession_for
+    from sec_enrollment import binding_for
+    return bool(event_for(symbol) or binding_for(symbol) or succession_for(symbol))
+
+
+def get_prices_on(symbol: str, dates) -> dict:
+    """{date: stored row} for the stored days among `dates`: one read per date."""
+    db = get_db()
+    prices = ticker_ref(symbol, db=db).collection("prices")
+    return {snap.id: snap.to_dict() for snap in db.get_all([prices.document(d) for d in dates]) if snap.exists}
+
+
 def get_prices_history(symbol: str, limit: int = 1260) -> list[dict]:
     db = get_db()
     docs = (

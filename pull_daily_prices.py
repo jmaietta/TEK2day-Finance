@@ -10,11 +10,14 @@ are impossible — existing days get overwritten with the same data.
 Designed to run as a Cloud Run Job triggered by Cloud Scheduler, Mon–Fri.
 """
 import logging
+import math
 import os
 import random
 import sys
 import time
+from collections import Counter
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from google.api_core.exceptions import ResourceExhausted
 
@@ -37,6 +40,34 @@ MAX_FIRESTORE_RETRIES = 5
 
 # Override for catch-up runs after an outage, e.g. PRICE_PULL_PERIOD=1mo.
 PERIOD = os.environ.get("PRICE_PULL_PERIOD", "5d")
+
+# THURSDAY'S 5-YEAR RE-ADJUST, AND WHICH ROWS IT WRITES BACK (owner, 1 Nov 2026:
+# "only 1 version of the truth ... a full stock price rewrite only once per month").
+# Closes are adjusted for dividends and splits, so only an event moves a
+# stock's older rows; rewriting all ~1,260 rows of every stock cost 10.2M
+# writes a run (29 Oct). With PRICE_REFRESH_MODE=events (set only in the
+# Thursday scheduler's override; "full", today's behaviour, by default) a stock
+# gets its full history rewritten only when refresh_rows says so, and otherwise
+# its newest NEW_ROWS rows, as on a weeknight. The download is the same either way.
+# Companies worth LARGE_CAP or more keep the weekly full rewrite (owner, 1 Nov
+# 2026: "do the $1 billion plan").
+REFRESH_MODE = os.environ.get("PRICE_REFRESH_MODE", "full").strip().lower()
+NEW_ROWS = 5
+LARGE_CAP = 1e9
+_COMPARED = ("open", "high", "low", "close", "volume")
+
+# THE PRICE CHECK (owner, 1 Nov 2026: "Yes"), with the same switch. Before any
+# row is written, the stored closes are compared with Yahoo's fresh download:
+# CHECKED days spread across the five years each Thursday, every day on a
+# month's first Thursday. It catches TEK2day's own mistakes (a bad write, a
+# missed split or dividend, a stock left on old prices) and Yahoo revising its
+# history, not Yahoo being wrong. A close differs when it moves by more than one
+# rounding step and 0.01%: "expected" when a split or dividend since the last
+# full rewrite shifts the older closes, "unexplained" otherwise. An unexplained
+# difference over ALERT_PCT is logged as ERROR "PRICE CHECK ALERT", which the
+# owner's email alert watches. Nothing is stored.
+CHECKED = 5
+ALERT_PCT = 1.0
 
 # ⚠️ A RUN THAT WRITES NOTHING MUST NOT REPORT SUCCESS.
 #
@@ -126,6 +157,111 @@ def firestore_write_with_retry(fn, label):
     return False
 
 
+def _spread(ordered):
+    """CHECKED days spread across the download, its oldest first."""
+    n = len(ordered)
+    return [ordered[i] for i in sorted({i * n // CHECKED for i in range(CHECKED)})] if n else []
+
+
+def _differs(old, new):
+    """More than one 4-decimal rounding step AND more than 0.01%."""
+    return abs(new - old) > 0.0001 and abs(new - old) > abs(old) * 0.0001
+
+
+def check_prices(compared, held, expected):
+    """How the stored closes of `compared` days differ from Yahoo's download.
+    price_repair rows are not Yahoo's and are left out."""
+    found = {"compared": 0, "missing": 0, "differing": 0, "largest": None, "expected": expected}
+    for row in compared:
+        old = held.get(row["date"])
+        if old is None:
+            found["missing"] += 1
+            continue
+        if old.get("price_repair"):
+            continue
+        found["compared"] += 1
+        a, b = old.get("close"), row.get("close")
+        if not all(isinstance(v, (int, float)) and math.isfinite(v) for v in (a, b)):
+            continue
+        if _differs(a, b):
+            found["differing"] += 1
+            pct = (b - a) / a * 100 if a else math.inf
+            if found["largest"] is None or abs(pct) > abs(found["largest"][3]):
+                found["largest"] = (row["date"], a, b, pct)
+    return found
+
+
+def _log_check(symbol, found):
+    if not (found["differing"] or found["missing"]):
+        return
+    kind = "expected" if found["expected"] else "unexplained"
+    day, stored, new, pct = found["largest"] or ("-", None, None, 0.0)
+    alert = kind == "unexplained" and abs(pct) > ALERT_PCT
+    logger.log(logging.ERROR if alert else logging.WARNING,
+               "%s%s: %d of %d stored days differ from Yahoo, %d missing (%s); largest %s: stored %s, "
+               "Yahoo %s (%+.2f%%)", "PRICE CHECK ALERT " if alert else "price check ", symbol,
+               found["differing"], found["compared"], found["missing"], kind, day, stored, new, pct)
+
+
+def refresh_rows(symbol, rows, splits, adjustments, today, checks=None):
+    """(rows to write, why) for one stock's 5-year download, after the price
+    check (appended to `checks`). Every row the full history is not rewritten
+    for is already stored on the same basis. Full when:
+      - the switch is off ("full"): nothing read, nothing checked;
+      - the check's reads fail ("unreadable");
+      - a reviewed identity covers the ticker ("guarded"): its fenced writes
+        and price_repair rows keep exactly today's Thursday;
+      - it is a month's first Thursday ("monthly"): the safety net for a
+        revision nothing below sees;
+      - the company is worth LARGE_CAP or more ("large"), or its record cannot
+        be read ("unreadable"); no market cap on file counts as smaller;
+      - this stock has no last full-rewrite date ("no_refresh_date");
+      - a split, dividend or capital-gains payout is dated on or after it ("event");
+      - a checked day is missing or differs at all from Yahoo's ("tripwire"):
+        a late-added dividend or a revised history moves it.
+    Otherwise the newest NEW_ROWS rows ("new_rows"), and the last full-rewrite
+    date stays where it is (main). Reads: CHECKED days + 2, or every day + 1
+    on a month's first Thursday."""
+    if REFRESH_MODE != "events":
+        return rows, "full"
+    ordered = sorted(rows, key=lambda r: r["date"])
+    monthly = today.day <= 7
+    # The newest NEW_ROWS days are left out: weeknights rewrite them anyway, and
+    # this run's own newest day is not stored yet.
+    history = ordered[:-NEW_ROWS]
+    compared = history if monthly else _spread(history)
+    try:
+        last = share_counts.last_refresh(symbol)
+        held = storage.get_prices_on(symbol, [r["date"] for r in compared])
+    except Exception as exc:  # noqa: BLE001 - unknown means rewrite it all
+        logger.warning("%s: stored prices unreadable, full rewrite, not checked: %s", symbol, exc)
+        return rows, "unreadable"
+    moved = not last or any(day >= last for day in [*splits, *adjustments])
+    found = check_prices(compared, held, expected=moved)
+    _log_check(symbol, found)
+    if checks is not None:
+        checks.append(found)
+    if storage.reviewed_identity(symbol):
+        return rows, "guarded"
+    if monthly:
+        return rows, "monthly"
+    try:
+        cap = (storage.get_ticker_meta(symbol) or {}).get("market_cap")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("%s: company record unreadable, full rewrite: %s", symbol, exc)
+        return rows, "unreadable"
+    if isinstance(cap, (int, float)) and cap >= LARGE_CAP:
+        return rows, "large"
+    if not last:
+        return rows, "no_refresh_date"
+    if moved:
+        return rows, "event"
+    if any(r["date"] not in held or any(held[r["date"]].get(k) != r.get(k) for k in _COMPARED)
+           for r in compared):
+        return rows, "tripwire"
+    return ordered[-NEW_ROWS:], "new_rows"
+
+
 def main():
     # A manual run of just the universe sync and the sector fill (owner, 2026-10-02:
     # "The first fill will run this weekend as we will manually push a job"):
@@ -182,6 +318,8 @@ def main():
     success = 0
     failed = 0
     continuity_failed = []
+    paths, rows_written, checks = Counter(), 0, []
+    today_et = datetime.now(ZoneInfo("America/New_York")).date()
     # Names the universe sync added get their price history on their first night,
     # in the one request the job makes for them anyway (no extra Yahoo calls).
     backfill = universe_sync.backfill_pending() if tickers else set()
@@ -193,15 +331,25 @@ def main():
         yahoo_sym = symbol.replace(".", "-")
 
         period = universe_sync.BACKFILL_PERIOD if symbol in backfill else PERIOD
-        splits = {}
+        splits, adjustments = {}, set()
         rows = call_with_retry(
-            lambda s=yahoo_sym, p=period: fetchers.fetch_prices(s, period=p, splits=splits),
+            lambda s=yahoo_sym, p=period: fetchers.fetch_prices(s, period=p, splits=splits,
+                                                                adjustments=adjustments),
             f"{symbol} prices",
         )
 
         if rows:
             for r in rows:
                 r["symbol"] = symbol
+            kept = period
+            if period in share_counts.LONG_PERIODS and symbol not in backfill:
+                rows, path = refresh_rows(symbol, rows, splits, adjustments, today_et, checks)
+                paths[path] += 1
+                if path == "new_rows":
+                    # checked_at is when the whole history was last re-adjusted,
+                    # so an event Yahoo lists late, dated after it, still counts
+                    # next week. Recorded as a short download: events only.
+                    kept = "5d"
             written = firestore_write_with_retry(
                 lambda s=symbol, r=rows: storage.write_prices_batch(s, r),
                 f"{symbol} prices write",
@@ -209,8 +357,9 @@ def main():
             if written:
                 logger.info("[%d/%d] %s: %d price rows written", i, total, symbol, len(rows))
                 success += 1
+                rows_written += len(rows)
                 # The same answer's splits, for share counts (no extra Yahoo call).
-                share_counts.save_splits(None, symbol, splits, period)
+                share_counts.save_splits(None, symbol, splits, kept)
                 if symbol in backfill:
                     try:
                         universe_sync.backfill_done(None, symbol)
@@ -238,6 +387,18 @@ def main():
     # ASCII deliberately: log lines should not depend on the console's encoding.
     logger.info("%sDaily price pull complete: %d success, %d failed, %.1f minutes",
                 "SMOKE TEST - " if smoke else "", success, failed, elapsed)
+    if paths:
+        # The measured share of each path, which the owner's yes to switch on waits for.
+        logger.info("5-year refresh (mode %s): %s; %d rows written", REFRESH_MODE,
+                    ", ".join(f"{k} {v}" for k, v in sorted(paths.items())), rows_written)
+    if checks:
+        unexplained = [c for c in checks if c["differing"] and not c["expected"]]
+        logger.info("Price check: %d stocks, %d stored days compared; differences: %d expected, "
+                    "%d unexplained (%d over %.0f%%); %d stocks with stored days missing",
+                    len(checks), sum(c["compared"] for c in checks),
+                    sum(1 for c in checks if c["differing"] and c["expected"]), len(unexplained),
+                    sum(1 for c in unexplained if abs(c["largest"][3]) > ALERT_PCT), ALERT_PCT,
+                    sum(1 for c in checks if c["missing"]))
     if smoke:
         logger.warning(
             "*** THIS WAS A SMOKE TEST OVER %d TICKER(S), NOT THE NIGHTLY PULL. "
