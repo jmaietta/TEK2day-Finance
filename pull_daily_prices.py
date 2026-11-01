@@ -144,16 +144,21 @@ def refresh_rows(symbol, rows, splits, adjustments, today):
     """(rows to write, why) for one stock's 5-year download. Every row the full
     history is not rewritten for is already stored on the same basis. Full when:
       - the switch is off ("full");
+      - a reviewed identity covers the ticker ("guarded"): its fenced writes
+        and price_repair rows keep exactly today's Thursday;
       - it is a month's first Thursday ("monthly"): the safety net for a
         revision nothing below sees;
-      - this stock has no last 5-year date, or it cannot be read ("no_refresh_date",
-        "unreadable");
+      - this stock has no last full-rewrite date, or it cannot be read
+        ("no_refresh_date", "unreadable");
       - a split, dividend or capital-gains payout is dated on or after it ("event");
       - the stored row for the download's oldest day differs from Yahoo's
         ("tripwire"): a late-added dividend or a revised history moves it.
-    Otherwise the newest NEW_ROWS rows ("new_rows"). At most two reads."""
+    Otherwise the newest NEW_ROWS rows ("new_rows"), and the last full-rewrite
+    date stays where it is (main). At most two reads."""
     if REFRESH_MODE != "events":
         return rows, "full"
+    if storage.reviewed_identity(symbol):
+        return rows, "guarded"
     if today.day <= 7:
         return rows, "monthly"
     try:
@@ -255,9 +260,15 @@ def main():
         if rows:
             for r in rows:
                 r["symbol"] = symbol
+            kept = period
             if period in share_counts.LONG_PERIODS and symbol not in backfill:
                 rows, path = refresh_rows(symbol, rows, splits, adjustments, today_et)
                 paths[path] += 1
+                if path == "new_rows":
+                    # checked_at is when the whole history was last re-adjusted,
+                    # so an event Yahoo lists late, dated after it, still counts
+                    # next week. Recorded as a short download: events only.
+                    kept = "5d"
             written = firestore_write_with_retry(
                 lambda s=symbol, r=rows: storage.write_prices_batch(s, r),
                 f"{symbol} prices write",
@@ -267,7 +278,7 @@ def main():
                 success += 1
                 rows_written += len(rows)
                 # The same answer's splits, for share counts (no extra Yahoo call).
-                share_counts.save_splits(None, symbol, splits, period)
+                share_counts.save_splits(None, symbol, splits, kept)
                 if symbol in backfill:
                     try:
                         universe_sync.backfill_done(None, symbol)

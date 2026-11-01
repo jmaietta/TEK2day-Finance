@@ -95,10 +95,20 @@ def test_switched_off_is_todays_full_rewrite_without_reading(stored, monkeypatch
     check("full", why == "full" and len(rows) == 10 and stored["reads"] == 0, why)
 
 
+@pytest.mark.parametrize("symbol", ["AMZN", "BNY", "XOM"])   # enrolled, renamed, successor
+def test_a_reviewed_identity_keeps_todays_full_rewrite_without_reading(stored, symbol):
+    """Their writes go through the identity fences, and only they can hold
+    price_repair rows: nothing about their Thursday changes."""
+    rows, why = pdp.refresh_rows(symbol, _rows(), {}, set(), THURSDAY)
+    check(symbol, why == "guarded" and len(rows) == 10 and stored["reads"] == 0, why)
+    check("others are not", not pdp.storage.reviewed_identity("AAPL"))
+
+
 # ── the run ──────────────────────────────────────────────────────────────────
 
-def _run(monkeypatch, period, mode, backfill=()):
+def _run(monkeypatch, period, mode, backfill=(), kept=None):
     written = {}
+    kept = {} if kept is None else kept
     monkeypatch.setattr(pdp, "PERIOD", period)
     monkeypatch.setattr(pdp, "REFRESH_MODE", mode)
     monkeypatch.setattr(pdp.storage, "list_active_tickers", lambda: ["AAPL", "NEW"])
@@ -108,7 +118,7 @@ def _run(monkeypatch, period, mode, backfill=()):
     monkeypatch.setattr(pdp.universe_sync, "skip_list", lambda *a, **k: set())
     monkeypatch.setattr(pdp.fetchers, "fetch_prices", lambda s, period, splits=None, adjustments=None: _rows())
     monkeypatch.setattr(pdp.storage, "write_prices_batch", lambda s, rows: written.__setitem__(s, len(rows)))
-    monkeypatch.setattr(pdp.share_counts, "save_splits", lambda *a: None)
+    monkeypatch.setattr(pdp.share_counts, "save_splits", lambda db, s, splits, period: kept.__setitem__(s, period))
     monkeypatch.setattr(pdp.share_counts, "run", lambda *a, **k: None)
     monkeypatch.setattr(pdp.share_counts, "last_refresh", lambda s: "2026-11-05")
     monkeypatch.setattr(pdp.storage, "get_price", lambda s, d: _rows()[0])
@@ -141,6 +151,29 @@ def test_the_thursday_run_writes_new_rows_and_says_why(monkeypatch, caplog):
 def test_a_new_ticker_still_gets_its_whole_history(monkeypatch):
     written = _run(monkeypatch, "5y", "events", backfill={"NEW"})
     check("backfill", written == {"AAPL": 5, "NEW": 10}, str(written))
+
+
+def test_only_a_full_rewrite_moves_the_last_refresh_date(monkeypatch):
+    """checked_at is when the whole history was last re-adjusted. A new-rows
+    Thursday records its splits as a short download does (events only, the
+    date stays), so an event Yahoo lists late, dated after it, still counts."""
+    kept = {}
+    _run(monkeypatch, "5y", "events", backfill={"NEW"}, kept=kept)
+    check("kept", kept == {"AAPL": "5d", "NEW": "5y"}, str(kept))
+    _run(monkeypatch, "5y", "full", kept=kept)
+    check("switch off", kept == {"AAPL": "5y", "NEW": "5y"}, str(kept))
+
+
+def test_a_short_download_keeps_the_date_and_adds_its_events():
+    from datetime import date as _date
+    import share_counts as sc
+    from test_sec_share_counts import FakeDB
+    db = FakeDB()
+    sc.save_splits(db, "AAPL", {}, "5y", today=_date(2026, 11, 5))
+    sc.save_splits(db, "AAPL", {}, "5d", today=_date(2026, 11, 12))
+    sc.save_splits(db, "AAPL", {"2026-11-10": 4.0}, "5d", today=_date(2026, 11, 12))
+    held = db.store["splits/AAPL"]
+    check("date kept", held["checked_at"] == "2026-11-05" and held["events"] == {"2026-11-10": 4.0}, str(held))
 
 
 def test_weeknights_and_the_switch_off_are_unchanged(monkeypatch):
