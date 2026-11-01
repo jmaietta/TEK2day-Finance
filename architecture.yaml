@@ -53,8 +53,9 @@ cloud_run_jobs:
            in that override (owner's yes; unset = full, today's behaviour) rewrites a
            stock's whole history only after a split, dividend or capital-gains
            payout since its last full rewrite, a moved oldest day, or on a month's
-           first Thursday (reviewed identities: always); otherwise its newest 5
-           rows. Added Nov 2026, owner's go, agreed with Kilby."
+           first Thursday (reviewed identities and companies worth $1B or more:
+           always); otherwise its newest 5 rows. Added Nov 2026, owner's go,
+           agreed with Kilby."
   weekly-estimate-pull:
     image: weekly-estimates
     tag: latest

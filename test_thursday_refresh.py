@@ -22,7 +22,11 @@ def _rows(n=10, close=10.0):
 @pytest.fixture
 def stored(monkeypatch):
     """The stock's last 5-year date and its stored rows, with every read counted."""
-    state = {"last": "2026-11-05", "rows": {r["date"]: dict(r) for r in _rows()}, "reads": 0}
+    state = {"last": "2026-11-05", "rows": {r["date"]: dict(r) for r in _rows()}, "reads": 0, "cap": 4e8}
+
+    def get_ticker_meta(symbol):
+        state["reads"] += 1
+        return {"symbol": symbol, "market_cap": state["cap"]}
 
     def last_refresh(symbol):
         state["reads"] += 1
@@ -35,6 +39,7 @@ def stored(monkeypatch):
     monkeypatch.setattr(pdp, "REFRESH_MODE", "events")
     monkeypatch.setattr(pdp.share_counts, "last_refresh", last_refresh)
     monkeypatch.setattr(pdp.storage, "get_price", get_price)
+    monkeypatch.setattr(pdp.storage, "get_ticker_meta", get_ticker_meta)
     return state
 
 
@@ -42,7 +47,7 @@ def test_an_unchanged_stock_gets_only_its_newest_rows(stored):
     rows, why = pdp.refresh_rows("AAPL", _rows(), {}, set(), THURSDAY)
     check("new rows", why == "new_rows" and [r["date"] for r in rows] == [f"2026-10-{d:02d}" for d in range(6, 11)],
           str((why, rows)))
-    check("two reads", stored["reads"] == 2)
+    check("three reads", stored["reads"] == 3)
 
 
 @pytest.mark.parametrize("splits, adjustments, why", [
@@ -72,7 +77,7 @@ def test_a_missing_oldest_day_rewrites_everything(stored):
 def test_no_refresh_date_rewrites_everything(stored):
     stored["last"] = None
     rows, why = pdp.refresh_rows("AAPL", _rows(), {}, set(), THURSDAY)
-    check("no date", why == "no_refresh_date" and len(rows) == 10 and stored["reads"] == 1, why)
+    check("no date", why == "no_refresh_date" and len(rows) == 10 and stored["reads"] == 2, why)
 
 
 def test_an_unreadable_record_rewrites_everything(stored, monkeypatch):
@@ -82,6 +87,25 @@ def test_an_unreadable_record_rewrites_everything(stored, monkeypatch):
     check("oldest day", pdp.refresh_rows("AAPL", _rows(), {}, set(), THURSDAY)[1] == "unreadable")
     monkeypatch.setattr(pdp.share_counts, "last_refresh", fail)
     check("last date", pdp.refresh_rows("AAPL", _rows(), {}, set(), THURSDAY)[1] == "unreadable")
+
+
+@pytest.mark.parametrize("cap, why", [(1e9, "large"), (2.9e12, "large"), (999_999_999, "new_rows"),
+                                      (None, "new_rows"), (float("nan"), "new_rows")])
+def test_companies_worth_a_billion_or_more_are_rewritten_every_week(stored, cap, why):
+    """Owner, 1 Nov 2026: "do the $1 billion plan". No market cap on file
+    counts as smaller."""
+    stored["cap"] = cap
+    rows, got = pdp.refresh_rows("AAPL", _rows(), {}, set(), THURSDAY)
+    check(why, got == why and len(rows) == (10 if why == "large" else 5), str((cap, got)))
+    if why == "large":
+        check("one read", stored["reads"] == 1)
+
+
+def test_an_unreadable_company_record_rewrites_everything(stored, monkeypatch):
+    def fail(*_a):
+        raise RuntimeError("Firestore unavailable")
+    monkeypatch.setattr(pdp.storage, "get_ticker_meta", fail)
+    check("unreadable", pdp.refresh_rows("AAPL", _rows(), {}, set(), THURSDAY)[1] == "unreadable")
 
 
 def test_a_months_first_thursday_rewrites_every_stock_without_reading(stored):
@@ -122,6 +146,7 @@ def _run(monkeypatch, period, mode, backfill=(), kept=None):
     monkeypatch.setattr(pdp.share_counts, "run", lambda *a, **k: None)
     monkeypatch.setattr(pdp.share_counts, "last_refresh", lambda s: "2026-11-05")
     monkeypatch.setattr(pdp.storage, "get_price", lambda s, d: _rows()[0])
+    monkeypatch.setattr(pdp.storage, "get_ticker_meta", lambda s: {"market_cap": 4e8})
     monkeypatch.setattr(pdp.fx_rates, "run", lambda *a, **k: None)
     monkeypatch.setattr(pdp.time, "sleep", lambda _s: None)
     monkeypatch.setattr(pdp, "DELAY", 0)

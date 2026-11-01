@@ -48,8 +48,11 @@ PERIOD = os.environ.get("PRICE_PULL_PERIOD", "5d")
 # Thursday scheduler's override; "full", today's behaviour, by default) a stock
 # gets its full history rewritten only when refresh_rows says so, and otherwise
 # its newest NEW_ROWS rows, as on a weeknight. The download is the same either way.
+# Companies worth LARGE_CAP or more keep the weekly full rewrite (owner, 1 Nov
+# 2026: "do the $1 billion plan").
 REFRESH_MODE = os.environ.get("PRICE_REFRESH_MODE", "full").strip().lower()
 NEW_ROWS = 5
+LARGE_CAP = 1e9
 _COMPARED = ("open", "high", "low", "close", "volume")
 
 # ⚠️ A RUN THAT WRITES NOTHING MUST NOT REPORT SUCCESS.
@@ -148,19 +151,28 @@ def refresh_rows(symbol, rows, splits, adjustments, today):
         and price_repair rows keep exactly today's Thursday;
       - it is a month's first Thursday ("monthly"): the safety net for a
         revision nothing below sees;
+      - the company is worth LARGE_CAP or more ("large"), or its record cannot
+        be read ("unreadable"); no market cap on file counts as smaller;
       - this stock has no last full-rewrite date, or it cannot be read
         ("no_refresh_date", "unreadable");
       - a split, dividend or capital-gains payout is dated on or after it ("event");
       - the stored row for the download's oldest day differs from Yahoo's
         ("tripwire"): a late-added dividend or a revised history moves it.
     Otherwise the newest NEW_ROWS rows ("new_rows"), and the last full-rewrite
-    date stays where it is (main). At most two reads."""
+    date stays where it is (main). At most three reads."""
     if REFRESH_MODE != "events":
         return rows, "full"
     if storage.reviewed_identity(symbol):
         return rows, "guarded"
     if today.day <= 7:
         return rows, "monthly"
+    try:
+        cap = (storage.get_ticker_meta(symbol) or {}).get("market_cap")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("%s: company record unreadable, full rewrite: %s", symbol, exc)
+        return rows, "unreadable"
+    if isinstance(cap, (int, float)) and cap >= LARGE_CAP:
+        return rows, "large"
     try:
         last = share_counts.last_refresh(symbol)
     except Exception as exc:  # noqa: BLE001 - unknown means rewrite it all
