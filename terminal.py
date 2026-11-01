@@ -1354,11 +1354,27 @@ def _market_snapshot(symbol, quote=None):
     }
 
 
-def _beta(symbol):
-    """TEK2day's own beta, 2 years weekly vs SPY (beta.py): the number Kilby
-    serves. Owner decision, 30 Oct 2026; Yahoo's beta is no longer shown."""
+_BETA_BLANK = {
+    "short_history": "Insufficient history",
+    "not_enough_weeks": "Too many weeks without a close",
+    "split_since_refresh": "Recent split: back after next Friday's update",
+    "not_yet_computed": "Insufficient history",    # owner, 31 Oct 2026; it lasts one weekday evening at most
+    "unavailable": "Couldn't load beta just now, try again",
+}
+
+
+def _beta(symbol, meta=None):
+    """(value, hover) for the Beta (Weekly) cell: TEK2day's own beta with its
+    span beside it, "1.04 2Y" or "1.43 1.7Y" (beta.py; owner, 31 Oct 2026:
+    label option B). The same stored number Kilby is served; Yahoo's is never
+    shown. `meta` when the caller already holds the company record."""
     import beta  # noqa: PLC0415
-    return beta.for_symbol(symbol)["beta"]
+    got = beta.for_symbol(symbol, meta)
+    if got["beta"] is None:
+        return "N/A", _BETA_BLANK.get(got["reason"], "Not available")
+    years = f"{got['years']:g}"
+    return (f"{_num(got['beta'])} {years}Y",
+            f"TEK2day's own beta: {years} years of weekly returns vs SPY")
 
 
 def _company_summary(symbol, snap):
@@ -1426,7 +1442,7 @@ def cmd_overview(symbol, info=None):
          "EV/Rev (TTM)", _ratio(snap.get("ev_revenue"))),
         ("Industry", str(snap.get("industry") or "N/A")[:26],
          "", ""),
-        ("Beta (2Y weekly vs SPY)", _num(_beta(symbol)),
+        ("Beta (Weekly)", _beta(symbol)[0],
          "", ""),
     ]
     for r in rows:
