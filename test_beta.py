@@ -32,10 +32,10 @@ def _fridays(n, last=date(2026, 10, 23)):
     return [(last - timedelta(weeks=n - 1 - i)).isoformat() for i in range(n)]
 
 
-def _market(n=105, slope=1.4, seed=7):
+def _market(n=105, slope=1.4, seed=7, last=date(2026, 10, 23)):
     """SPY and a stock whose weekly returns are slope x SPY's plus noise."""
     rng = random.Random(seed)
-    ends = _fridays(n)
+    ends = _fridays(n, last)
     spy, stock = {ends[0]: 400.0}, {ends[0]: 50.0}
     for a, b in zip(ends, ends[1:]):
         x = rng.gauss(0.002, 0.02)
@@ -172,6 +172,56 @@ def test_a_beta_lasts_until_the_next_price_run():
     check("Monday", beta.expires_at(friday_night).astimezone(ET).date() == date(2026, 11, 2))
     in_run = datetime(2026, 10, 30, 17, tzinfo=ET)
     check("five minutes in a run", beta.expires_at(in_run) == (in_run + timedelta(minutes=5)).astimezone(timezone.utc))
+
+
+class _Row:
+    def __init__(self, day, close):
+        self.id, self._data = day, {"date": day, "close": close}
+
+    def to_dict(self):
+        return dict(self._data)
+
+
+class _Prices:
+    """A stock's stored days, asked for in date order a page at a time."""
+    def __init__(self, rows, after=None, n=None):
+        self.rows, self.after, self.n = rows, after, n
+
+    def collection(self, name):
+        assert name == "prices"
+        return self
+
+    def order_by(self, field):
+        assert field == "date"
+        return self
+
+    def start_after(self, doc):
+        return _Prices(self.rows, doc.id, self.n)
+
+    def limit(self, n):
+        return _Prices(self.rows, self.after, n)
+
+    def stream(self):
+        return [r for r in self.rows if self.after is None or r.id > self.after][:self.n]
+
+
+def test_a_first_row_without_a_real_close_does_not_start_the_span(monkeypatch):
+    """MINBY and NPXYY, Kilby's audit 1 Nov 2026: each begins with a blank row
+    on 30 Sep 2024 and has real closes from 10 Dec 2024. The span starts at the
+    first week-end after a real close, 13 Dec 2024: 1.9 years, not 2.0."""
+    ends, spy, stock = _market(last=date(2026, 10, 30))
+    real = {d: c for d, c in stock.items() if d >= "2024-12-10"}
+    rows = [_Row("2024-09-30", float("nan")), _Row("2024-10-01", None), _Row("2024-10-02", 0.0),
+            _Row("2024-12-10", 50.0)] + [_Row(d, c) for d, c in sorted(real.items())]
+    monkeypatch.setattr(beta.storage, "ticker_ref", lambda symbol: _Prices(rows))
+    monkeypatch.setattr(beta, "_closes_on", lambda symbol, days: real)
+    monkeypatch.setattr(share_counts, "split_since_refresh", lambda symbol: None)
+    check("first real close", beta._first_close("MINBY", ends[-1]) == "2024-12-10")
+    got = beta.fit("MINBY", {"ends": ends, "spy": spy})
+    check("from 13 Dec 2024, 1.9 years", (got["window_start"], got["years"]) == ("2024-12-13", 1.9)
+          and got["beta"] is not None, str(got))
+    rows[3:] = []
+    check("no real close at all", beta._first_close("MINBY", ends[-1]) is None)
 
 
 # ── the stored table: what the website and the API read ─────────────────────
