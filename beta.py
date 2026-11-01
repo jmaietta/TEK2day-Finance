@@ -19,8 +19,8 @@ THE METHOD, reproducible in Excel from /partner/v1/equities/prices?days=520:
     The nightly run rewrites five days, so a later close means Friday's is in.
   - The last 105 week-end dates: 104 weekly returns. A stock with less than
     two years of prices but at least one (owner, 31 Oct 2026) is fitted from
-    the first week-end on or after its first stored close, over the weeks it
-    has; `years` says how long (1.7 for 88 weeks) and every label shows it.
+    the first week-end on or after its first positive close, over the weeks
+    it has; `years` says how long (1.7 for 88 weeks) and every label shows it.
     It moves up a week each Friday until it is a full two years.
   - A week's return counts only when the stock has closes on both that week's
     end date and the previous one. Nothing is filled in.
@@ -29,7 +29,7 @@ THE METHOD, reproducible in Excel from /partner/v1/equities/prices?days=520:
     Blume adjustment.
   - Blank, with the reason, in this order: split_since_refresh (older closes on
     the pre-split basis until Thursday's 5-year re-adjust), short_history
-    (fewer than 52 weekly returns since the first stored close),
+    (fewer than 52 weekly returns since the first positive close),
     not_enough_weeks (fewer than 52 used, or more missing than 24 of 104).
 
 STORED WEEKLY (owner's go, 31 Oct 2026, agreed with Kilby). The first version
@@ -192,18 +192,21 @@ def _closes_on(symbol: str, dates) -> dict:
     return out
 
 
-def _first_close(symbol: str) -> str | None:
-    prices = storage.ticker_ref(symbol).collection("prices")
-    for doc in prices.order_by("date").limit(1).stream():
-        return str((doc.to_dict() or {}).get("date") or doc.id)[:10]
-    return None
+def _first_close(symbol: str, until: str) -> str | None:
+    """The date of the stock's first positive close, no later than `until`.
+    A row without a real close is not a price: MINBY and NPXYY each begin with
+    a blank row, which made their span 2.0 years instead of 1.9 (Kilby's audit,
+    1 Nov 2026). Volatility's first close already skips them; this is that one."""
+    import volatility  # noqa: PLC0415  (volatility imports beta)
+    return volatility._first_close(storage.ticker_ref(symbol), until)
 
 
 def fit(symbol: str, cal: dict) -> dict:
     """This week's fit for one company, from its stored closes (about 107 reads)."""
     import share_counts  # noqa: PLC0415
     return compute(cal["ends"], cal["spy"], _closes_on(symbol, cal["ends"]),
-                   _first_close(symbol), share_counts.split_since_refresh(symbol))
+                   _first_close(symbol, max(cal["ends"], default="")),
+                   share_counts.split_since_refresh(symbol))
 
 
 # ── reading the table: what the website and the API call ─────────────────────
