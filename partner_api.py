@@ -1574,8 +1574,10 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1), in
             ),
             "forward_pe_reason": (
                 "no_exchange_rate when forward_pe is null only because no usable exchange rate "
-                "was held for that date (rates are kept from 19 Oct 2026); otherwise null. "
-                "forward_pe_prior_q_reason and forward_pe_prior_y_reason likewise"
+                "was held for that date (rates are kept from 19 Oct 2026); currency_unknown when "
+                "the estimate's currency is not stated and the company files in another currency "
+                "than US dollars; otherwise null. forward_pe_prior_q_reason and "
+                "forward_pe_prior_y_reason likewise"
             ),
             "annual_diluted_eps": (
                 "REPORTED annual fully diluted EPS, oldest first, up to five fiscal years. "

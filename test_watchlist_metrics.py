@@ -521,16 +521,34 @@ def test_a_us_dollar_row_is_exactly_what_it_was_and_reads_no_rate():
     assert all(row[k] is None for k in added - {"forward_eps_currency", "annual_eps_currency"})
 
 
-def test_an_unstated_or_disagreeing_currency_is_read_as_dollars_as_before():
-    """Yahoo labels each period; the label counts only when they all agree
-    (terminal.estimate_currency's rule). Otherwise nothing changes."""
+def _unlabelled():
+    """Estimates with no currency label, and with labels that disagree."""
     mixed = _estimates("USD")
     for est in mixed:
         est["eps_currency"] = {"0y": "DKK", "+1y": "USD"}
-    for estimates in (mixed, [{k: v for k, v in e.items() if k != "eps_currency"} for e in _estimates("USD")]):
-        row = wm.build_row("T", "Test", CLOSES, estimates, FILED, rate_on=_rates(DKK))
-        assert row["forward_pe"] == USD_ROW_ON_MAIN["forward_pe"]
-        assert (row["forward_eps_currency"], row["forward_pe_reason"]) == (None, None)
+    return mixed, [{k: v for k, v in e.items() if k != "eps_currency"} for e in _estimates("USD")]
+
+
+def test_an_unstated_or_disagreeing_currency_is_read_as_dollars_for_a_dollar_filer():
+    """Yahoo labels each period; the label counts only when they all agree
+    (terminal.estimate_currency's rule). A US-dollar filer, or one whose filing
+    currency is unknown, is computed as before."""
+    for filed_in in ("USD", None):
+        for estimates in _unlabelled():
+            row = wm.build_row("T", "Test", CLOSES, estimates, FILED, statement_currency=filed_in,
+                               rate_on=_rates(DKK))
+            assert row["forward_pe"] == USD_ROW_ON_MAIN["forward_pe"]
+            assert (row["forward_eps_currency"], row["forward_pe_reason"]) == (None, None)
+
+
+def test_an_unstated_currency_for_a_foreign_filer_is_never_guessed():
+    """Kilby, 1 Nov 2026: reading it as dollars could mix currencies."""
+    for estimates in _unlabelled():
+        row = wm.build_row("T", "Test", CLOSES, estimates, FILED, statement_currency="DKK",
+                           rate_on=_rates(DKK))
+        assert (row["forward_pe"], row["forward_pe_reason"]) == (None, "currency_unknown")
+        assert (row["forward_pe_prior_q"], row["forward_pe_prior_q_reason"]) == (None, "currency_unknown")
+        assert row["forward_eps"] == 6.0
 
 
 def test_every_row_carries_the_new_fields_even_without_history():
