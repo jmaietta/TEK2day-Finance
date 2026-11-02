@@ -356,3 +356,53 @@ def test_the_public_page_shows_the_main_websites_figures(monkeypatch):
         check(label, value in html, value)
     check("the statement's diluted count, not Yahoo's shares outstanding",
           snap["shares"] == 5_186_000_000 and snap["market_cap"] == 412.61 * 5_186_000_000, str(snap["shares"]))
+
+
+# ── a past date's rate (watchlist metrics' prior forward P/E) ───────────────
+
+class _History:
+    """fx_rates/{CUR}/history, queried for the newest rate_date on or before a day."""
+    def __init__(self, rows, day=None):
+        self.rows, self.day = rows, day
+
+    def collection(self, name):
+        return self
+
+    def document(self, name):
+        return self
+
+    def where(self, filter=None):
+        assert (filter.field_path, filter.op_string) == ("rate_date", "<=")
+        return _History(self.rows, filter.value)
+
+    def order_by(self, field, direction=None):
+        return self
+
+    def limit(self, n):
+        return self
+
+    def stream(self):
+        held = sorted((r for r in self.rows if r["rate_date"] <= self.day), key=lambda r: r["rate_date"])
+        return [type("Snap", (), {"to_dict": lambda s, d=held[-1]: dict(d)})()] if held else []
+
+
+@pytest.mark.parametrize("day, expected", [
+    ("2026-10-30", "2026-10-30"),      # that day's rate
+    ("2026-11-02", "2026-10-30"),      # a Monday: Friday's
+    ("2026-11-05", None),              # six days on: too old
+    ("2026-10-16", None),              # before the history starts
+])
+def test_a_past_day_gets_its_own_rate_or_none(day, expected):
+    db = _History([{"currency": "DKK", "rate": 6.5, "rate_date": "2026-10-19"},
+                   {"currency": "DKK", "rate": 6.88, "rate_date": "2026-10-30"}])
+    got = fx_rates.on_or_before("DKK", day, db=db)
+    check(day, (got or {}).get("rate_date") == expected, str(got))
+
+
+def test_a_past_rate_is_never_read_for_dollars_and_never_raises():
+    check("USD", fx_rates.on_or_before("USD", "2026-10-30", db=None) is None)
+
+    class Broken:
+        def collection(self, name):
+            raise RuntimeError("firestore down")
+    check("unreadable", fx_rates.on_or_before("DKK", "2026-10-30", db=Broken()) is None)
