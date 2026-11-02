@@ -404,3 +404,157 @@ def test_malformed_rows_never_raise():
     row = wm.build_row("T", "Test", [None, {"close": "abc"}, {"date": 5}], [None, {"eps_avg": "x"}])
 
     assert row["covered"] is False
+
+
+# ── currency: a P/E from mixed currencies is never served (1 Nov 2026) ──────
+
+def _sessions(n, last=None):
+    from datetime import date, timedelta
+    out, d = [], last or date(2026, 10, 30)
+    while len(out) < n:
+        if d.weekday() < 5:
+            out.append(d.isoformat())
+        d -= timedelta(days=1)
+    return out[::-1]
+
+
+DAYS = _sessions(260)                    # prior_q is DAYS[-64], prior_y DAYS[-253]
+CLOSES = [{"symbol": "T", "date": d, "close": round(100 + i * 0.25, 4)} for i, d in enumerate(DAYS)]
+FILED = [{"symbol": "T", "period": "2025-FY", "period_end": "2025-12-31",
+          "income": {"Diluted EPS": 4.0, "Diluted Average Shares": 100.0}}]
+
+
+def _estimates(currency, eps=(5.0, 5.5, 6.0)):
+    def one(day, value):
+        return {"symbol": "T", "date": day, "eps_avg": {"0y": value - 1, "+1y": value},
+                "eps_currency": {"0y": currency, "+1y": currency}}
+    return [one(DAYS[-1], eps[2]), one(DAYS[-64], eps[1]), one(DAYS[0], eps[0])]
+
+
+# NVO: closes in US dollars, EPS estimates in Danish kroner. Rates are held
+# for today and for the quarter-ago date, none for a year ago (history starts
+# 19 Oct 2026).
+DKK = {(None): {"currency": "DKK", "rate": 6.88, "rate_date": "2026-10-30"},
+       DAYS[-64]: {"currency": "DKK", "rate": 6.5, "rate_date": DAYS[-64]}}
+
+
+def _rates(held, calls=None):
+    def rate_on(currency, day):
+        if calls is not None:
+            calls.append((currency, day))
+        return held.get(day) if currency == "DKK" else None
+    return rate_on
+
+
+def test_a_forward_eps_in_another_currency_is_converted_before_dividing():
+    row = wm.build_row("NVO", "Novo", CLOSES, _estimates("DKK", (35.0, 38.5, 42.0)), FILED,
+                       statement_currency="DKK", rate_on=_rates(DKK))
+    assert row["forward_eps"] == 42.0 and row["forward_eps_currency"] == "DKK"   # as Yahoo gives it
+    assert row["forward_pe"] == 164.75 / (42.0 / 6.88)                          # not 164.75 / 42
+    assert row["forward_pe_fx"] == {"currency": "DKK", "rate": 6.88, "rate_date": "2026-10-30"}
+    assert row["forward_pe_reason"] is None
+    assert row["annual_eps_currency"] == "DKK"
+
+
+def test_a_prior_multiple_uses_the_rate_of_its_own_date():
+    """Today's rate on an old price would show a currency move as a re-rating."""
+    row = wm.build_row("NVO", "Novo", CLOSES, _estimates("DKK", (35.0, 38.5, 42.0)), FILED,
+                       rate_on=_rates(DKK))
+    prior_close = CLOSES[-64]["close"]
+    assert row["forward_pe_prior_q"] == prior_close / (38.5 / 6.5)
+    assert row["forward_pe_prior_q_fx"] == {"currency": "DKK", "rate": 6.5, "rate_date": DAYS[-64]}
+    assert row["forward_pe_change_q_pct"] == (row["forward_pe"] - row["forward_pe_prior_q"]) / row["forward_pe_prior_q"] * 100
+
+
+def test_no_rate_for_a_date_is_a_blank_with_its_reason_never_an_unconverted_multiple():
+    row = wm.build_row("NVO", "Novo", CLOSES, _estimates("DKK", (35.0, 38.5, 42.0)), FILED,
+                       rate_on=_rates(DKK))
+    assert row["forward_pe_prior_y"] is None and row["forward_pe_prior_y_fx"] is None
+    assert row["forward_pe_prior_y_reason"] == "no_exchange_rate"
+    assert row["forward_pe_change_y_pct"] is None
+    bare = wm.build_row("NVO", "Novo", CLOSES, _estimates("DKK"), FILED)          # no rates at all
+    assert (bare["forward_pe"], bare["forward_pe_reason"]) == (None, "no_exchange_rate")
+    assert bare["forward_eps"] == 6.0
+
+
+def test_a_failed_rate_lookup_is_the_same_as_no_rate():
+    def broken(currency, day):
+        raise RuntimeError("firestore down")
+    row = wm.build_row("NVO", "Novo", CLOSES, _estimates("DKK"), FILED, rate_on=broken)
+    assert (row["forward_pe"], row["forward_pe_reason"]) == (None, "no_exchange_rate")
+
+
+def test_a_loss_in_another_currency_has_no_multiple_and_no_reason():
+    row = wm.build_row("NVO", "Novo", CLOSES, _estimates("DKK", (-1.0, -1.0, -2.0)), FILED)
+    assert (row["forward_pe"], row["forward_pe_reason"]) == (None, None)
+
+
+# main's build_row on the USD fixture, 1 Nov 2026, before the currency fix.
+USD_ROW_ON_MAIN = {
+    "annual_diluted_eps": [{"diluted_eps": 4.0, "fiscal_year": "2025", "period": "2025-FY", "period_end": "2025-12-31"}],
+    "annual_eps_outlook": [{"diluted_eps": 5.0, "estimated": True, "fiscal_year": "2026", "period": "0y"},
+                           {"diluted_eps": 6.0, "estimated": True, "fiscal_year": "2027", "period": "+1y"}],
+    "change_1m_pct": 3.2915360501567394, "change_3m_pct": 10.570469798657719, "covered": True,
+    "diluted_shares": 100.0, "forward_eps": 6.0, "forward_pe": 27.458333333333332,
+    "forward_pe_change_q_pct": 1.3562639821029077, "forward_pe_change_y_pct": 34.93038493038492,
+    "forward_pe_prior_q": 27.09090909090909, "forward_pe_prior_y": 20.35, "ma_10": 163.625,
+    "market_cap": 16475.0, "name": "Test", "price": 164.75, "price_date": "2026-10-30",
+    "price_vs_ma_10_pct": 0.6875477463712758, "symbol": "T", "trend": "above",
+}
+
+
+def test_a_us_dollar_row_is_exactly_what_it_was_and_reads_no_rate():
+    """The 4,293 companies with US-dollar estimates: every field Kilby read
+    before is unchanged, and no exchange rate is looked up."""
+    calls = []
+    row = wm.build_row("T", "Test", CLOSES, _estimates("USD"), FILED,
+                       statement_currency="USD", rate_on=_rates(DKK, calls))
+    series = row.pop("series")
+    assert {k: row[k] for k in USD_ROW_ON_MAIN} == USD_ROW_ON_MAIN
+    assert series == [{"date": r["date"], "close": r["close"]} for r in CLOSES[-wm.SERIES_SESSIONS:]]
+    assert calls == []
+    added = set(row) - set(USD_ROW_ON_MAIN)
+    assert added == {"forward_eps_currency", "forward_pe_fx", "forward_pe_prior_q_fx", "forward_pe_prior_y_fx",
+                     "forward_pe_reason", "forward_pe_prior_q_reason", "forward_pe_prior_y_reason",
+                     "annual_eps_currency"}
+    assert row["forward_eps_currency"] == "USD" and row["annual_eps_currency"] == "USD"
+    assert all(row[k] is None for k in added - {"forward_eps_currency", "annual_eps_currency"})
+
+
+def _unlabelled():
+    """Estimates with no currency label, and with labels that disagree."""
+    mixed = _estimates("USD")
+    for est in mixed:
+        est["eps_currency"] = {"0y": "DKK", "+1y": "USD"}
+    return mixed, [{k: v for k, v in e.items() if k != "eps_currency"} for e in _estimates("USD")]
+
+
+def test_an_unstated_or_disagreeing_currency_is_read_as_dollars_for_a_dollar_filer():
+    """Yahoo labels each period; the label counts only when they all agree
+    (terminal.estimate_currency's rule). A US-dollar filer, or one whose filing
+    currency is unknown, is computed as before."""
+    for filed_in in ("USD", None):
+        for estimates in _unlabelled():
+            row = wm.build_row("T", "Test", CLOSES, estimates, FILED, statement_currency=filed_in,
+                               rate_on=_rates(DKK))
+            assert row["forward_pe"] == USD_ROW_ON_MAIN["forward_pe"]
+            assert (row["forward_eps_currency"], row["forward_pe_reason"]) == (None, None)
+
+
+def test_an_unstated_currency_for_a_foreign_filer_is_never_guessed():
+    """Kilby, 1 Nov 2026: reading it as dollars could mix currencies."""
+    for estimates in _unlabelled():
+        row = wm.build_row("T", "Test", CLOSES, estimates, FILED, statement_currency="DKK",
+                           rate_on=_rates(DKK))
+        assert (row["forward_pe"], row["forward_pe_reason"]) == (None, "currency_unknown")
+        assert (row["forward_pe_prior_q"], row["forward_pe_prior_q_reason"]) == (None, "currency_unknown")
+        assert row["forward_eps"] == 6.0
+
+
+def test_every_row_carries_the_new_fields_even_without_history():
+    row = wm.build_row("X", None, [], [])
+    for key in ("forward_eps_currency", "forward_pe_fx", "forward_pe_prior_q_fx", "forward_pe_prior_y_fx",
+                "forward_pe_reason", "forward_pe_prior_q_reason", "forward_pe_prior_y_reason",
+                "annual_eps_currency"):
+        assert key in row and row[key] is None
+    assert wm.build_row("X", None, [], [], statement_currency="twd")["annual_eps_currency"] is None

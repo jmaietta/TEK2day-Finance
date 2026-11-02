@@ -416,5 +416,50 @@ def test_unreadable_industry_medians_warn_too():
     check("warned", any(w["code"] == "beta_unavailable" for w in body["quality"]["warnings"]), str(body["quality"]["warnings"]))
 
 
+
+# ── forward P/E currency (1 Nov 2026) ───────────────────────────────────────
+
+def test_a_forward_pe_in_another_currency_is_converted_and_its_rate_read_once(monkeypatch):
+    """NVO-shaped: US-dollar closes, EPS estimates in Danish kroner. Two such
+    companies in one call read the rate once; NVDA reads none."""
+    import fx_rates
+    install()
+    for symbol in ("NVO", "NVOX"):
+        UNIVERSE[symbol] = {"symbol": symbol, "name": symbol, "active": True, "financial_currency": "DKK"}
+        PRICES[symbol] = _series(symbol, [100.0] * 10)
+        ESTIMATES[symbol] = [{"symbol": symbol, "date": "2026-01-10", "eps_avg": {"+1y": 34.4},
+                              "eps_currency": {"+1y": "DKK"}}]
+    reads = []
+
+    def latest(currency, db=None, today=None):
+        reads.append(currency)
+        return {"currency": currency, "rate": 6.88, "rate_date": "2026-01-10"}
+    monkeypatch.setattr(fx_rates, "latest", latest)
+    try:
+        _, body = call("NVDA,NVO,NVOX")
+    finally:
+        for symbol in ("NVO", "NVOX"):
+            UNIVERSE.pop(symbol), PRICES.pop(symbol), ESTIMATES.pop(symbol)
+    nvo, nvda = _row(body, "NVO"), _row(body, "NVDA")
+    check("100 / (34.4 / 6.88) = 20, not 2.9", abs(nvo["forward_pe"] - 20.0) < 1e-9, str(nvo["forward_pe"]))
+    check("its rate", nvo["forward_pe_fx"] == {"currency": "DKK", "rate": 6.88, "rate_date": "2026-01-10"})
+    check("labelled", (nvo["forward_eps"], nvo["forward_eps_currency"], nvo["annual_eps_currency"]) == (34.4, "DKK", "DKK"))
+    check("one read for the set", reads == ["DKK"], str(reads))
+    check("NVDA as before", (nvda["forward_pe"], nvda["forward_pe_fx"], nvda["forward_pe_reason"]) == (30.0, None, None))
+    check("defined", {"forward_eps_currency", "forward_pe_fx", "forward_pe_reason", "annual_eps_currency"}
+          <= set(body["data"]["definitions"]))
+
+
+def test_every_row_keeps_every_field_kilby_reads():
+    """Kilby refuses a response missing an expected field: new fields are
+    added, none removed, and api_version is unchanged."""
+    install()
+    _, body = call("NVDA,AMD,NOPE")
+    keys = [set(row) for row in body["data"]["companies"]]
+    check("same keys on every row", all(k == keys[0] for k in keys), str(keys))
+    check("old fields kept", {"forward_eps", "forward_pe", "forward_pe_prior_q", "forward_pe_prior_y",
+                              "forward_pe_change_q_pct", "forward_pe_change_y_pct", "annual_diluted_eps"} <= keys[0])
+
+
 if __name__ == "__main__":
     sys.exit(run_all(globals()))

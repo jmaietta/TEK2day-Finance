@@ -1469,6 +1469,21 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1), in
     if refused is not None:
         return refused
 
+    # Exchange rates for forward EPS in another currency: one read per currency
+    # and date, shared by every row of this request. A lock per (currency, date),
+    # so different currencies are read side by side.
+    rates, locks, guard = {}, {}, threading.Lock()
+
+    def rate_on(currency, day):
+        import fx_rates  # noqa: PLC0415
+        with guard:
+            lock = locks.setdefault((currency, day), threading.Lock())
+        with lock:
+            if (currency, day) not in rates:
+                rates[currency, day] = (fx_rates.latest(currency) if day is None
+                                        else fx_rates.on_or_before(currency, day))
+            return rates[currency, day]
+
     def load(norm):
         """Read one symbol's history. Never raises — a symbol that cannot be
         read is an uncovered row, not a failed request for the whole set."""
@@ -1496,7 +1511,8 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1), in
         except Exception:
             financials = []
         row = watchlist_metrics.build_row(
-            norm, (meta or {}).get("name"), prices, estimates, financials
+            norm, (meta or {}).get("name"), prices, estimates, financials,
+            statement_currency=(meta or {}).get("financial_currency"), rate_on=rate_on,
         )
         row["financial_upstream"] = envelope.financial_upstream(financials)
         row.update(_beta_row(dict.fromkeys(beta.FIELDS)))    # filled below, in one batched read
@@ -1545,11 +1561,34 @@ def equity_metrics(request: Request, symbols: str = Query(..., min_length=1), in
             "forward_pe_prior_q": "The same multiple 63 sessions ago, using the consensus in effect THEN",
             "forward_pe_prior_y": "The same multiple 252 sessions ago, using the consensus in effect THEN",
             "forward_pe_change_q_pct": "Direction of the multiple over a quarter; read it beside change_3m_pct",
+            "forward_eps_currency": (
+                "The currency forward_eps is in, as Yahoo states it; null when not stated, "
+                "which is read as US dollars"
+            ),
+            "forward_pe_fx": (
+                "When the forward EPS is in another currency, the multiple divides the US dollar "
+                "close by the EPS converted at this rate: {currency, rate (units per US dollar), "
+                "rate_date}. forward_pe_prior_q_fx and forward_pe_prior_y_fx are the rates stored "
+                "for those dates. Null when nothing was converted. A multiple from mixed "
+                "currencies is never served"
+            ),
+            "forward_pe_reason": (
+                "no_exchange_rate when forward_pe is null only because no usable exchange rate "
+                "was held for that date (rates are kept from 19 Oct 2026); currency_unknown when "
+                "the estimate's currency is not stated and the company files in another currency "
+                "than US dollars; otherwise null. forward_pe_prior_q_reason and "
+                "forward_pe_prior_y_reason likewise"
+            ),
             "annual_diluted_eps": (
                 "REPORTED annual fully diluted EPS, oldest first, up to five fiscal years. "
-                "Split-adjusted on the same basis as the prices here, so a historical "
-                "multiple built from the two is valid. A fiscal year appears only once "
-                "the company has filed it."
+                "Split-adjusted on the same basis as the prices here. It is in "
+                "annual_eps_currency, so a historical multiple built from the two is valid "
+                "only when that is USD. A fiscal year appears only once the company has filed it."
+            ),
+            "annual_eps_currency": (
+                "The currency the company files its statements in, and so the currency of "
+                "annual_diluted_eps; null when not known. annual_eps_outlook is an estimate, "
+                "in forward_eps_currency"
             ),
             "market_cap": (
                 "Last stored close times diluted average shares from the most recently ended "

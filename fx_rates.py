@@ -116,3 +116,37 @@ def latest(currency: str, db=None, today: date | None = None) -> dict | None:
     if age > MAX_AGE_DAYS:
         return None
     return {"currency": currency, "rate": float(rate), "rate_date": rate_date}
+
+
+def on_or_before(currency: str, day: str, db=None) -> dict | None:
+    """{"currency", "rate", "rate_date"}: the rate stored for `day`, or the
+    newest before it no more than MAX_AGE_DAYS earlier; None otherwise.
+
+    For a multiple at a past date (watchlist metrics' prior forward P/E): the
+    rate of THAT day, never today's. History is kept from 19 Oct 2026, so an
+    earlier day has none. One read. Never raises.
+    """
+    if not currency or currency == "USD" or not isinstance(day, str):
+        return None
+    try:
+        from google.cloud import firestore
+        from google.cloud.firestore_v1.base_query import FieldFilter
+        import storage
+        db = db or storage.get_db()
+        history = db.collection(COLLECTION).document(currency).collection("history")
+        snaps = list(history.where(filter=FieldFilter("rate_date", "<=", day))
+                     .order_by("rate_date", direction=firestore.Query.DESCENDING).limit(1).stream())
+        record = (snaps[0].to_dict() or {}) if snaps else {}
+    except Exception as exc:
+        logger.warning("Exchange rate for %s on %s unreadable: %s", currency, day, exc)
+        return None
+    rate, rate_date = record.get("rate"), record.get("rate_date")
+    if not _valid_rate(rate) or not isinstance(rate_date, str):
+        return None
+    try:
+        age = (date.fromisoformat(day) - date.fromisoformat(rate_date)).days
+    except ValueError:
+        return None
+    if not 0 <= age <= MAX_AGE_DAYS:
+        return None
+    return {"currency": currency, "rate": float(rate), "rate_date": rate_date}

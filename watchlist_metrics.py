@@ -23,7 +23,9 @@ wrong reading.
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
+
+from envelope import filing_currency
 
 # Trading days, not calendar days, because the rows are trading sessions.
 MA_WINDOW = 10
@@ -190,15 +192,15 @@ def annual_eps_outlook(
     return out
 
 
-def _estimate_on_or_before(estimate_rows: list[dict], date: str) -> float | None:
-    """Forward EPS consensus in effect on `date`.
+def _estimate_on_or_before(estimate_rows: list[dict], date: str) -> tuple[float | None, str | None]:
+    """Forward EPS consensus in effect on `date`, and the currency it is in.
 
     Prior-period multiples have to use the estimate that stood AT the time, not
     today's. Using the current estimate against an old price would attribute this
     quarter's revisions to last year's multiple and manufacture a re-rating that
     never happened.
     """
-    best_date, best_eps = "", None
+    best_date, best_eps, best_currency = "", None, None
     for row in estimate_rows or []:
         if not isinstance(row, dict):
             continue
@@ -209,8 +211,66 @@ def _estimate_on_or_before(estimate_rows: list[dict], date: str) -> float | None
         if eps is None:
             continue
         if row_date <= date and row_date >= best_date:
-            best_date, best_eps = row_date, eps
-    return best_eps
+            best_date, best_eps, best_currency = row_date, eps, eps_currency(row)
+    return best_eps, best_currency
+
+
+# ⚠️ A P/E FROM MIXED CURRENCIES IS NEVER SERVED. Every close here is in US
+# dollars; Novo's EPS estimates are in Danish kroner, so close / EPS read its
+# forward P/E about 6.9x too low (review, 1 Nov 2026: 244 active companies have
+# EPS estimates in another currency). The EPS is converted at the stored rate
+# (fx_rates) for the multiple ONLY, the way terminal._market_snapshot already
+# does it; forward_eps is still served as Yahoo gives it, with its currency.
+# A prior multiple uses the rate stored for ITS date: today's rate on an old
+# price would show a currency move as a re-rating. No usable rate: the multiple
+# is null with reason "no_exchange_rate", never an unconverted figure. An EPS
+# whose currency Yahoo did not state (or stated differently per period) is read
+# as US dollars only for a company that files in US dollars or whose filing
+# currency is unknown, as it always was; for a company filing in another
+# currency the multiple is null with reason "currency_unknown" (Kilby, 1 Nov
+# 2026; it nulled no company that day).
+NO_RATE = "no_exchange_rate"
+CURRENCY_UNKNOWN = "currency_unknown"
+
+# (currency, date or None for the latest) -> {"currency", "rate", "rate_date"}
+# with rate in units per US dollar, or None when no usable rate is held.
+RateLookup = Callable[[str, "str | None"], "dict | None"]
+
+
+def eps_currency(row: Any) -> str | None:
+    """The currency one stored estimate's EPS is in, or None when not stated.
+
+    Yahoo labels each period (`eps_currency`); the label is used only when every
+    period agrees, the same rule as terminal.estimate_currency.
+    """
+    labels = row.get("eps_currency") if isinstance(row, dict) else None
+    if not isinstance(labels, dict):
+        return None
+    codes = {filing_currency(v) for v in labels.values()}
+    return codes.pop() if len(codes) == 1 and None not in codes else None
+
+
+def _in_dollars(eps: float | None, currency: str | None, rate_on: RateLookup | None,
+                day: str | None, filed_in: str | None = None) -> tuple[float | None, dict | None, str | None]:
+    """(EPS in US dollars, the rate used or None, reason or None).
+
+    Nothing to convert, returned as it is: no EPS, a loss (no multiple either
+    way), US dollars, or a currency Yahoo did not state for a company filing in
+    US dollars or in an unknown currency (read as US dollars, as it always
+    was). Never raises.
+    """
+    if eps is None or eps <= 0 or currency == "USD":
+        return eps, None, None
+    if currency is None:
+        return (eps, None, None) if filed_in in (None, "USD") else (None, None, CURRENCY_UNKNOWN)
+    try:
+        fx = rate_on(currency, day) if rate_on else None
+    except Exception:  # noqa: BLE001
+        fx = None
+    rate = (fx or {}).get("rate")
+    if not _finite(rate) or rate <= 0:
+        return None, None, NO_RATE
+    return eps / rate, {"currency": currency, "rate": float(rate), "rate_date": fx.get("rate_date")}, None
 
 
 def _forward_pe(price: float | None, eps: float | None) -> float | None:
@@ -231,8 +291,15 @@ def build_row(
     price_rows: list[dict],
     estimate_rows: list[dict],
     financial_docs: list[dict] | None = None,
+    *,
+    statement_currency: str | None = None,
+    rate_on: RateLookup | None = None,
 ) -> dict[str, Any]:
-    """One watchlist row. Never raises; thin data yields nulls, not an error."""
+    """One watchlist row. Never raises; thin data yields nulls, not an error.
+
+    `statement_currency` is the company's filing currency (its record's
+    financial_currency); `rate_on` looks up exchange rates for a forward EPS in
+    another currency. Without it such a multiple is null, never mixed."""
     series = _closes(price_rows)
     row: dict[str, Any] = {
         "symbol": symbol,
@@ -251,6 +318,15 @@ def build_row(
         "forward_pe_prior_y": None,
         "forward_pe_change_q_pct": None,
         "forward_pe_change_y_pct": None,
+        # Added 1 Nov 2026 with the currency fix; every row carries them.
+        "forward_eps_currency": None,
+        "forward_pe_fx": None,
+        "forward_pe_prior_q_fx": None,
+        "forward_pe_prior_y_fx": None,
+        "forward_pe_reason": None,
+        "forward_pe_prior_q_reason": None,
+        "forward_pe_prior_y_reason": None,
+        "annual_eps_currency": filing_currency(statement_currency),
         # Reported annual history, independent of price data — a company with no
         # stored closes can still have filed accounts.
         "annual_diluted_eps": annual_diluted_eps(financial_docs or []),
@@ -291,9 +367,12 @@ def build_row(
     row["change_1m_pct"] = _pct_change(last_close, _lookback_close(series, ONE_MONTH))
     row["change_3m_pct"] = _pct_change(last_close, _lookback_close(series, THREE_MONTHS))
 
-    current_eps = _estimate_on_or_before(estimate_rows, last_date)
+    current_eps, current_currency = _estimate_on_or_before(estimate_rows, last_date)
     row["forward_eps"] = current_eps
-    row["forward_pe"] = _forward_pe(last_close, current_eps)
+    row["forward_eps_currency"] = current_currency
+    current_usd, row["forward_pe_fx"], row["forward_pe_reason"] = _in_dollars(
+        current_eps, current_currency, rate_on, None, row["annual_eps_currency"])
+    row["forward_pe"] = _forward_pe(last_close, current_usd)
 
     for sessions, pe_key, change_key in (
         (THREE_MONTHS, "forward_pe_prior_q", "forward_pe_change_q_pct"),
@@ -302,7 +381,10 @@ def build_row(
         if len(series) <= sessions:
             continue
         prior_date, prior_close = series[-(sessions + 1)]
-        prior_pe = _forward_pe(prior_close, _estimate_on_or_before(estimate_rows, prior_date))
+        prior_eps, prior_currency = _estimate_on_or_before(estimate_rows, prior_date)
+        prior_usd, row[f"{pe_key}_fx"], row[f"{pe_key}_reason"] = _in_dollars(
+            prior_eps, prior_currency, rate_on, prior_date, row["annual_eps_currency"])
+        prior_pe = _forward_pe(prior_close, prior_usd)
         row[pe_key] = prior_pe
         if prior_pe is not None and row["forward_pe"] is not None:
             row[change_key] = _pct_change(row["forward_pe"], prior_pe)
